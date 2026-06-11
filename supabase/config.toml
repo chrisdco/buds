@@ -1,0 +1,45 @@
+# Supabase CLI config. Local ports are remapped to 5433x so the local stack
+# can run alongside other Supabase projects on this machine.
+#
+# Hosted setup:
+#   npx supabase login
+#   npx supabase link --project-ref <your-project-ref>
+#   npx supabase db push
+# Remember to enable anonymous sign-ins on the hosted project too
+# (Authentication -> Sign In / Up -> Anonymous).
+project_id = "buds"
+
+[api]
+enabled = true
+port = 54331
+
+[db]
+port = 54332
+shadow_port = 54330
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = false
+
+[auth]
+enabled = true
+# Zero-friction identity: anonymous session + display name
+enable_anonymous_sign_ins = true
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

@@ -1,98 +1,116 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
+import { colors } from "@/constants/theme";
+import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
+import { roomsRpc } from "@/services/rpc/rooms";
+import { useSessionStore } from "@/stores/sessionStore";
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const displayName = useSessionStore((s) => s.displayName);
+  const setDisplayName = useSessionStore((s) => s.setDisplayName);
+  const sessionError = useSessionStore((s) => s.error);
+  const [activeRoom, setActiveRoom] = useState<ActiveRoomRef | null>(null);
+  const [rejoinBusy, setRejoinBusy] = useState(false);
+  const [rejoinError, setRejoinError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      void getActiveRoom().then(setActiveRoom);
+    }, []),
+  );
+
+  const nameValid = displayName.trim().length > 0;
+
+  const rejoin = async () => {
+    if (!activeRoom) return;
+    setRejoinBusy(true);
+    setRejoinError(null);
+    // Re-validate membership through join_room (idempotent for active members).
+    const result = await roomsRpc.joinRoom({
+      code: activeRoom.code,
+      displayName: displayName.trim() || "Anonymous",
+      role: activeRoom.role,
+    });
+    setRejoinBusy(false);
+    if (result.ok) {
+      router.push(`/room/${result.room.id}`);
+    } else {
+      clearActiveRoom();
+      setActiveRoom(null);
+      setRejoinError(
+        result.error === "room_ended" || result.error === "bad_code"
+          ? "That room has ended."
+          : "Couldn't rejoin the room.",
+      );
+    }
+  };
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <Screen>
+      <View style={styles.hero}>
+        <Title>Buds</Title>
+        <Text style={styles.tagline}>
+          Live maps for small groups — see your buds, converge, convoy.
+        </Text>
+      </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Label>Your name</Label>
+      <TextField
+        value={displayName}
+        onChangeText={setDisplayName}
+        placeholder="e.g. Chris"
+        maxLength={24}
+        autoCapitalize="words"
+      />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+      {activeRoom && (
+        <>
+          <Label>Pick up where you left off</Label>
+          <Button
+            label={`Rejoin “${activeRoom.name}”`}
+            variant="ghost"
+            busy={rejoinBusy}
+            onPress={() => void rejoin()}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+          <ErrorText>{rejoinError}</ErrorText>
+        </>
+      )}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <View style={styles.actions}>
+        <Button
+          label="Create a room"
+          disabled={!nameValid}
+          onPress={() => router.push("/create")}
+        />
+        <Button
+          label="Join with code"
+          variant="ghost"
+          disabled={!nameValid}
+          onPress={() => router.push("/join")}
+        />
+        {!nameValid && (
+          <Text style={styles.hint}>Enter your name to create or join a room.</Text>
+        )}
+        <ErrorText>{sessionError}</ErrorText>
+        {sessionError && (
+          <Button
+            label="Retry connection"
+            variant="ghost"
+            onPress={() => void useSessionStore.getState().init()}
+          />
+        )}
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  hero: { marginTop: 48, marginBottom: 12 },
+  tagline: { color: colors.textDim, fontSize: 15, lineHeight: 21 },
+  actions: { marginTop: 28 },
+  hint: { color: colors.textDim, fontSize: 13, marginTop: 10, textAlign: "center" },
 });

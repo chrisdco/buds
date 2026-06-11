@@ -1,16 +1,21 @@
 {
   "expo": {
     "name": "Buds",
-    "slug": "Buds",
-    "version": "1.0.0",
+    "slug": "buds",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "buds",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.buds.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["location"]
+      }
     },
     "android": {
+      "package": "com.buds.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -34,7 +39,25 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "locationWhenInUsePermission": "Buds shares your live location with members of your room during a trip.",
+          "locationAlwaysAndWhenInUsePermission": "Buds shares your live location with members of your room while a trip is active, including while the app is in the background.",
+          "locationAlwaysPermission": "Buds shares your live location with members of your room even when the app is in the background, so your group can keep track of you during a trip."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Buds uses the camera to scan room invite QR codes."
+        }
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

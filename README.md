@@ -1,56 +1,95 @@
-# Welcome to your Expo app 👋
+# Buds
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Live maps for small groups. Create a room, share the 6-character code, and see
+your buds move on a shared map in real time — converge on a destination, follow
+a leader, or keep a convoy in formation.
 
-## Get started
+Built for ~2–10 people per room on an entirely free stack:
 
-1. Install dependencies
+| Piece | Tech | Cost |
+|---|---|---|
+| App | Expo SDK 56 / React Native (dev builds, not Expo Go) | free |
+| Map | MapLibre React Native + [OpenFreeMap](https://openfreemap.org) tiles | free, no API key |
+| Realtime + DB + auth | Supabase free tier (Broadcast/Presence + Postgres + anonymous auth) | free |
+| Routing (M2+) | OpenRouteService free key → OSRM demo → straight-line fallback | free |
+
+Location ticks are **never written to the database** — they fan out
+client-to-client over a private Supabase Realtime channel per room
+(`room:<uuid>`). Postgres holds only rooms/membership/destinations plus a
+low-frequency "last seen" snapshot for late joiners.
+
+## One-time setup
+
+### 1. Supabase project
+
+1. Create a project at [supabase.com](https://supabase.com) (free tier).
+2. Enable anonymous sign-ins: **Authentication → Sign In / Up → Anonymous**.
+3. Apply migrations:
 
    ```bash
-   npm install
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
    ```
 
-2. Start the app
+4. Copy `.env.example` to `.env` and fill in the URL + anon key from
+   **Project Settings → API**.
 
-   ```bash
-   npx expo start
-   ```
+### 2. Keepalive (important!)
 
-In the output, you'll find options to open the app in a
+Free Supabase projects **pause after 7 idle days** and must be revived by hand
+in the dashboard. If you push this repo to GitHub, add two Actions secrets so
+[.github/workflows/keepalive.yml](.github/workflows/keepalive.yml) pings the
+project twice a week: `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 3. Android dev build
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Background location and MapLibre are native modules → **the app does not run in
+Expo Go**. You need a development build. One-time machine setup: install
+[Android Studio](https://developer.android.com/studio) (brings the SDK +
+emulator; a JDK is bundled). Then:
 
 ```bash
-npm run reset-project
+npx expo run:android        # builds + installs on the connected device/emulator
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Local builds are free and unlimited (no EAS quota). For a shareable APK for
+testers:
 
-### Other setup steps
+```bash
+cd android && .\gradlew assembleRelease
+# -> android/app/build/outputs/apk/release/app-release.apk, sideload to phones
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+iOS: works via `npx expo run:ios` from a Mac (free Apple ID = 7-day re-signed
+dev builds). TestFlight needs a paid Apple Developer account.
 
-## Learn more
+## Daily development
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm start            # Metro for an already-installed dev build
+npm run lint
+npx tsc --noEmit     # typecheck
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## How it works
 
-## Join the community
+```
+GPS fix → jitter filter → adaptive throttle (2.5s driving / 4s walking / 20s parked)
+       → broadcast 'loc' on room channel → peers' stores → markers update
+Control changes (destination, kick, mode) → SECURITY DEFINER RPC → Postgres
+       → trigger broadcast_changes() → all clients converge on DB truth
+```
 
-Join our community of developers creating universal apps.
+- `src/services/realtime/roomChannel.ts` — channel lifecycle, payloads, reconnect
+- `src/services/location/pipeline.ts` — the GPS → filter → throttle → publish loop
+- `src/stores/` — zustand stores (plain JS objects, writable from headless code)
+- `supabase/migrations/` — schema, RPCs, realtime RLS, triggers, expiry cron
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Roadmap
+
+- [x] M0/M1 — rooms, codes, live shared map, presence, reconnect recovery
+- [ ] M2 — destinations, routes + ETA (OpenRouteService), arrival, converge ranking
+- [ ] M3 — mode strategy framework: multi-track, follow-leader insights
+- [ ] M4 — formation alerts, QR invites, kick/lock UI, background tracking lane
+- [ ] M5 — resilience hardening, signed release APK

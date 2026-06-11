@@ -1,0 +1,31 @@
+# Supabase free projects are PAUSED after 7 days without database activity,
+# and restoring them is a manual dashboard action — the app would be dead
+# exactly when someone spontaneously opens it. This weekly ping keeps the
+# project awake.
+#
+# Setup (GitHub repo -> Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL      = https://<project-ref>.supabase.co
+#   SUPABASE_ANON_KEY = <anon key>
+name: Supabase keepalive
+
+on:
+  schedule:
+    - cron: "0 6 * * 1,4" # twice a week, Mondays and Thursdays 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping database through PostgREST
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/rooms?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "PostgREST responded with HTTP $status"
+          # 200 = OK; anything else means paused project or bad secrets.
+          test "$status" = "200"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
