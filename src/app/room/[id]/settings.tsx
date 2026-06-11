@@ -25,6 +25,7 @@ export default function RoomSettingsScreen() {
 
   if (!room) return null;
   const isHost = room.host_id === myUserId;
+  const me = myUserId ? membersMap[myUserId] : undefined;
   const travelers = Object.values(membersMap).filter((m) => m.role === "traveler");
   const myDest = myMemberId ? destByMember[myMemberId] : undefined;
 
@@ -98,6 +99,25 @@ export default function RoomSettingsScreen() {
                   }
                 />
               ))}
+            </View>
+          </>
+        )}
+
+        {me?.role === "traveler" && (
+          <>
+            <Label>Privacy</Label>
+            <View style={styles.lockRow}>
+              <Text style={styles.lockText}>
+                {me.sharing
+                  ? "Sharing your live location"
+                  : "Paused — buds see your last position"}
+              </Text>
+              <Switch
+                value={me.sharing}
+                onValueChange={(sharing) => void roomsRpc.setSharing(room.id, sharing)}
+                trackColor={{ true: colors.accent, false: colors.border }}
+                thumbColor={colors.text}
+              />
             </View>
           </>
         )}
