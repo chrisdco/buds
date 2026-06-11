@@ -2,11 +2,13 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AppState } from "react-native";
 
 import { supabase } from "@/lib/supabaseClient";
-import { setServerNowMs } from "@/lib/time";
+import { serverNowMs, setServerNowMs } from "@/lib/time";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useRouteStore } from "@/stores/routeStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUiStore } from "@/stores/uiStore";
 import type {
   DbChangePayload,
   DestRow,
@@ -67,9 +69,25 @@ function handleMemberChange(payload: DbChangePayload<MemberRow>): void {
 }
 
 function handleRoomEvt(evt: RoomEvt): void {
-  // M2+: arrival / deviation toasts. Joins and leaves already flow through
-  // member_change; nothing to do at the walking-skeleton stage.
-  void evt;
+  // Arrivals are announced via the alert engine off persisted arrived_at
+  // (member_change path) — only transient, non-DB events surface here.
+  const myId = useSessionStore.getState().userId;
+  if (evt.u === myId) return;
+  const name = useMembersStore.getState().members[evt.u]?.name ?? "A bud";
+  if (evt.k === "deviated") {
+    useUiStore.getState().pushAlerts([
+      {
+        id: `evt-dev-${evt.u}-${evt.t}`,
+        severity: "info",
+        title: `${name} took a detour`,
+        body: `${Math.round(evt.offM)} m off route`,
+      },
+    ]);
+  } else if (evt.k === "rejoined") {
+    useUiStore.getState().pushAlerts([
+      { id: `evt-rejoin-${evt.u}-${evt.t}`, severity: "info", title: `${name} reconnected` },
+    ]);
+  }
 }
 
 export async function connectRoomChannel(roomId: string): Promise<void> {
@@ -116,9 +134,14 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
     })
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
+        const wasReconnecting =
+          useRoomStore.getState().connection === "reconnecting";
         useRoomStore.getState().setConnection("connected");
         void channel?.track(presenceMeta());
         void refreshSnapshot(roomId);
+        if (wasReconnecting && userId) {
+          sendEvt({ k: "rejoined", u: userId, t: serverNowMs() });
+        }
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         useRoomStore.getState().setConnection("reconnecting");
       }
@@ -153,4 +176,6 @@ export async function disconnectRoomChannel(): Promise<void> {
   }
   useRoomStore.getState().reset();
   useMembersStore.getState().reset();
+  useRouteStore.getState().reset();
+  useUiStore.getState().reset();
 }

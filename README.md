@@ -86,10 +86,22 @@ Control changes (destination, kick, mode) → SECURITY DEFINER RPC → Postgres
 - `src/stores/` — zustand stores (plain JS objects, writable from headless code)
 - `supabase/migrations/` — schema, RPCs, realtime RLS, triggers, expiry cron
 
+## Daily development (cont.)
+
+```bash
+npm test             # 54 unit tests: geo, throttle, jitter filter, alert engine,
+                     # arrival detector, routing fallback chain, mode strategies
+```
+
+Routing uses OSRM's public demo server by default; for better quality and
+quota, grab a free [OpenRouteService key](https://openrouteservice.org) and add
+`EXPO_PUBLIC_ORS_API_KEY=...` to `.env`.
+
 ## Roadmap
 
 - [x] M0/M1 — rooms, codes, live shared map, presence, reconnect recovery
-- [ ] M2 — destinations, routes + ETA (OpenRouteService), arrival, converge ranking
-- [ ] M3 — mode strategy framework: multi-track, follow-leader insights
-- [ ] M4 — formation alerts, QR invites, kick/lock UI, background tracking lane
-- [ ] M5 — resilience hardening, signed release APK
+- [x] M2 — destinations, routes + ETA, arrival detection, converge ranking, navigate handoff
+- [x] M3 — mode strategy framework: all five modes with insights/alerts/camera policies
+- [x] M4 (partial) — formation/separation alerts, QR invites + deep link join, kick/lock/leader host tools
+- [ ] M4 (rest) — pause-sharing toggle UI, background tracking lane, battery-exemption prompt, local notifications
+- [ ] M5 — resilience hardening (on-device GPS tuning), signed release APK, real group drive

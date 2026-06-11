@@ -12,6 +12,15 @@ export function serverNowMs(): number {
   return Date.now() + skewMs;
 }
 
+export function formatDurationS(seconds: number): string {
+  if (seconds < 60) return "<1 min";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
 export function formatAgo(deltaMs: number): string {
   if (deltaMs < 10_000) return "now";
   if (deltaMs < 60_000) return `${Math.round(deltaMs / 1000)}s ago`;

@@ -132,6 +132,14 @@ export interface SnapshotPayload {
 // Client-side live state
 // --------------------------------------------------------------------------
 
+export interface RouteResult {
+  coords: [number, number][]; // GeoJSON lnglat order
+  distanceM: number;
+  durationS: number;
+  source: "ors" | "osrm" | "straightline";
+  fetchedAt: number;
+}
+
 export interface LivePosition {
   lat: number;
   lng: number;

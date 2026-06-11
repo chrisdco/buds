@@ -15,6 +15,7 @@ import {
   connectRoomChannel,
   disconnectRoomChannel,
 } from "@/services/realtime/roomChannel";
+import { resetRouteManager } from "@/services/routing/routeManager";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -44,6 +45,7 @@ export default function RoomLayout() {
     return () => {
       stopForegroundPipeline();
       pipelineRunning.current = false;
+      resetRouteManager();
       void disconnectRoomChannel();
     };
   }, [id]);
