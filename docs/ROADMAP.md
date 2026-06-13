@@ -69,7 +69,12 @@ Routes: ORS (optional key) → OSRM demo → straight-line; refetched on stalene
 
 - **Android OEM background killers** — the #1 real-world risk; mitigations
   (foreground service, exemption prompt, HTTPS fallback lane, honest staleness
-  UI) are designed but not yet built/verified on hardware.
+  UI) are now built but not yet verified on hardware (issues #13/#14).
+- **Background lane needs on-device verification** — the headless task,
+  foreground-service start/stop, self-teardown on `room_ended`, and OS
+  notifications are implemented and unit-tested where pure, but their runtime
+  behavior (especially cold-process relaunch and OEM battery handling) can only
+  be confirmed on a real device.
 - **Supabase free pause** — keepalive cron exists but is inert until the repo
   secrets are set.
 - **OSRM demo server** has no SLA and a ~1 req/s courtesy limit; fine for 2–8
