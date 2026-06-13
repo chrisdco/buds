@@ -157,6 +157,16 @@ export function sendLoc(tick: LocTick): void {
   void channel?.send({ type: "broadcast", event: "loc", payload: tick });
 }
 
+/**
+ * True only when a broadcast 'loc' tick will actually reach peers. Drives the
+ * publisher's broadcast-vs-HTTPS lane decision. More reliable than the
+ * roomStore connection flag, which is set from the subscribe callback and can
+ * lag the real socket when the app is backgrounded.
+ */
+export function isRoomChannelLive(): boolean {
+  return supabase.realtime.isConnected() && channel?.state === "joined";
+}
+
 export function sendEvt(evt: RoomEvt): void {
   void channel?.send({ type: "broadcast", event: "evt", payload: evt });
 }

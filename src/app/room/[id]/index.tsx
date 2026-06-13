@@ -2,7 +2,7 @@ import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";
@@ -20,6 +20,7 @@ import { ExpiryBanner } from "@/features/room/ExpiryBanner";
 import { InsightsPanel } from "@/features/room/InsightsPanel";
 import { MemberList } from "@/features/room/MemberList";
 import { Toasts } from "@/features/room/Toasts";
+import { notifyAlert } from "@/services/notifications";
 import { modeRegistry } from "@/modes/registry";
 import {
   DEFAULT_ARRIVAL_RADIUS_M,
@@ -97,7 +98,13 @@ export default function RoomScreen() {
       strategy.alertConditions(snap, myUserId),
       Date.now(),
     );
-    if (alerts.length > 0) useUiStore.getState().pushAlerts(alerts);
+    if (alerts.length === 0) return;
+    if (AppState.currentState === "active") {
+      useUiStore.getState().pushAlerts(alerts); // in-app toast
+    } else {
+      // backgrounded: surface as OS notifications instead
+      for (const alert of alerts) void notifyAlert(alert);
+    }
   }, [snap, strategy, myUserId]);
 
   // Route reconciliation (staleness / deviation / moved destinations).

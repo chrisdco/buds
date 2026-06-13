@@ -3,7 +3,12 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
+// Side-effect import: registers the headless background-location task at module
+// scope so the OS can run it when the app is backgrounded (required placement).
+import "@/services/location/backgroundTask";
+
 import { colors } from "@/constants/theme";
+import { setupNotifications } from "@/services/notifications";
 import { useSessionStore } from "@/stores/sessionStore";
 
 export default function RootLayout() {
@@ -11,6 +16,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     void useSessionStore.getState().init();
+    void setupNotifications();
   }, []);
 
   if (!ready) {

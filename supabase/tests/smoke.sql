@@ -119,6 +119,14 @@ begin
   v := public.join_room(v_code, 'Dave', 'traveler');
   if v->>'error' is distinct from 'bad_code' then raise exception 'expected bad_code after end, got %', v; end if;
 
+  -- update_last_seen reports room_ended after closure so the background task
+  -- can self-terminate (migration 0006).
+  perform set_config('request.jwt.claims', alice, true);
+  v := public.update_last_seen(v_room, 48.2, 16.37, null, null);
+  if v->>'error' is distinct from 'room_ended' then
+    raise exception 'expected room_ended from update_last_seen after end, got %', v;
+  end if;
+
   raise notice 'SMOKE OK — all RPC paths behaved';
 end
 $smoke$;

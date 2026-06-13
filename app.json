@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "com.buds.app",
+      "permissions": ["android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

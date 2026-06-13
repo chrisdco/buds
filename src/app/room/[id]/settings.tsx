@@ -6,6 +6,9 @@ import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
 import { colorForUser, colors } from "@/constants/theme";
 import { extendedExpiryIso } from "@/lib/expiry";
 import { modeRegistry } from "@/modes/registry";
+import { requestBatteryOptimizationExemption } from "@/services/location/battery";
+import { stopBackgroundUpdates } from "@/services/location/backgroundTask";
+import { ensureBackgroundLocation } from "@/services/location/permissions";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -22,6 +25,7 @@ export default function RoomSettingsScreen() {
   const destByMember = useRoomStore((s) => s.destByMember);
   const membersMap = useMembersStore((s) => s.members);
   const myUserId = useSessionStore((s) => s.userId);
+  const backgroundSharing = useSessionStore((s) => s.backgroundSharing);
   const [error, setError] = useState<string | null>(null);
 
   if (!room) return null;
@@ -29,6 +33,25 @@ export default function RoomSettingsScreen() {
   const me = myUserId ? membersMap[myUserId] : undefined;
   const travelers = Object.values(membersMap).filter((m) => m.role === "traveler");
   const myDest = myMemberId ? destByMember[myMemberId] : undefined;
+
+  const toggleBackgroundSharing = async (enabled: boolean) => {
+    if (!enabled) {
+      useSessionStore.getState().setBackgroundSharing(false);
+      await stopBackgroundUpdates();
+      return;
+    }
+    const granted = await ensureBackgroundLocation();
+    if (!granted) {
+      Alert.alert(
+        "Background location needed",
+        "Allow location 'Always' in settings so Buds can keep sharing with the screen off.",
+      );
+      return;
+    }
+    useSessionStore.getState().setBackgroundSharing(true);
+    // Best-effort: ask Android to exempt Buds from battery optimization.
+    await requestBatteryOptimizationExemption();
+  };
 
   const guard = async (action: () => Promise<{ ok: boolean }>) => {
     setError(null);
@@ -120,6 +143,23 @@ export default function RoomSettingsScreen() {
                 thumbColor={colors.text}
               />
             </View>
+
+            <View style={styles.lockRow}>
+              <Text style={styles.lockText}>
+                Keep sharing with the screen off
+              </Text>
+              <Switch
+                value={backgroundSharing}
+                onValueChange={(enabled) => void toggleBackgroundSharing(enabled)}
+                trackColor={{ true: colors.accent, false: colors.border }}
+                thumbColor={colors.text}
+              />
+            </View>
+            <Text style={styles.sub}>
+              Lets your buds keep seeing you while the app is in the background.
+              Shows a notification while active and asks to ignore battery
+              optimization so Android doesn&apos;t stop it.
+            </Text>
           </>
         )}
 

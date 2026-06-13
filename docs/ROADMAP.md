@@ -11,8 +11,8 @@ the project is, what's verified, what's next, and what to worry about*.
 | M1 — Live shared map | ✅ done | Location pipeline (jitter filter + adaptive throttle), animated markers + presence states, `last_seen` recovery, reconnect handling |
 | M2 — Destinations, routes, ETA | ✅ done | Long-press destinations, ORS→OSRM→straight-line routing chain, route polylines, ETA cards, self-reported arrival, converge ranking, Navigate deep-link |
 | M3 — Mode framework | ✅ done | All five modes (solo/converge/multitrack/leader/formation) as pure strategies; alert engine + toasts; host tools, QR invite, deep-link join |
-| M4 — Background & host tooling | 🟡 partial | Done: host controls, QR/deep-link, pause-sharing, separation/breakaway alerts. **Remaining: background location task lane, OEM battery-exemption prompt, local notifications** — all need a real device |
-| M5 — Resilience & release | ⬜ not started | GPS tuning with real traces, on-device E2E drills, expiry-countdown UI, signed APK |
+| M4 — Background & host tooling | 🟡 code-complete | Host controls, QR/deep-link, pause-sharing, separation/breakaway alerts, **background location task lane, OEM battery-exemption prompt, local notifications** all implemented. The background/notification paths are written + unit-tested where pure, but **not yet verified on a device** |
+| M5 — Resilience & release | 🟡 started | **Expiry-countdown UI + host extend done.** Remaining: GPS tuning with real traces, on-device E2E drills, signed APK |
 
 ## What's verified
 
@@ -21,13 +21,17 @@ the project is, what's verified, what's next, and what to worry about*.
   (create → join → full/locked/kicked rejections → destinations → arrival →
   mode switch → end), and `broadcast_changes` triggers are confirmed to write
   into `realtime.messages`.
-- **Client logic**: 54 jest unit tests (`npm test`) over geo math, the send
+- **Client logic**: 72 jest unit tests (`npm test`) over geo math, the send
   throttle, jitter/teleport filter, alert engine (priming/sustain/re-arm),
-  arrival detector, the routing fallback chain, and every mode strategy.
+  arrival detector, the routing fallback chain, every mode strategy, the
+  expiry countdown, the tick codec, and the notification dedup gate.
 - **Static**: `tsc --noEmit` and `expo lint` clean; enforced on every push by
-  [CI](../.github/workflows/ci.yml).
+  [CI](../.github/workflows/ci.yml), which now also spins up the Supabase local
+  stack and runs the SQL smoke test (`db` job) in the cloud.
 - **NOT yet verified**: anything requiring a phone — background tracking, real
-  GPS behavior, a two-device live session, battery drain.
+  GPS behavior, a two-device live session, battery drain, OS notifications.
+  The background lane is structured to reuse the unit-tested publisher, but its
+  cold-start/headless behavior must be confirmed on a device.
 
 ## Architecture in one screen
 

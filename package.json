@@ -18,6 +18,7 @@
     "expo-font": "~56.0.6",
     "expo-glass-effect": "~56.0.4",
     "expo-image": "~56.0.11",
+    "expo-intent-launcher": "~56.0.4",
     "expo-linking": "~56.0.14",
     "expo-location": "~56.0.17",
     "expo-notifications": "~56.0.17",
@@ -62,6 +63,9 @@
   },
   "private": true,
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ]
   }
 }
