@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Switch, Text, View } from "react-native"
 
 import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
 import { colorForUser, colors } from "@/constants/theme";
+import { extendedExpiryIso } from "@/lib/expiry";
 import { modeRegistry } from "@/modes/registry";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
@@ -135,6 +136,50 @@ export default function RoomSettingsScreen() {
             thumbColor={colors.text}
           />
         </View>
+
+        {isHost && (
+          <>
+            <Label>Expiry</Label>
+            <Text style={styles.sub}>
+              {room.expires_at
+                ? `Auto-closes ${new Date(room.expires_at).toLocaleString()}`
+                : "No expiry set"}
+            </Text>
+            <View style={styles.chips}>
+              <Chip
+                label="+1 hour"
+                selected={false}
+                onPress={() =>
+                  void guard(() =>
+                    roomsRpc.setExpiry(
+                      room.id,
+                      extendedExpiryIso(room.expires_at, 3_600_000, Date.now()),
+                    ),
+                  )
+                }
+              />
+              <Chip
+                label="+4 hours"
+                selected={false}
+                onPress={() =>
+                  void guard(() =>
+                    roomsRpc.setExpiry(
+                      room.id,
+                      extendedExpiryIso(room.expires_at, 4 * 3_600_000, Date.now()),
+                    ),
+                  )
+                }
+              />
+              {room.expires_at && (
+                <Chip
+                  label="Remove limit"
+                  selected={false}
+                  onPress={() => void guard(() => roomsRpc.setExpiry(room.id, null))}
+                />
+              )}
+            </View>
+          </>
+        )}
 
         {(destRoom || myDest) && <Label>Destinations</Label>}
         {destRoom && isHost && (

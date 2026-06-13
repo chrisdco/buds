@@ -16,6 +16,7 @@ import { DestinationMarkers } from "@/features/map/DestinationMarkers";
 import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { RoomMap } from "@/features/map/RoomMap";
 import { RouteLines } from "@/features/map/RouteLines";
+import { ExpiryBanner } from "@/features/room/ExpiryBanner";
 import { InsightsPanel } from "@/features/room/InsightsPanel";
 import { MemberList } from "@/features/room/MemberList";
 import { Toasts } from "@/features/room/Toasts";
@@ -337,6 +338,7 @@ export default function RoomScreen() {
 
       {/* Bottom panel */}
       <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}>
+        <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
         <InsightsPanel headline={insights.headline} />
         <MemberList
           members={members}
