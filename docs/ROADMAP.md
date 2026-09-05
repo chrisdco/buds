@@ -59,6 +59,11 @@ Backlog (#11) stays deferred.
   GPS behavior, a two-device live session, battery drain, OS notifications.
   The background lane is structured to reuse the unit-tested publisher, but its
   cold-start/headless behavior must be confirmed on a device.
+- **Emulator-verified (Sept 2026, first runtime):** home→create→room, channel +
+  presence, GPS marker + auto-camera, `last_seen` lane, destination + OSRM
+  route + ETA, member sheet + follow camera, settings, invite QR — all against
+  the local backend. Open from that pass: MapLibre line-layer geometry warning,
+  marker-tap confirmation, movement/arrival (emulator GPS is static).
 
 ## Architecture in one screen
 
