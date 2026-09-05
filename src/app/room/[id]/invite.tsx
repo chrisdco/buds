@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Share, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
 import { Button, Screen, Title } from "@/components/ui";
@@ -13,7 +13,17 @@ export default function InviteScreen() {
   const room = useRoomStore((s) => s.room);
   const [copied, setCopied] = useState(false);
 
-  if (!room) return null;
+  // Deep-linked before the snapshot arrived: honest loading, not a white screen.
+  if (!room) {
+    return (
+      <Screen>
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.loadingText}>Loading invite…</Text>
+        </View>
+      </Screen>
+    );
+  }
   const link = `buds://join/${room.code}`;
 
   const share = () =>
@@ -53,6 +63,8 @@ export default function InviteScreen() {
 
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 18 },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { color: colors.textDim, fontSize: 14, marginTop: 12 },
   sub: { color: colors.textDim, fontSize: 14, marginTop: 4 },
   qrBox: {
     alignSelf: "center",

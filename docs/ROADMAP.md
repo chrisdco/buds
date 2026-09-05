@@ -2,8 +2,10 @@
 
 Living status doc. The [README](../README.md) covers setup; this covers *where
 the project is, what's verified, what's next, and what to worry about*.
+The phased execution plan (P0–P3) is tracked in the GitHub issue tracker
+(see issue #18); this file summarizes it.
 
-## Where it stands (June 2026)
+## Where it stands (September 2026)
 
 | Milestone | State | Notes |
 |---|---|---|
@@ -13,17 +15,42 @@ the project is, what's verified, what's next, and what to worry about*.
 | M3 — Mode framework | ✅ done | All five modes (solo/converge/multitrack/leader/formation) as pure strategies; alert engine + toasts; host tools, QR invite, deep-link join |
 | M4 — Background & host tooling | 🟡 code-complete | Host controls, QR/deep-link, pause-sharing, separation/breakaway alerts, **background location task lane, OEM battery-exemption prompt, local notifications** all implemented. The background/notification paths are written + unit-tested where pure, but **not yet verified on a device** |
 | M5 — Resilience & release | 🟡 started | **Expiry-countdown UI + host extend done.** Remaining: GPS tuning with real traces, on-device E2E drills, signed APK |
+| P0 — Stability hardening | ✅ done (desktop) | Migration `0007` + client fixes: publisher lane refresh, arrival server-confirm retry, store/exit hygiene, deep-link + realtime/routing guards, capacity lock, host auto-promote, typed validation errors. Verified via tsc/lint/unit/SQL smoke; device drill still pending |
+
+## Current phase plan (P0–P3)
+
+- **P0 — Stability hardening (this change):** all desktop-verifiable fixes.
+  Local Docker (`npx supabase start` + `db reset` + smoke) is the source of
+  truth until the hosted project exists; no device needed.
+- **P1 — Prove it works (needs device):** hosted Supabase (#1) → first dev
+  build (#2) → keepalive secrets (#3) → two-phone drill (#5) → GPS tuning
+  (#6) → background/battery/notifications verification (#13/#14/#4) →
+  signed tester APK (#7).
+- **P2 — Make it feel real (after drill):** member detail/focus sheet (#16)
+  — built blind, pending device review — Break/Help/SOS map actions,
+  first-30-seconds polish (skeletons, empty states, honest errors, a11y —
+  first pass built blind), Expo SDK 57 upgrade, solo/multitrack moved to
+  experimental/secondary placement (kept in code).
+- **P3 — Grow/harden (after weekly tester use):** quota alerting (#8), route
+  proxy/cache (#9), channel integration test (#17), web spectator link,
+  retention purge, host-transfer UI, iOS decision (#10).
+
+Product direction: convoy coordination (converge/leader/formation) is the
+wedge; solo/multitrack stay as experimental candidates until validated.
+Backlog (#11) stays deferred.
 
 ## What's verified
 
-- **Backend**: all 5 migrations apply cleanly on a local Supabase stack; the
+- **Backend**: all 7 migrations apply cleanly on a local Supabase stack; the
   full RPC lifecycle is exercised by [supabase/tests/smoke.sql](../supabase/tests/smoke.sql)
-  (create → join → full/locked/kicked rejections → destinations → arrival →
-  mode switch → end), and `broadcast_changes` triggers are confirmed to write
+  (create → join → full/locked/kicked/rejoin rejections → validation errors →
+  destinations → arrival → mode switch → end → host-transfer → expiry-unswept),
+  and `broadcast_changes` triggers are confirmed to write
   into `realtime.messages`.
-- **Client logic**: 72 jest unit tests (`npm test`) over geo math, the send
+- **Client logic**: 76 jest unit tests (`npm test`) over geo math, the send
   throttle, jitter/teleport filter, alert engine (priming/sustain/re-arm),
-  arrival detector, the routing fallback chain, every mode strategy, the
+  arrival detector (incl. retry/re-arm), the routing fallback chain (incl.
+  malformed-payload fallthrough), every mode strategy, the
   expiry countdown, the tick codec, and the notification dedup gate.
 - **Static**: `tsc --noEmit` and `expo lint` clean; enforced on every push by
   [CI](../.github/workflows/ci.yml), which now also spins up the Supabase local
@@ -75,8 +102,12 @@ Routes: ORS (optional key) → OSRM demo → straight-line; refetched on stalene
   notifications are implemented and unit-tested where pure, but their runtime
   behavior (especially cold-process relaunch and OEM battery handling) can only
   be confirmed on a real device.
-- **Supabase free pause** — keepalive cron exists but is inert until the repo
-  secrets are set.
+- **Supabase free pause** — keepalive cron now skips gracefully (green) until
+  the repo secrets are set; add `SUPABASE_URL` / `SUPABASE_ANON_KEY` when the
+  hosted project exists (issue #3).
+- **Local-first until then** — all P0 fixes verify against the local Docker
+  stack (`npx supabase start` + `db reset` + smoke); the hosted project is only
+  needed for the two-phone drill.
 - **OSRM demo server** has no SLA and a ~1 req/s courtesy limit; fine for 2–8
   users but a free ORS key (`EXPO_PUBLIC_ORS_API_KEY`) is recommended.
 - **Realtime quota** — math says 2–8 users sit far under the free 2M

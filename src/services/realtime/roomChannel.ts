@@ -30,6 +30,13 @@ let channel: RealtimeChannel | null = null;
 let currentRoomId: string | null = null;
 let appStateSub: { remove: () => void } | null = null;
 
+/** Fire-and-forget a promise without tripping unhandled-rejection warnings. */
+function ignoreRejection(p: Promise<unknown> | null | undefined): void {
+  if (p && typeof (p as Promise<unknown>).catch === "function") {
+    void (p as Promise<unknown>).catch(() => {});
+  }
+}
+
 function presenceMeta(): PresenceMeta {
   const session = useSessionStore.getState();
   const me = session.userId
@@ -49,6 +56,14 @@ async function refreshSnapshot(roomId: string): Promise<void> {
   if (!result.ok) {
     if (result.error === "not_member") {
       useRoomStore.getState().setExitReason("not_member");
+    } else if (result.error === "room_ended") {
+      useRoomStore.getState().setExitReason("ended");
+    } else if (result.error === "kicked") {
+      useRoomStore.getState().setExitReason("kicked");
+    } else {
+      // Transient (network/auth) failure: show reconnecting, keep the last
+      // snapshot so the map doesn't blank on a blip.
+      useRoomStore.getState().setConnection("reconnecting");
     }
     return;
   }
@@ -71,6 +86,9 @@ function handleMemberChange(payload: DbChangePayload<MemberRow>): void {
 function handleRoomEvt(evt: RoomEvt): void {
   // Arrivals are announced via the alert engine off persisted arrived_at
   // (member_change path) — only transient, non-DB events surface here.
+  // Shape-guard: a malformed/malicious peer broadcast must not crash us.
+  if (!evt || typeof evt.u !== "string") return;
+  if (evt.k !== "deviated" && evt.k !== "rejoined" && evt.k !== "arrived") return;
   const myId = useSessionStore.getState().userId;
   if (evt.u === myId) return;
   const name = useMembersStore.getState().members[evt.u]?.name ?? "A bud";
@@ -93,11 +111,22 @@ function handleRoomEvt(evt: RoomEvt): void {
 export async function connectRoomChannel(roomId: string): Promise<void> {
   await disconnectRoomChannel();
   currentRoomId = roomId;
+  // disconnectRoomChannel() resets the stores, but clear explicitly so a
+  // stale exit reason can never eject the new room if reset semantics change.
+  useRoomStore.getState().setExitReason(null);
   useRoomStore.getState().setConnection("connecting");
 
   // Private channels are authorized via RLS on realtime.messages; make sure
   // the realtime socket carries the current access token before joining.
-  await supabase.realtime.setAuth();
+  // setAuth can reject (expired session, offline) — surface reconnecting
+  // instead of leaving the pipeline stuck at "connecting" via an unhandled
+  // rejection (callers invoke this fire-and-forget).
+  try {
+    await supabase.realtime.setAuth();
+  } catch {
+    useRoomStore.getState().setConnection("reconnecting");
+    return;
+  }
 
   const userId = useSessionStore.getState().userId;
   channel = supabase.channel(`room:${roomId}`, {
@@ -110,7 +139,17 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
 
   channel
     .on("broadcast", { event: "loc" }, ({ payload }) => {
-      useMembersStore.getState().applyTick(payload as LocTick);
+      const tick = payload as LocTick;
+      // Shape-guard: a malformed peer broadcast must not crash the map.
+      if (
+        !tick ||
+        typeof tick.u !== "string" ||
+        !Number.isFinite(tick.la) ||
+        !Number.isFinite(tick.ln)
+      ) {
+        return;
+      }
+      useMembersStore.getState().applyTick(tick);
     })
     .on("broadcast", { event: "evt" }, ({ payload }) => {
       handleRoomEvt(payload as RoomEvt);
@@ -137,19 +176,23 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
         const wasReconnecting =
           useRoomStore.getState().connection === "reconnecting";
         useRoomStore.getState().setConnection("connected");
-        void channel?.track(presenceMeta());
-        void refreshSnapshot(roomId);
+        ignoreRejection(channel?.track(presenceMeta()));
+        ignoreRejection(refreshSnapshot(roomId));
         if (wasReconnecting && userId) {
           sendEvt({ k: "rejoined", u: userId, t: serverNowMs() });
         }
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      } else if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
         useRoomStore.getState().setConnection("reconnecting");
       }
     });
 
   // Presence meta changes on app-state transitions only (not per tick).
   appStateSub = AppState.addEventListener("change", () => {
-    if (channel) void channel.track(presenceMeta());
+    if (channel) ignoreRejection(channel.track(presenceMeta()));
   });
 }
 

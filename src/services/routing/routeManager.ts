@@ -17,10 +17,13 @@ const OTHERS_STALE_MS = 300_000;
 const LEADER_TARGET_STALE_MS = 60_000;
 const DEST_MOVED_REFETCH_M = 50;
 const DEVIATION_THRESHOLD_M = 120;
-const FETCH_GAP_MS = 400;
+// >1000ms keeps us under the OSRM demo ~1 req/s courtesy limit (plus jitter
+// from fetch latency itself); the old 400ms could burst at 2.5 req/s on join.
+const FETCH_GAP_MS = 1_100;
 
 let running = false;
 let selfDeviating = false;
+let selfDeviatingRoom: string | null = null;
 
 interface FetchTask {
   userId: string;
@@ -35,6 +38,13 @@ function collectTasks(
 ): FetchTask[] {
   const tasks: FetchTask[] = [];
   const store = useRouteStore.getState();
+
+  // The once-per-episode deviation latch is per-room: a room switch without a
+  // full unmount must not suppress the first deviation in the new room.
+  if (selfDeviatingRoom !== snap.room.id) {
+    selfDeviatingRoom = snap.room.id;
+    selfDeviating = false;
+  }
 
   for (const m of travelers(snap)) {
     if (!m.pos) continue;
@@ -55,11 +65,14 @@ function collectTasks(
           : OTHERS_STALE_MS;
 
     let needsFetch = false;
-    if (!route) {
+    if (!route || route.coords.length < 2) {
       needsFetch = true;
     } else {
       const end = route.coords[route.coords.length - 1];
       const destMoved =
+        !end ||
+        !Number.isFinite(end[0]) ||
+        !Number.isFinite(end[1]) ||
         haversineMeters(end[1], end[0], dest.lat, dest.lng) > DEST_MOVED_REFETCH_M;
       const stale = Date.now() - route.fetchedAt > staleMs;
 
@@ -107,10 +120,13 @@ export async function ensureRoutes(
   running = true;
   try {
     const tasks = collectTasks(snap, strategy, myUserId);
-    for (const task of tasks) {
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
       const route = await fetchRoute(task.from, task.to);
       useRouteStore.getState().setRoute(task.userId, route);
-      if (tasks.length > 1) {
+      // Pace all but the trailing fetch; don't hold `running` an extra gap
+      // after the last task.
+      if (i < tasks.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, FETCH_GAP_MS));
       }
     }
@@ -121,5 +137,6 @@ export async function ensureRoutes(
 
 export function resetRouteManager(): void {
   selfDeviating = false;
+  selfDeviatingRoom = null;
   useRouteStore.getState().reset();
 }

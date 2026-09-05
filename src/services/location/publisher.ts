@@ -45,8 +45,7 @@ export function createPublisher(ctx: PublishContext): Publisher {
   let lastSeenSentAt = 0;
 
   const upsertLastSeen = (tick: LocTick) => {
-    lastSeenSentAt = Date.now();
-    void roomsRpc
+    roomsRpc
       .updateLastSeen({
         roomId: ctx.roomId,
         lat: tick.la,
@@ -54,11 +53,20 @@ export function createPublisher(ctx: PublishContext): Publisher {
         heading: tick.h ?? null,
         speed: tick.s ?? null,
       })
-      .then((res) => {
-        if (!res.ok && (res.error === "room_ended" || res.error === "not_member")) {
-          ctx.onLeaseLost?.();
-        }
-      });
+      .then(
+        (res) => {
+          // Only back off after a confirmed write — a failed upsert must be
+          // retried on the next accepted tick, not blacked out for 60s.
+          if (res.ok) {
+            lastSeenSentAt = Date.now();
+          } else if (res.error === "room_ended" || res.error === "not_member") {
+            ctx.onLeaseLost?.();
+          }
+        },
+        () => {
+          // Transport failure: keep lastSeenSentAt so the next tick retries.
+        },
+      );
   };
 
   return {
@@ -70,6 +78,7 @@ export function createPublisher(ctx: PublishContext): Publisher {
 
       const fix = filter(raw);
       if (!fix) return false;
+      if (!Number.isFinite(fix.lat) || !Number.isFinite(fix.lng)) return false;
 
       const { send, moving } = throttle(fix);
       if (!send) return false;
@@ -99,7 +108,18 @@ export function createPublisher(ctx: PublishContext): Publisher {
 }
 
 // One shared instance per room, reachable from both lanes (incl. headless code).
-let current: { publisher: Publisher; roomId: string } | null = null;
+// The filter/throttle state stays shared, but the lane-specific options are
+// refreshed on every call: the foreground watcher usually registers first and
+// the headless background task later (or vice versa), and the first-wins
+// behavior previously dropped the background throttle multiplier + lease
+// teardown. The mutable holder below is read through an indirection so the
+// already-created publisher always sees the latest lane options.
+let current: {
+  publisher: Publisher;
+  roomId: string;
+  userId: string;
+  lane: { isBackground: () => boolean; onLeaseLost?: () => void };
+} | null = null;
 
 /**
  * Resolves the shared publisher for a room. `userId` may be passed explicitly
@@ -112,15 +132,29 @@ export function getPublisher(
 ): Publisher | null {
   const userId = opts.userId ?? useSessionStore.getState().userId;
   if (!userId) return null;
-  if (current && current.roomId === roomId) return current.publisher;
+  if (current && current.roomId === roomId && current.userId === userId) {
+    // Same room + identity: keep the shared filter/throttle state, adopt the
+    // latest lane options (background predicate + lease callback).
+    current.lane.isBackground = opts.isBackground;
+    if (opts.onLeaseLost) current.lane.onLeaseLost = opts.onLeaseLost;
+    return current.publisher;
+  }
+  const lane: { isBackground: () => boolean; onLeaseLost?: () => void } = {
+    isBackground: opts.isBackground,
+    onLeaseLost: opts.onLeaseLost,
+  };
   current = {
     publisher: createPublisher({
       userId,
       roomId,
-      isBackground: opts.isBackground,
-      onLeaseLost: opts.onLeaseLost,
+      // Indirection: throttle/lease paths created now must observe lane
+      // updates from later getPublisher calls for the same room.
+      isBackground: () => lane.isBackground(),
+      onLeaseLost: () => lane.onLeaseLost?.(),
     }),
     roomId,
+    userId,
+    lane,
   };
   return current.publisher;
 }

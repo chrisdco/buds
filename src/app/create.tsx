@@ -7,7 +7,7 @@ import { colors } from "@/constants/theme";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
-import type { RoomMode } from "@/types/contracts";
+import type { RoomMode, RpcError } from "@/types/contracts";
 
 const MODES: { id: RoomMode; label: string; blurb: string }[] = [
   { id: "solo", label: "Solo", blurb: "Just share where you are. Others can watch." },
@@ -23,6 +23,23 @@ const DURATIONS: { label: string; hours: number | null }[] = [
   { label: "12h", hours: 12 },
   { label: "24h", hours: 24 },
 ];
+
+function createErrorMessage(error: RpcError): string {
+  switch (error) {
+    case "bad_name":
+      return "Room name must be 1–60 characters.";
+    case "bad_display_name":
+      return "Your name must be 1–24 characters.";
+    case "bad_limit":
+      return "Traveler limit must be between 1 and 10.";
+    case "bad_expiry":
+      return "That expiry time isn't valid.";
+    case "bad_mode":
+      return "That mode isn't supported.";
+    default:
+      return `Could not create the room (${error}).`;
+  }
+}
 
 export default function CreateRoomScreen() {
   const router = useRouter();
@@ -52,7 +69,7 @@ export default function CreateRoomScreen() {
     });
     setBusy(false);
     if (!result.ok) {
-      setError(result.message ?? `Could not create the room (${result.error}).`);
+      setError(createErrorMessage(result.error));
       return;
     }
     setActiveRoom({

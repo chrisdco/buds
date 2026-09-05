@@ -46,4 +46,32 @@ describe("createArrivalDetector", () => {
     detector.update(10, 40_000);
     expect(onArrive).toHaveBeenCalledTimes(2);
   });
+
+  it("ignores non-finite distances and falls back on an invalid radius", () => {
+    const onArrive = jest.fn();
+    const detector = createArrivalDetector({ radiusM: () => NaN, onArrive });
+    detector.update(NaN, 0);
+    expect(onArrive).not.toHaveBeenCalled();
+    detector.update(10, 0);
+    detector.update(10, 5_000);
+    expect(onArrive).not.toHaveBeenCalled();
+    detector.update(10, 10_000);
+    expect(onArrive).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-arms when onArrive throws synchronously", () => {
+    let calls = 0;
+    const detector = createArrivalDetector({
+      radiusM,
+      onArrive: () => {
+        calls += 1;
+        if (calls === 1) throw new Error("transient");
+      },
+    });
+    detector.update(10, 0);
+    detector.update(10, 10_000); // throws, re-arms instead of wedging
+    detector.update(10, 20_000);
+    detector.update(10, 30_000); // fires again cleanly
+    expect(calls).toBe(2);
+  });
 });

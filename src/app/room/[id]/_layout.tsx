@@ -13,6 +13,7 @@ import {
   startForegroundPipeline,
   stopForegroundPipeline,
 } from "@/services/location/pipeline";
+import { disposePublisher } from "@/services/location/publisher";
 import { ensureNotificationPermission } from "@/services/notifications";
 import {
   connectRoomChannel,
@@ -45,13 +46,18 @@ export default function RoomLayout() {
 
   useEffect(() => {
     if (!id) return;
-    void connectRoomChannel(id);
+    if (typeof id !== "string") return;
+    void connectRoomChannel(id).catch(() => {
+      // connectRoomChannel maps its own failures to connection state; this
+      // guards against any unexpected throw leaving an unhandled rejection.
+    });
     return () => {
       stopForegroundPipeline();
-      void stopBackgroundUpdates();
+      void stopBackgroundUpdates().catch(() => {});
       pipelineRunning.current = false;
+      disposePublisher();
       resetRouteManager();
-      void disconnectRoomChannel();
+      void disconnectRoomChannel().catch(() => {});
     };
   }, [id]);
 
@@ -68,22 +74,29 @@ export default function RoomLayout() {
 
   // Start sharing once we're connected and confirmed as a traveler.
   useEffect(() => {
-    if (!id || pipelineRunning.current) return;
+    if (!id || typeof id !== "string" || pipelineRunning.current) return;
     if (connection !== "connected" || myRole !== "traveler") return;
     pipelineRunning.current = true;
     void (async () => {
-      const granted = await ensureForegroundLocation();
-      if (!granted) {
+      try {
+        const granted = await ensureForegroundLocation();
+        if (!granted) {
+          pipelineRunning.current = false;
+          Alert.alert(
+            "Location is off",
+            "Without location access your buds can't see you on the map. You can still watch the room.",
+          );
+          return;
+        }
+        await startForegroundPipeline(id);
+        // Lets backgrounded arrival/separation alerts reach the user.
+        await ensureNotificationPermission();
+      } catch {
+        // watchPosition / permission plumbing can reject on OEM skins or
+        // revoked permissions — release the gate so a connection flap retries
+        // instead of wedging the pipeline permanently on.
         pipelineRunning.current = false;
-        Alert.alert(
-          "Location is off",
-          "Without location access your buds can't see you on the map. You can still watch the room.",
-        );
-        return;
       }
-      await startForegroundPipeline(id);
-      // Lets backgrounded arrival/separation alerts reach the user.
-      void ensureNotificationPermission();
     })();
   }, [id, connection, myRole]);
 

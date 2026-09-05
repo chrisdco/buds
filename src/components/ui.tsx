@@ -50,9 +50,18 @@ interface ButtonProps {
   disabled?: boolean;
   busy?: boolean;
   variant?: "primary" | "ghost" | "danger";
+  /** Screen-reader label; defaults to the visible label. */
+  a11yLabel?: string;
 }
 
-export function Button({ label, onPress, disabled, busy, variant = "primary" }: ButtonProps) {
+export function Button({
+  label,
+  onPress,
+  disabled,
+  busy,
+  variant = "primary",
+  a11yLabel,
+}: ButtonProps) {
   const base =
     variant === "primary"
       ? styles.btnPrimary
@@ -63,6 +72,9 @@ export function Button({ label, onPress, disabled, busy, variant = "primary" }: 
     <Pressable
       onPress={onPress}
       disabled={disabled || busy}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel ?? label}
+      accessibilityState={{ disabled: disabled || busy, busy: !!busy }}
       style={({ pressed }) => [
         styles.btn,
         base,
@@ -85,14 +97,20 @@ export function Chip({
   label,
   selected,
   onPress,
+  a11yLabel,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  /** Screen-reader label; defaults to the visible label. */
+  a11yLabel?: string;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel ?? label}
+      accessibilityState={{ selected }}
       style={[styles.chip, selected && styles.chipSelected]}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>

@@ -53,10 +53,30 @@ export async function fetchRoute(
   for (const { fetcher, source } of chain) {
     try {
       const result = await withTimeout(fetcher, from, to);
+      if (!isValidRoutePayload(result)) throw new Error("invalid route payload");
       return { ...result, source, fetchedAt: Date.now() };
     } catch {
       // fall through to the next provider
     }
   }
   return straightLineRoute(from, to);
+}
+
+/** Guards the turf/ETA pipeline against malformed provider payloads. */
+function isValidRoutePayload(
+  result: Omit<RouteResult, "source" | "fetchedAt">,
+): boolean {
+  if (!result || !Array.isArray(result.coords) || result.coords.length < 2) {
+    return false;
+  }
+  if (!Number.isFinite(result.distanceM) || !Number.isFinite(result.durationS)) {
+    return false;
+  }
+  return result.coords.every(
+    (c) =>
+      Array.isArray(c) &&
+      c.length >= 2 &&
+      Number.isFinite(c[0]) &&
+      Number.isFinite(c[1]),
+  );
 }

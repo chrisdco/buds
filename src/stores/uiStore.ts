@@ -12,15 +12,19 @@ type CameraMode = "auto" | "manual";
 interface UiState {
   toasts: ToastItem[];
   cameraMode: CameraMode;
+  /** Member the auto-camera is pinned to (member detail sheet "Follow"). */
+  focusedMemberId: string | null;
   pushAlerts: (alerts: LocalAlert[]) => void;
   dismissToast: (key: string) => void;
   setCameraMode: (mode: CameraMode) => void;
+  setFocusedMemberId: (userId: string | null) => void;
   reset: () => void;
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
   toasts: [],
   cameraMode: "auto",
+  focusedMemberId: null,
 
   pushAlerts: (alerts) => {
     if (alerts.length === 0) return;
@@ -35,5 +39,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
   setCameraMode: (cameraMode) => set({ cameraMode }),
 
-  reset: () => set({ toasts: [], cameraMode: "auto" }),
+  setFocusedMemberId: (focusedMemberId) => set({ focusedMemberId }),
+
+  reset: () => set({ toasts: [], cameraMode: "auto", focusedMemberId: null }),
 }));

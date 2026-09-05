@@ -55,6 +55,10 @@ export function extendedExpiryIso(
   deltaMs: number,
   nowMs: number,
 ): string {
-  const base = currentExpiresAt ? Math.max(nowMs, Date.parse(currentExpiresAt)) : nowMs;
-  return new Date(base + deltaMs).toISOString();
+  const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const safeDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+  const parsed = currentExpiresAt ? Date.parse(currentExpiresAt) : NaN;
+  const base =
+    currentExpiresAt && !Number.isNaN(parsed) && parsed > safeNow ? parsed : safeNow;
+  return new Date(base + safeDelta).toISOString();
 }

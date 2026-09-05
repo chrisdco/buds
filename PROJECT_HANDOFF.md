@@ -5,11 +5,12 @@
 > known issues see [docs/ROADMAP.md](docs/ROADMAP.md). This file is the
 > authoritative entry point.
 
-- **Repo:** https://github.com/ChrisDc777/buds (private, default branch `main`)
-- **Local path:** `D:\Projects\Buds`
+- **Repo:** https://github.com/chrisdco/buds (private, default branch `main`)
+- **Local path:** `C:\Users\admin\Projects\buds` (environment-specific; was `D:\Projects\Buds` on the original machine)
 - **CI:** GitHub Actions, two jobs — `check` (typecheck + lint + unit tests) and
   `db` (full Supabase stack + migrations + SQL smoke test). Both green on `main`.
-- **Last verified:** tsc clean, eslint clean, 72 unit tests pass, SQL smoke
+  The `keepalive` workflow skips gracefully until Supabase secrets exist.
+- **Last verified:** tsc clean, eslint clean, 76 unit tests pass, SQL smoke
   passes locally and in CI.
 
 ---
@@ -166,6 +167,16 @@ Phone (Expo dev build) ── MapLibre map (OpenFreeMap vector tiles)
 External: Google/Apple Maps deep link ("Navigate"); GitHub Actions weekly keepalive.
 ```
 
+**P0 stability hardening (applied, desktop-verified, device drill still pending):**
+migration `0007` + client fixes — shared-publisher lane refresh (bg throttle +
+lease teardown), arrival server-confirm retry, store exit-reason hygiene,
+deep-link validation, realtime/routing shape guards, `join_room` capacity lock,
+host auto-promote on leave, lock-rejoin for prior members, typed validation
+errors (`bad_name`/`bad_display_name`/`bad_limit`/`bad_expiry`/`bad_destination`),
+`update_last_seen` expiry check, route fetch pacing (1100ms) + payload
+validation. Smoke test extended (transfer, expiry-unswept, lock-rejoin,
+validation); unit tests 72 → 76.
+
 **Load-bearing decisions:**
 1. **Location ticks are client-to-client broadcast, never written to the DB.**
    The DB holds only control-plane facts (rooms, membership, destinations) + a
@@ -215,6 +226,7 @@ src/
     join/index.tsx  join/[code].tsx   manual+QR join; deep-link auto-join
     room/[id]/_layout.tsx        channel + pipeline + background lifecycle (THE controller)
     room/[id]/index.tsx          THE map screen (map, markers, routes, insights, alerts)
+    room/[id]/member/[uid].tsx   member detail + follow sheet (blind build, needs device review)
     room/[id]/settings.tsx       host controls + privacy/background toggles + expiry
     room/[id]/invite.tsx         QR + share sheet
   lib/                           supabaseClient, geo (haversine/bearing), time (skew), ids, expiry, nav, activeRoom

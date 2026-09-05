@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-import type { DestRow, RoomRow, SnapshotPayload } from "@/types/contracts";
+import type {
+  DestRow,
+  DbChangePayload,
+  RoomRow,
+  SnapshotPayload,
+} from "@/types/contracts";
 
 export type ConnectionState = "idle" | "connecting" | "connected" | "reconnecting";
 export type ExitReason = "ended" | "kicked" | "not_member" | null;
@@ -14,7 +19,11 @@ interface RoomState {
   exitReason: ExitReason;
   setRoom: (room: RoomRow) => void;
   applySnapshot: (snap: SnapshotPayload, myUserId: string | null) => void;
-  applyDestChange: (operation: string, record: DestRow | null, oldRecord: DestRow | null) => void;
+  applyDestChange: (
+    operation: DbChangePayload<DestRow>["operation"],
+    record: DestRow | null,
+    oldRecord: DestRow | null,
+  ) => void;
   setConnection: (c: ConnectionState) => void;
   setExitReason: (r: ExitReason) => void;
   reset: () => void;
@@ -40,14 +49,19 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       if (d.member_id) destByMember[d.member_id] = d;
       else destRoom = d;
     }
+    const isNewRoom = get().room?.id !== snap.room.id;
     set({
       room: snap.room,
       destRoom,
       destByMember,
-      myMemberId:
-        snap.members.find((m) => m.user_id === myUserId)?.id ?? get().myMemberId,
+      // Clear (not retain) when the snapshot doesn't include me — e.g. after
+      // a kick — so a stale member id can't drive destination writes.
+      myMemberId: snap.members.find((m) => m.user_id === myUserId)?.id ?? null,
+      // A snapshot for a *different* room clears a stale exit reason from the
+      // previous room; an ended status always sets it.
+      exitReason:
+        snap.room.status === "ended" ? "ended" : isNewRoom ? null : get().exitReason,
     });
-    if (snap.room.status === "ended") set({ exitReason: "ended" });
   },
 
   applyDestChange: (operation, record, oldRecord) => {

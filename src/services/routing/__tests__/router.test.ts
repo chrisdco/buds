@@ -44,6 +44,17 @@ describe("fetchRoute chain", () => {
     expect(route.coords).toHaveLength(2);
     expect(route.durationS).toBeCloseTo(route.distanceM / 11, 5);
   });
+
+  it("treats malformed provider payloads as failures and falls through", async () => {
+    const malformed: RouteFetcher = async () => ({
+      coords: [],
+      distanceM: Number.NaN,
+      durationS: Number.NaN,
+    });
+    const route = await fetchRoute(A, B, { hasOrsKey: false, osrm: malformed });
+    expect(route.source).toBe("straightline");
+    expect(route.coords).toHaveLength(2);
+  });
 });
 
 describe("straightLineRoute", () => {

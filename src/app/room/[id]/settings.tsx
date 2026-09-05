@@ -1,6 +1,14 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
 import { colorForUser, colors } from "@/constants/theme";
@@ -53,10 +61,20 @@ export default function RoomSettingsScreen() {
     await requestBatteryOptimizationExemption();
   };
 
-  const guard = async (action: () => Promise<{ ok: boolean }>) => {
+  const guard = async (action: () => Promise<{ ok: boolean; error?: string }>) => {
     setError(null);
     const result = await action();
-    if (!result.ok) setError("That didn't work — only the host can change this.");
+    if (!result.ok) {
+      setError(
+        result.error === "bad_expiry"
+          ? "That expiry time isn't valid."
+          : result.error === "bad_destination"
+            ? "That destination isn't valid."
+            : result.error === "network"
+              ? "Couldn't reach the server — check your connection."
+              : "That didn't work — only the host can change this.",
+      );
+    }
   };
 
   const setMode = (mode: RoomMode) => {
@@ -177,48 +195,47 @@ export default function RoomSettingsScreen() {
           />
         </View>
 
+        {/* Expiry is visible to everyone; only the host can change it. */}
+        <Label>Expiry</Label>
+        <Text style={styles.sub}>
+          {room.expires_at
+            ? `Auto-closes ${new Date(room.expires_at).toLocaleString()}`
+            : "No expiry set"}
+        </Text>
         {isHost && (
-          <>
-            <Label>Expiry</Label>
-            <Text style={styles.sub}>
-              {room.expires_at
-                ? `Auto-closes ${new Date(room.expires_at).toLocaleString()}`
-                : "No expiry set"}
-            </Text>
-            <View style={styles.chips}>
+          <View style={styles.chips}>
+            <Chip
+              label="+1 hour"
+              selected={false}
+              onPress={() =>
+                void guard(() =>
+                  roomsRpc.setExpiry(
+                    room.id,
+                    extendedExpiryIso(room.expires_at, 3_600_000, Date.now()),
+                  ),
+                )
+              }
+            />
+            <Chip
+              label="+4 hours"
+              selected={false}
+              onPress={() =>
+                void guard(() =>
+                  roomsRpc.setExpiry(
+                    room.id,
+                    extendedExpiryIso(room.expires_at, 4 * 3_600_000, Date.now()),
+                  ),
+                )
+              }
+            />
+            {room.expires_at && (
               <Chip
-                label="+1 hour"
+                label="Remove limit"
                 selected={false}
-                onPress={() =>
-                  void guard(() =>
-                    roomsRpc.setExpiry(
-                      room.id,
-                      extendedExpiryIso(room.expires_at, 3_600_000, Date.now()),
-                    ),
-                  )
-                }
+                onPress={() => void guard(() => roomsRpc.setExpiry(room.id, null))}
               />
-              <Chip
-                label="+4 hours"
-                selected={false}
-                onPress={() =>
-                  void guard(() =>
-                    roomsRpc.setExpiry(
-                      room.id,
-                      extendedExpiryIso(room.expires_at, 4 * 3_600_000, Date.now()),
-                    ),
-                  )
-                }
-              />
-              {room.expires_at && (
-                <Chip
-                  label="Remove limit"
-                  selected={false}
-                  onPress={() => void guard(() => roomsRpc.setExpiry(room.id, null))}
-                />
-              )}
-            </View>
-          </>
+            )}
+          </View>
         )}
 
         {(destRoom || myDest) && <Label>Destinations</Label>}
@@ -247,9 +264,14 @@ export default function RoomSettingsScreen() {
               {m.role === "spectator" ? "  👀" : ""}
             </Text>
             {isHost && m.userId !== myUserId && (
-              <Text style={styles.kick} onPress={() => kick(m.userId, m.name)}>
-                Remove
-              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${m.name} from the room`}
+                hitSlop={12}
+                onPress={() => kick(m.userId, m.name)}
+              >
+                <Text style={styles.kick}>Remove</Text>
+              </Pressable>
             )}
           </View>
         ))}

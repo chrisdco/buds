@@ -23,6 +23,8 @@ export function joinErrorMessage(error: RpcError): string {
       return "That room has ended.";
     case "kicked":
       return "You were removed from this room.";
+    case "bad_display_name":
+      return "Please enter a valid name (1–24 characters).";
     default:
       return "Couldn't join — check your connection and try again.";
   }

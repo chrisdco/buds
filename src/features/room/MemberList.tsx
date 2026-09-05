@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { colorForUser, colors } from "@/constants/theme";
 import { formatDistanceM } from "@/lib/geo";
@@ -35,10 +35,26 @@ interface MemberListProps {
   leaderId: string | null;
   insights: Record<string, MemberInsight>;
   nowMs: number;
+  /** Opens the member detail sheet; omitted = cards not tappable. */
+  onSelectMember?: (userId: string) => void;
 }
 
-export function MemberList({ members, hostId, leaderId, insights, nowMs }: MemberListProps) {
+export function MemberList({
+  members,
+  hostId,
+  leaderId,
+  insights,
+  nowMs,
+  onSelectMember,
+}: MemberListProps) {
   const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name));
+  if (sorted.length === 0) {
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No members yet — invite your buds 👆</Text>
+      </View>
+    );
+  }
   return (
     <ScrollView
       horizontal
@@ -49,7 +65,14 @@ export function MemberList({ members, hostId, leaderId, insights, nowMs }: Membe
         const state = presenceOf(m, nowMs);
         const extra = m.role === "spectator" ? null : insightLine(insights[m.userId]);
         return (
-          <View key={m.userId} style={styles.card}>
+          <Pressable
+            key={m.userId}
+            style={styles.card}
+            disabled={!onSelectMember}
+            accessibilityRole={onSelectMember ? "button" : undefined}
+            accessibilityLabel={onSelectMember ? `View ${m.name}` : undefined}
+            onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
+          >
             <View style={styles.cardHeader}>
               <View style={[styles.dot, { backgroundColor: colorForUser(m.userId) }]} />
               <Text style={styles.name} numberOfLines={1}>
@@ -66,7 +89,7 @@ export function MemberList({ members, hostId, leaderId, insights, nowMs }: Membe
                 {extra}
               </Text>
             )}
-          </View>
+          </Pressable>
         );
       })}
     </ScrollView>
@@ -75,6 +98,8 @@ export function MemberList({ members, hostId, leaderId, insights, nowMs }: Membe
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 12, gap: 8 },
+  empty: { paddingHorizontal: 16, paddingVertical: 10 },
+  emptyText: { color: colors.textDim, fontSize: 13 },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

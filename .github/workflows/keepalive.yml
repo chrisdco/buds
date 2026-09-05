@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Ping database through PostgREST
         run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Keepalive secrets not configured yet (see issue #3) — skipping without failing."
+            exit 0
+          fi
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "$SUPABASE_URL/rest/v1/rooms?select=id&limit=1" \
             -H "apikey: $SUPABASE_ANON_KEY" \

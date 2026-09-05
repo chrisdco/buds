@@ -58,4 +58,11 @@ describe("extendedExpiryIso", () => {
     const result = extendedExpiryIso(null, 4 * 3600_000, NOW);
     expect(Date.parse(result)).toBe(NOW + 4 * 3600_000);
   });
+
+  it("tolerates unparseable expiry and non-finite inputs without throwing", () => {
+    const result = extendedExpiryIso("not-a-date", NaN, NaN);
+    expect(Number.isNaN(Date.parse(result))).toBe(false);
+    const fromNow = extendedExpiryIso("not-a-date", 3600_000, NOW);
+    expect(Date.parse(fromNow)).toBe(NOW + 3600_000);
+  });
 });

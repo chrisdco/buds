@@ -2,13 +2,22 @@ import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";
 import { createAlertEngine } from "@/events/alertEngine";
 import { createArrivalDetector, type ArrivalDetector } from "@/events/arrivalDetector";
 import { clearActiveRoom } from "@/lib/activeRoom";
+import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
 import { openExternalNavigation } from "@/lib/nav";
 import { serverNowMs } from "@/lib/time";
@@ -47,6 +56,7 @@ export default function RoomScreen() {
   const membersMap = useMembersStore((s) => s.members);
   const routes = useRouteStore((s) => s.routes);
   const cameraMode = useUiStore((s) => s.cameraMode);
+  const focusedMemberId = useUiStore((s) => s.focusedMemberId);
   const myUserId = useSessionStore((s) => s.userId);
 
   const cameraRef = useRef<CameraRef | null>(null);
@@ -116,12 +126,29 @@ export default function RoomScreen() {
   useEffect(() => {
     if (!room) return;
     arrivalRef.current = createArrivalDetector({
-      radiusM: () =>
-        useRoomStore.getState().room?.settings.arrival_radius_m ??
-        DEFAULT_ARRIVAL_RADIUS_M,
+      radiusM: () => {
+        const r = useRoomStore.getState().room?.settings.arrival_radius_m;
+        return Number.isFinite(r) && (r as number) > 0
+          ? (r as number)
+          : DEFAULT_ARRIVAL_RADIUS_M;
+      },
       onArrive: () => {
-        void roomsRpc.markArrived(room.id);
-        if (myUserId) sendEvt({ k: "arrived", u: myUserId, t: serverNowMs() });
+        // Confirm with the server before announcing: a transient failure
+        // re-arms the detector so staying inside the radius retries after a
+        // fresh sustain window, instead of missing arrival until a 2x
+        // excursion. The 'arrived' broadcast only goes out on confirmation.
+        void (async () => {
+          try {
+            const res = await roomsRpc.markArrived(room.id);
+            if (res.ok) {
+              if (myUserId) sendEvt({ k: "arrived", u: myUserId, t: serverNowMs() });
+            } else {
+              arrivalRef.current?.reset();
+            }
+          } catch {
+            arrivalRef.current?.reset();
+          }
+        })();
       },
     });
     return () => {
@@ -165,12 +192,19 @@ export default function RoomScreen() {
     );
   };
 
-  // Auto camera follows the strategy's policy until the user pans.
+  // Auto camera follows the strategy's policy until the user pans — unless a
+  // member is focused (detail sheet "Follow"), which pins the camera to them.
   useEffect(() => {
     if (cameraMode !== "auto" || !snap || !myUserId) return;
-    applyCameraTarget(strategy.cameraTarget(snap, myUserId));
+    const focused =
+      focusedMemberId && membersMap[focusedMemberId]?.pos ? focusedMemberId : null;
+    applyCameraTarget(
+      focused
+        ? { kind: "follow", userId: focused }
+        : strategy.cameraTarget(snap, myUserId),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nowMs, cameraMode, room?.mode]);
+  }, [nowMs, cameraMode, room?.mode, focusedMemberId]);
 
   const onLongPress = (lngLat: LngLat) => {
     if (!room || !myUserId) return;
@@ -269,6 +303,15 @@ export default function RoomScreen() {
     ]);
   };
 
+  const onSelectMember = (userId: string) => {
+    if (room) router.push(`/room/${room.id}/member/${userId}`);
+  };
+
+  const showConnBanner = connection !== "connected";
+  const expiry = expiryInfo(room?.expires_at ?? null, nowMs);
+  const focusedName =
+    focusedMemberId != null ? membersMap[focusedMemberId]?.name ?? null : null;
+
   return (
     <View style={styles.container}>
       <RoomMap
@@ -282,15 +325,40 @@ export default function RoomScreen() {
           destByMember={destByMember}
           members={membersMap}
         />
-        <MemberMarkers members={positioned} nowMs={nowMs} />
+        <MemberMarkers members={positioned} nowMs={nowMs} onSelectMember={onSelectMember} />
       </RoomMap>
+
+      {/* First paint before the snapshot: honest loading state, not a world map. */}
+      {!room && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.loadingText}>Loading room…</Text>
+        </View>
+      )}
+
+      {/* Connected but nobody has shared a position yet. */}
+      {room && positioned.length === 0 && connection === "connected" && (
+        <View style={[styles.waitingPill, { top: insets.top + 108 }]}>
+          <Text style={styles.waitingText}>Waiting for locations…</Text>
+        </View>
+      )}
 
       {/* Top bar */}
       <View style={[styles.topBar, { top: insets.top + 8 }]}>
-        <Pressable style={styles.pillButton} onPress={leave}>
+        <Pressable
+          style={styles.pillButton}
+          accessibilityRole="button"
+          accessibilityLabel="Leave room"
+          onPress={leave}
+        >
           <Text style={styles.pillButtonText}>←</Text>
         </Pressable>
-        <Pressable style={styles.titlePill} onPress={() => void copyCode()}>
+        <Pressable
+          style={styles.titlePill}
+          accessibilityRole="button"
+          accessibilityLabel="Copy room code"
+          onPress={() => void copyCode()}
+        >
           <Text style={styles.roomName} numberOfLines={1}>
             {room?.name ?? "…"}
           </Text>
@@ -300,19 +368,23 @@ export default function RoomScreen() {
         </Pressable>
         <Pressable
           style={styles.pillButton}
+          accessibilityRole="button"
+          accessibilityLabel="Invite buds"
           onPress={() => room && router.push(`/room/${room.id}/invite`)}
         >
           <Text style={styles.pillButtonText}>＋👥</Text>
         </Pressable>
         <Pressable
           style={styles.pillButton}
+          accessibilityRole="button"
+          accessibilityLabel="Room settings"
           onPress={() => room && router.push(`/room/${room.id}/settings`)}
         >
           <Text style={styles.pillButtonText}>⚙</Text>
         </Pressable>
       </View>
 
-      {connection !== "connected" && (
+      {showConnBanner && (
         <View style={[styles.connBanner, { top: insets.top + 64 }]}>
           <Text style={styles.connBannerText}>
             {connection === "reconnecting" ? "Reconnecting…" : "Connecting…"}
@@ -320,13 +392,23 @@ export default function RoomScreen() {
         </View>
       )}
 
-      <Toasts topOffset={insets.top + 64} />
+      {/* Toasts sit below the connection banner when it's visible. */}
+      <Toasts topOffset={insets.top + (showConnBanner ? 104 : 64)} />
 
       {/* Floating actions */}
       <View style={[styles.fabColumn, { bottom: insets.bottom + 160 }]}>
+        {focusedName && cameraMode === "auto" && (
+          <View style={[styles.fab, styles.fabWide]}>
+            <Text style={styles.fabText} numberOfLines={1}>
+              Following {focusedName}
+            </Text>
+          </View>
+        )}
         {myDest && (
           <Pressable
             style={[styles.fab, styles.fabWide]}
+            accessibilityRole="button"
+            accessibilityLabel="Navigate to destination in external maps"
             onPress={() => void openExternalNavigation(myDest.lat, myDest.lng)}
           >
             <Text style={styles.fabText}>🧭 Navigate</Text>
@@ -334,7 +416,10 @@ export default function RoomScreen() {
         )}
         <Pressable
           style={[styles.fab, cameraMode === "auto" && styles.fabActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Re-center map on the group"
           onPress={() => {
+            useUiStore.getState().setFocusedMemberId(null);
             useUiStore.getState().setCameraMode("auto");
             if (snap && myUserId) applyCameraTarget(strategy.cameraTarget(snap, myUserId));
           }}
@@ -346,6 +431,10 @@ export default function RoomScreen() {
       {/* Bottom panel */}
       <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}>
         <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
+        {/* Non-hosts otherwise never see the expiry until the T-10min warning. */}
+        {!isHost && expiry && !expiry.warning && (
+          <Text style={styles.expiryNote}>{expiry.label}</Text>
+        )}
         <InsightsPanel headline={insights.headline} />
         <MemberList
           members={members}
@@ -353,6 +442,7 @@ export default function RoomScreen() {
           leaderId={room?.mode === "leader" ? (room?.leader_id ?? null) : null}
           insights={insights.perMember}
           nowMs={nowMs}
+          onSelectMember={onSelectMember}
         />
       </View>
     </View>
@@ -399,6 +489,34 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   connBannerText: { color: "#1A1300", fontWeight: "700", fontSize: 12 },
+  loadingOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg,
+  },
+  loadingText: { color: colors.textDim, fontSize: 14, marginTop: 12 },
+  waitingPill: {
+    position: "absolute",
+    alignSelf: "center",
+    backgroundColor: "rgba(15,17,21,0.85)",
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  waitingText: { color: colors.textDim, fontWeight: "600", fontSize: 12 },
+  expiryNote: {
+    color: colors.textDim,
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 2,
+  },
   fabColumn: { position: "absolute", right: 16, alignItems: "flex-end", gap: 10 },
   fab: {
     minWidth: 46,

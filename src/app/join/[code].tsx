@@ -6,7 +6,7 @@ import { joinErrorMessage } from "./index";
 import { Button, Screen, Title } from "@/components/ui";
 import { colors } from "@/constants/theme";
 import { setActiveRoom } from "@/lib/activeRoom";
-import { normalizeCode } from "@/lib/ids";
+import { CODE_LENGTH, normalizeCode } from "@/lib/ids";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { RpcError } from "@/types/contracts";
@@ -17,13 +17,24 @@ export default function DeepLinkJoinScreen() {
   const { code: rawCode } = useLocalSearchParams<{ code: string }>();
   const ready = useSessionStore((s) => s.ready);
   const [error, setError] = useState<RpcError | null>(null);
-  const attempted = useRef(false);
+  const [retryBusy, setRetryBusy] = useState(false);
+  // Keyed by code (not a plain boolean) so a second invite link opened over
+  // this screen attempts its own join instead of being swallowed.
+  const attemptedCode = useRef<string | null>(null);
 
-  const code = normalizeCode(rawCode ?? "");
+  // expo-router can hand back string[] on remounts/dupes — never let that
+  // reach normalizeCode (which would throw on .toUpperCase).
+  const raw = Array.isArray(rawCode) ? (rawCode[0] ?? "") : (rawCode ?? "");
+  const code = normalizeCode(raw);
+  const codeValid = code.length === CODE_LENGTH;
 
   useEffect(() => {
-    if (!ready || attempted.current || code.length === 0) return;
-    attempted.current = true;
+    if (!ready || attemptedCode.current === code) return;
+    attemptedCode.current = code;
+    // Malformed links (buds://join/!!!) normalize to empty/short — skip the
+    // join and let the render path show a typed error (no spinner forever,
+    // no setState-in-effect).
+    if (!codeValid) return;
     void (async () => {
       const name = useSessionStore.getState().displayName.trim() || "Anonymous";
       const result = await roomsRpc.joinRoom({ code, displayName: name, role: "traveler" });
@@ -39,40 +50,50 @@ export default function DeepLinkJoinScreen() {
         setError(result.error);
       }
     })();
-  }, [ready, code, router]);
+  }, [ready, code, codeValid, router]);
+
+  // RPC failure, or a malformed invite link once the session is ready.
+  const shownError: RpcError | null =
+    error ?? (ready && !codeValid ? "bad_code" : null);
 
   return (
     <Screen>
       <View style={styles.center}>
-        <Title>{error ? "Couldn't join" : `Joining ${code}…`}</Title>
-        {!error && <ActivityIndicator size="large" color={colors.accent} style={styles.spinner} />}
-        {error && (
+        <Title>{shownError ? "Couldn't join" : `Joining ${code}…`}</Title>
+        {!shownError && <ActivityIndicator size="large" color={colors.accent} style={styles.spinner} />}
+        {shownError && (
           <>
-            <Text style={styles.error}>{joinErrorMessage(error)}</Text>
-            {error === "room_full" && (
+            <Text style={styles.error}>{joinErrorMessage(shownError)}</Text>
+            {shownError === "room_full" && (
               <Button
                 label="Join as spectator"
+                busy={retryBusy}
                 onPress={() => {
-                  attempted.current = false;
+                  if (retryBusy) return;
+                  setRetryBusy(true);
                   setError(null);
                   void (async () => {
-                    const name =
-                      useSessionStore.getState().displayName.trim() || "Anonymous";
-                    const result = await roomsRpc.joinRoom({
-                      code,
-                      displayName: name,
-                      role: "spectator",
-                    });
-                    if (result.ok) {
-                      setActiveRoom({
-                        id: result.room.id,
-                        code: result.room.code,
-                        name: result.room.name,
+                    try {
+                      const name =
+                        useSessionStore.getState().displayName.trim() || "Anonymous";
+                      const result = await roomsRpc.joinRoom({
+                        code,
+                        displayName: name,
                         role: "spectator",
                       });
-                      router.replace(`/room/${result.room.id}`);
-                    } else {
-                      setError(result.error);
+                      if (result.ok) {
+                        setActiveRoom({
+                          id: result.room.id,
+                          code: result.room.code,
+                          name: result.room.name,
+                          role: "spectator",
+                        });
+                        router.replace(`/room/${result.room.id}`);
+                      } else {
+                        setError(result.error);
+                      }
+                    } finally {
+                      setRetryBusy(false);
                     }
                   })();
                 }}

@@ -8,9 +8,11 @@ import type { MemberLive } from "@/types/contracts";
 interface MemberMarkersProps {
   members: MemberLive[];
   nowMs: number;
+  /** Opens the member detail sheet; omitted = markers not tappable. */
+  onSelectMember?: (userId: string) => void;
 }
 
-export function MemberMarkers({ members, nowMs }: MemberMarkersProps) {
+export function MemberMarkers({ members, nowMs, onSelectMember }: MemberMarkersProps) {
   return (
     <>
       {members
@@ -24,6 +26,7 @@ export function MemberMarkers({ members, nowMs }: MemberMarkersProps) {
               id={m.userId}
               lngLat={[m.pos!.lng, m.pos!.lat]}
               anchor="center"
+              onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
             >
               <View style={[styles.wrap, faded && styles.faded]}>
                 {m.pos!.heading != null && state === "moving" && (
