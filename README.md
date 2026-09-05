@@ -68,13 +68,26 @@ project twice a week: `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 ### 3. Android dev build
 
 Background location and MapLibre are native modules → **the app does not run in
-Expo Go**. You need a development build. One-time machine setup: install
-[Android Studio](https://developer.android.com/studio) (brings the SDK +
-emulator; a JDK is bundled). Then:
+Expo Go**. You need a development build.
+
+Machine setup (already done on the main dev machine — skip if present):
+- [x] Android Studio (via `winget install -e --id Google.AndroidStudio`)
+- [x] SDK packages headless: `platform-tools`, `platforms;android-35`,
+  `build-tools;35.0.0` + accepted licenses
+  (`%LOCALAPPDATA%\Android\Sdk`, `ANDROID_HOME` set persistently)
+- [x] JDK 17 for Gradle (Temurin via winget; Studio's bundled JBR is v25 and
+  Gradle can't run on it). `JAVA_HOME` points at the Temurin 17 home.
+
+On test day (physical device preferred for GPS):
 
 ```bash
 npx expo run:android        # builds + installs on the connected device/emulator
 ```
+
+Enable USB debugging on the phone first, and keep laptop + phone on the same
+Wi-Fi so the dev build reaches both Metro and the local Supabase URL in `.env`.
+`EXPO_PUBLIC_*` changes only need an `expo start` restart; native code
+changes need a rebuild.
 
 Local builds are free and unlimited (no EAS quota). For a shareable APK for
 testers:
