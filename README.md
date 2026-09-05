@@ -35,6 +35,29 @@ low-frequency "last seen" snapshot for late joiners.
 4. Copy `.env.example` to `.env` and fill in the URL + anon key from
    **Project Settings → API**.
 
+### 1b. Local-first alternative (no hosted project yet)
+
+For on-device testing you don't need hosted Supabase: the phone can talk to
+the Docker stack on this laptop as long as both are on the same Wi-Fi.
+
+```bash
+npx supabase start          # local stack (ports remapped to 5433x, see config.toml)
+npx supabase db reset       # applies migrations 0001..0007 fresh
+```
+
+Then point `.env` at this laptop's LAN IP (not `localhost` — that means the
+phone itself):
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=http://<laptop-lan-ip>:54331
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<key printed by `supabase start`>
+```
+
+`EXPO_PUBLIC_*` values bake into the JS bundle, so restart `npx expo start`
+after editing — no native rebuild needed. If the phone can't connect, check
+Windows Firewall for the Docker backend ports. Move to hosted later with the
+same `db push` flow above; nothing in the app changes except `.env`.
+
 ### 2. Keepalive (important!)
 
 Free Supabase projects **pause after 7 idle days** and must be revived by hand
