@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,9 +29,12 @@ import { RouteLines } from "@/features/map/RouteLines";
 import { ExpiryBanner } from "@/features/room/ExpiryBanner";
 import { InsightsPanel } from "@/features/room/InsightsPanel";
 import { MemberList } from "@/features/room/MemberList";
+import { RoomDetails } from "@/features/room/RoomDetails";
+import { RoomSheet, type SheetDetent } from "@/features/room/RoomSheet";
 import { Toasts } from "@/features/room/Toasts";
 import { notifyAlert } from "@/services/notifications";
 import { modeRegistry } from "@/modes/registry";
+import { travelers } from "@/modes/shared";
 import {
   DEFAULT_ARRIVAL_RADIUS_M,
   type CameraTarget,
@@ -48,6 +52,8 @@ import { useUiStore } from "@/stores/uiStore";
 export default function RoomScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: H } = useWindowDimensions();
+  const [detent, setDetent] = useState<SheetDetent>("half");
   const room = useRoomStore((s) => s.room);
   const myMemberId = useRoomStore((s) => s.myMemberId);
   const destRoom = useRoomStore((s) => s.destRoom);
@@ -90,6 +96,43 @@ export default function RoomScreen() {
     () => (snap && myUserId ? strategy.effectiveDestinationFor(snap, myUserId) : null),
     [snap, strategy, myUserId],
   );
+
+  // Uber-style trip progress + Life360-style manual check-in, both derived
+  // from stores the screen already reads (no new data paths).
+  const tripProgress = useMemo(() => {
+    if (!snap) return null;
+    const tv = travelers(snap);
+    if (tv.length === 0) return null;
+    return {
+      arrived: tv.filter((m) => m.arrivedAt != null).length,
+      total: tv.length,
+    };
+  }, [snap]);
+
+  const me = myUserId ? membersMap[myUserId] : undefined;
+  const canCheckIn =
+    room != null &&
+    myDest != null &&
+    myDest.kind !== "leader" &&
+    me != null &&
+    me.role === "traveler" &&
+    me.arrivedAt == null;
+  const checkIn = () => {
+    if (!room) return;
+    // Idempotent server-side; the auto detector keeps trying regardless, so
+    // a transient failure only needs a quiet toast, not a retry loop.
+    void roomsRpc.markArrived(room.id).then((r) => {
+      if (!r.ok) {
+        useUiStore.getState().pushAlerts([
+          {
+            id: "checkin-err",
+            severity: "warn",
+            title: "Couldn't check in — still trying automatically",
+          },
+        ]);
+      }
+    });
+  };
 
   // Slow clock driving presence labels, insight recompute, route reconciliation.
   useEffect(() => {
@@ -166,7 +209,7 @@ export default function RoomScreen() {
     );
   }, [membersMap, myDest, myUserId]);
 
-  const applyCameraTarget = (target: CameraTarget) => {
+  const applyCameraTarget = (target: CameraTarget, bottomPad: number) => {
     const posOf = (uid: string) => membersMap[uid]?.pos;
     if (target.kind === "follow") {
       const p = posOf(target.userId);
@@ -188,8 +231,18 @@ export default function RoomScreen() {
     const lats = points.map((p) => p[1]);
     cameraRef.current?.fitBounds(
       [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
-      { padding: { top: 130, bottom: 200, left: 60, right: 60 }, duration: 800 },
+      { padding: { top: 130, bottom: bottomPad, left: 60, right: 60 }, duration: 800 },
     );
+  };
+
+  // Bottom padding tracks the sheet so framed content stays in the visible
+  // map strip (Maps contentPadding pattern).
+  const camPadBottom = detent === "peek" ? 200 : Math.round(H * 0.42 + 60);
+
+  const recenter = () => {
+    useUiStore.getState().setFocusedMemberId(null);
+    useUiStore.getState().setCameraMode("auto");
+    if (snap && myUserId) applyCameraTarget(strategy.cameraTarget(snap, myUserId), camPadBottom);
   };
 
   // Auto camera follows the strategy's policy until the user pans — unless a
@@ -202,9 +255,10 @@ export default function RoomScreen() {
       focused
         ? { kind: "follow", userId: focused }
         : strategy.cameraTarget(snap, myUserId),
+      camPadBottom,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nowMs, cameraMode, room?.mode, focusedMemberId]);
+  }, [nowMs, cameraMode, room?.mode, focusedMemberId, detent, H]);
 
   const onLongPress = (lngLat: LngLat) => {
     if (!room || !myUserId) return;
@@ -318,6 +372,9 @@ export default function RoomScreen() {
         cameraRef={cameraRef}
         onLongPress={onLongPress}
         onUserPan={() => useUiStore.getState().setCameraMode("manual")}
+        ornamentPosition={
+          detent === "peek" ? { bottom: 8, left: 8 } : { top: insets.top + 76, left: 8 }
+        }
       >
         <RouteLines routes={routes} myUserId={myUserId} />
         <DestinationMarkers
@@ -325,7 +382,12 @@ export default function RoomScreen() {
           destByMember={destByMember}
           members={membersMap}
         />
-        <MemberMarkers members={positioned} nowMs={nowMs} onSelectMember={onSelectMember} />
+        <MemberMarkers
+          members={positioned}
+          nowMs={nowMs}
+          myUserId={myUserId}
+          onSelectMember={onSelectMember}
+        />
       </RoomMap>
 
       {/* First paint before the snapshot: honest loading state, not a world map. */}
@@ -419,33 +481,69 @@ export default function RoomScreen() {
           style={[styles.fab, cameraMode === "auto" && styles.fabActive]}
           accessibilityRole="button"
           accessibilityLabel="Re-center map on the group"
-          onPress={() => {
-            useUiStore.getState().setFocusedMemberId(null);
-            useUiStore.getState().setCameraMode("auto");
-            if (snap && myUserId) applyCameraTarget(strategy.cameraTarget(snap, myUserId));
-          }}
+          onPress={recenter}
         >
           <Text style={styles.fabText}>⊕</Text>
         </Pressable>
       </View>
 
-      {/* Bottom panel */}
-      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 10 }]}>
-        <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
-        {/* Non-hosts otherwise never see the expiry until the T-10min warning. */}
-        {!isHost && expiry && !expiry.warning && (
-          <Text style={styles.expiryNote}>{expiry.label}</Text>
+      {/* Maps-style non-modal sheet: peek (headline) / half (trip panel) /
+          full (trip card deck). Map stays interactive behind it; FABs sit
+          under the sheet when expanded, with Navigate mirrored in the deck. */}
+      <RoomSheet
+        detent={detent}
+        onDetentChange={setDetent}
+        renderContent={(d) => (
+          <>
+            <InsightsPanel headline={insights.headline} progress={tripProgress} />
+            {d !== "peek" && (
+              <>
+                <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
+                {/* Non-hosts otherwise never see the expiry until T-10min. */}
+                {!isHost && expiry && !expiry.warning && (
+                  <Text style={styles.expiryNote}>{expiry.label}</Text>
+                )}
+                {canCheckIn && (
+                  <Pressable
+                    style={styles.checkin}
+                    accessibilityRole="button"
+                    accessibilityLabel="Mark yourself arrived"
+                    onPress={checkIn}
+                  >
+                    <Text style={styles.checkinText}>I&apos;m here</Text>
+                  </Pressable>
+                )}
+                <MemberList
+                  members={members}
+                  hostId={room?.host_id ?? null}
+                  leaderId={room?.mode === "leader" ? (room?.leader_id ?? null) : null}
+                  insights={insights.perMember}
+                  nowMs={nowMs}
+                  onSelectMember={onSelectMember}
+                />
+              </>
+            )}
+            {d === "full" && room && (
+              <RoomDetails
+                code={room.code}
+                travelerCount={tripProgress?.total ?? 0}
+                spectatorCount={members.filter((m) => m.role === "spectator").length}
+                expiryLabel={expiry && !expiry.expired ? expiry.label : null}
+                destLabel={destRoom?.label ?? null}
+                copied={copied}
+                onCopyCode={() => void copyCode()}
+                canNavigate={myDest != null}
+                onNavigate={() =>
+                  myDest && void openExternalNavigation(myDest.lat, myDest.lng)
+                }
+                onRecenter={recenter}
+                onInvite={() => router.push(`/room/${room.id}/invite`)}
+                onSettings={() => router.push(`/room/${room.id}/settings`)}
+              />
+            )}
+          </>
         )}
-        <InsightsPanel headline={insights.headline} />
-        <MemberList
-          members={members}
-          hostId={room?.host_id ?? null}
-          leaderId={room?.mode === "leader" ? (room?.leader_id ?? null) : null}
-          insights={insights.perMember}
-          nowMs={nowMs}
-          onSelectMember={onSelectMember}
-        />
-      </View>
+      />
     </View>
   );
 }
@@ -518,6 +616,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 2,
   },
+  checkin: {
+    alignSelf: "center",
+    borderColor: colors.accent,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    marginBottom: 8,
+  },
+  checkinText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
   fabColumn: { position: "absolute", right: 16, alignItems: "flex-end", gap: 10 },
   fab: {
     minWidth: 46,
@@ -533,11 +641,4 @@ const styles = StyleSheet.create({
   fabWide: { paddingHorizontal: 16 },
   fabActive: { borderColor: colors.accent },
   fabText: { color: colors.text, fontSize: 16, fontWeight: "600" },
-  bottomPanel: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: 10,
-  },
 });

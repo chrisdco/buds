@@ -56,3 +56,27 @@ White space, Unity).
   single-accent rule doesn't apply to a multi-actor map).
 - Expiry extend actions stay as chips (compact map-adjacent language),
   not full buttons — they are low-frequency host tools, not conversion CTAs.
+
+## Reference patterns adopted (Uber / Google Maps / Life360)
+
+Shared grammar, Buds brand. Learn the pattern, not the pixels.
+
+- **Google Maps — 3-detent non-modal sheet** (`RoomSheet`): peek (headline) /
+  half (trip panel) / full (trip card deck), no scrim, map interactive
+  behind, drag handle + tap-to-cycle, fling-aware snap. Camera bottom
+  padding and logo/attribution position track the detent so framed content
+  and ornaments stay in the visible strip.
+- **Google Maps — self blue-dot language:** self marker carries the accent
+  ring; others keep white. (No accuracy halo: our throttle quantizes
+  positions, so a halo would imply false precision.)
+- **Google Maps — share-duration:** expiry chips are the analogue of Maps'
+  "share for 1 hour"; non-hosts always see the countdown line.
+- **Uber — trip progress + dark map:** arrived/travelers progress bar under
+  the insights headline; OpenFreeMap `dark` basemap so chrome stays legible;
+  full-detent deck is the trip card (facts + action deck).
+- **Life360 — Circles ≡ rooms**, member rows with live status, place
+  alerts ≡ arrival/destination alerts, **Check-in ≡ "I'm here"** manual
+  arrival (coexists with the auto detector; server-idempotent).
+- **Explicitly not adopted:** member battery % (needs a presence/tick
+  protocol change — P3), driving reports/crash/SOS-dispatch (out of scope),
+  multi-Circle switcher (one active room; revisit with real demand).

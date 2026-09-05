@@ -50,6 +50,8 @@ interface ButtonProps {
   disabled?: boolean;
   busy?: boolean;
   variant?: "primary" | "ghost" | "danger";
+  /** Compact density for decks/sheets with several actions. */
+  size?: "default" | "compact";
   /** Screen-reader label; defaults to the visible label. */
   a11yLabel?: string;
 }
@@ -60,6 +62,7 @@ export function Button({
   disabled,
   busy,
   variant = "primary",
+  size = "default",
   a11yLabel,
 }: ButtonProps) {
   const base =
@@ -78,6 +81,7 @@ export function Button({
       style={({ pressed }) => [
         styles.btn,
         base,
+        size === "compact" && styles.btnCompact,
         (disabled || busy) && styles.btnDisabled,
         pressed && styles.btnPressed,
       ]}
@@ -85,7 +89,13 @@ export function Button({
       {busy ? (
         <ActivityIndicator color={colors.text} />
       ) : (
-        <Text style={[styles.btnText, variant === "ghost" && { color: colors.accent }]}>
+        <Text
+          style={[
+            styles.btnText,
+            size === "compact" && styles.btnTextCompact,
+            variant === "ghost" && { color: colors.accent },
+          ]}
+        >
           {label}
         </Text>
       )}
@@ -174,6 +184,8 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnPressed: { opacity: 0.85 },
+  btnCompact: { paddingVertical: 10, marginTop: 8 },
+  btnTextCompact: { fontSize: 14 },
   btnText: { color: colors.text, fontSize: 16, fontWeight: "600" },
   chip: {
     borderRadius: 20,

@@ -8,11 +8,18 @@ import type { MemberLive } from "@/types/contracts";
 interface MemberMarkersProps {
   members: MemberLive[];
   nowMs: number;
+  /** Self marker gets the Maps-style treatment (accent ring). */
+  myUserId?: string | null;
   /** Opens the member detail sheet; omitted = markers not tappable. */
   onSelectMember?: (userId: string) => void;
 }
 
-export function MemberMarkers({ members, nowMs, onSelectMember }: MemberMarkersProps) {
+export function MemberMarkers({
+  members,
+  nowMs,
+  myUserId,
+  onSelectMember,
+}: MemberMarkersProps) {
   return (
     <>
       {members
@@ -20,6 +27,7 @@ export function MemberMarkers({ members, nowMs, onSelectMember }: MemberMarkersP
         .map((m) => {
           const state = presenceOf(m, nowMs);
           const faded = state === "offline" || state === "reconnecting";
+          const isSelf = myUserId != null && m.userId === myUserId;
           return (
             <Marker
               key={m.userId}
@@ -39,7 +47,13 @@ export function MemberMarkers({ members, nowMs, onSelectMember }: MemberMarkersP
                     <View style={[styles.arrowTip, { borderBottomColor: colorForUser(m.userId) }]} />
                   </View>
                 )}
-                <View style={[styles.avatar, { backgroundColor: colorForUser(m.userId) }]}>
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: colorForUser(m.userId) },
+                    isSelf && styles.selfAvatar,
+                  ]}
+                >
                   <Text style={styles.initial}>{m.name.slice(0, 1).toUpperCase()}</Text>
                 </View>
                 <Text style={styles.name} numberOfLines={1}>
@@ -82,6 +96,8 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
     elevation: 4,
   },
+  /** Self marker: accent ring instead of white (Maps blue-dot language). */
+  selfAvatar: { borderColor: colors.accent, borderWidth: 3 },
   initial: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
   name: {
     marginTop: 2,

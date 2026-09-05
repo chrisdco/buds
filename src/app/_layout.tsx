@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Side-effect import: registers the headless background-location task at module
 // scope so the OS can run it when the app is backgrounded (required placement).
@@ -28,7 +29,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={styles.flex}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -36,11 +37,12 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       />
-    </>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   loading: {
     flex: 1,
     backgroundColor: colors.bg,

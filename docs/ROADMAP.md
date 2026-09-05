@@ -37,7 +37,9 @@ The phased execution plan (P0–P3) is tracked in the GitHub issue tracker
 
 Product direction: convoy coordination (converge/leader/formation) is the
 wedge; solo/multitrack stay as experimental candidates until validated.
-Backlog (#11) stays deferred.
+UI follows the Uber/Google Maps/Life360 grammar (dark map, 3-detent sheet,
+trip progress, check-in) — see `docs/design.md`. Backlog (#11) stays
+deferred.
 
 ## What's verified
 
