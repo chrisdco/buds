@@ -32,3 +32,12 @@ export function colorForUser(userId: string): string {
   }
   return memberPalette[Math.abs(hash) % memberPalette.length];
 }
+
+/** Spacing scale — the only source of layout rhythm (margins, gaps, radii-adjacent padding). */
+export const space = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};

@@ -15,7 +15,7 @@ export function ExpiryBanner({ expiresAt, nowMs }: ExpiryBannerProps) {
   if (!info || !info.warning) return null;
   return (
     <View style={styles.banner}>
-      <Text style={styles.text}>⏳ {info.label}</Text>
+      <Text style={styles.text}>{info.label}</Text>
     </View>
   );
 }

@@ -27,7 +27,8 @@ export function DestinationMarkers({
               {destRoom.label}
             </Text>
             <View style={[styles.pin, { backgroundColor: colors.accent }]}>
-              <Text style={styles.pinGlyph}>⚑</Text>
+              {/* U+FE0E forces monochrome text presentation cross-platform. */}
+              <Text style={styles.pinGlyph}>{"\u2691\uFE0E"}</Text>
             </View>
             <View style={[styles.tip, { borderTopColor: colors.accent }]} />
           </View>

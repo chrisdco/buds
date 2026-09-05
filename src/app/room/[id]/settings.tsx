@@ -11,7 +11,7 @@ import {
 } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
-import { colorForUser, colors } from "@/constants/theme";
+import { colorForUser, colors, space } from "@/constants/theme";
 import { extendedExpiryIso } from "@/lib/expiry";
 import { modeRegistry } from "@/modes/registry";
 import { requestBatteryOptimizationExemption } from "@/services/location/battery";
@@ -148,7 +148,7 @@ export default function RoomSettingsScreen() {
         {me?.role === "traveler" && (
           <>
             <Label>Privacy</Label>
-            <View style={styles.lockRow}>
+            <View style={styles.flatRow}>
               <Text style={styles.lockText}>
                 {me.sharing
                   ? "Sharing your live location"
@@ -162,7 +162,7 @@ export default function RoomSettingsScreen() {
               />
             </View>
 
-            <View style={styles.lockRow}>
+            <View style={styles.flatRow}>
               <Text style={styles.lockText}>
                 Keep sharing with the screen off
               </Text>
@@ -182,7 +182,7 @@ export default function RoomSettingsScreen() {
         )}
 
         <Label>Access</Label>
-        <View style={styles.lockRow}>
+        <View style={styles.flatRow}>
           <Text style={styles.lockText}>
             {room.locked ? "Room locked — nobody new can join" : "Open to joiners with the code"}
           </Text>
@@ -238,7 +238,7 @@ export default function RoomSettingsScreen() {
           </View>
         )}
 
-        {(destRoom || myDest) && <Label>Destinations</Label>}
+        {((destRoom && isHost) || myDest) && <Label>Destinations</Label>}
         {destRoom && isHost && (
           <Button
             label={`Clear room destination (${destRoom.label})`}
@@ -261,7 +261,7 @@ export default function RoomSettingsScreen() {
             <Text style={styles.memberName} numberOfLines={1}>
               {m.name}
               {m.userId === room.host_id ? "  (host)" : ""}
-              {m.role === "spectator" ? "  👀" : ""}
+              {m.role === "spectator" ? "  (spectator)" : ""}
             </Text>
             {isHost && m.userId !== myUserId && (
               <Pressable
@@ -289,18 +289,17 @@ const styles = StyleSheet.create({
   header: { marginTop: 16, marginBottom: 4 },
   sub: { color: colors.textDim, fontSize: 13, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
-  lockRow: {
+  lockText: { color: colors.text, fontSize: 14, flexShrink: 1, marginRight: 10 },
+  // Flat settings rows separated by hairlines (grouping by proximity, not
+  // boxes): heterogeneous blocks are separated by spacing instead.
+  flatRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: space.sm + space.xs,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  lockText: { color: colors.text, fontSize: 14, flexShrink: 1, marginRight: 10 },
   memberRow: {
     flexDirection: "row",
     alignItems: "center",

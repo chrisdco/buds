@@ -19,7 +19,8 @@ function insightLine(insight: MemberInsight | undefined): string | null {
   if (parts.length === 0 && insight.distanceFromCentroidM != null) {
     parts.push(
       insight.outsideRadius
-        ? `⚠ ${formatDistanceM(insight.distanceFromCentroidM)} out`
+        ? // U+FE0E forces monochrome text presentation cross-platform.
+          `${"\u26A0\uFE0E"} ${formatDistanceM(insight.distanceFromCentroidM)} out`
         : `${formatDistanceM(insight.distanceFromCentroidM)} from center`,
     );
   }
@@ -51,7 +52,7 @@ export function MemberList({
   if (sorted.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyText}>No members yet — invite your buds 👆</Text>
+        <Text style={styles.emptyText}>No members yet — invite your buds from the map</Text>
       </View>
     );
   }

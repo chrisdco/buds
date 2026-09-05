@@ -242,7 +242,7 @@ export default function RoomScreen() {
 
     if (me?.role === "spectator") {
       useUiStore.getState().pushAlerts([
-        { id: "dest-spectator", severity: "info", title: "Spectators just watch 👀" },
+        { id: "dest-spectator", severity: "info", title: "Spectators just watch" },
       ]);
       return;
     }
@@ -372,7 +372,7 @@ export default function RoomScreen() {
           accessibilityLabel="Invite buds"
           onPress={() => room && router.push(`/room/${room.id}/invite`)}
         >
-          <Text style={styles.pillButtonText}>＋👥</Text>
+          <Text style={styles.pillButtonText}>+ Invite</Text>
         </Pressable>
         <Pressable
           style={styles.pillButton}
@@ -380,7 +380,8 @@ export default function RoomScreen() {
           accessibilityLabel="Room settings"
           onPress={() => room && router.push(`/room/${room.id}/settings`)}
         >
-          <Text style={styles.pillButtonText}>⚙</Text>
+          {/* U+FE0E forces monochrome text presentation cross-platform. */}
+          <Text style={styles.pillButtonText}>{"\u2699\uFE0E"}</Text>
         </Pressable>
       </View>
 
@@ -411,7 +412,7 @@ export default function RoomScreen() {
             accessibilityLabel="Navigate to destination in external maps"
             onPress={() => void openExternalNavigation(myDest.lat, myDest.lng)}
           >
-            <Text style={styles.fabText}>🧭 Navigate</Text>
+            <Text style={styles.fabText}>Navigate ›</Text>
           </Pressable>
         )}
         <Pressable
