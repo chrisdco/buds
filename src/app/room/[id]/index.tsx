@@ -20,6 +20,7 @@ import { createArrivalDetector, type ArrivalDetector } from "@/events/arrivalDet
 import { clearActiveRoom } from "@/lib/activeRoom";
 import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
+import { AppSymbol, icons } from "@/components/Symbol";
 import { openExternalNavigation } from "@/lib/nav";
 import { serverNowMs } from "@/lib/time";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
@@ -439,7 +440,12 @@ export default function RoomScreen() {
           testID="room-leave"
           onPress={leave}
         >
-          <Text style={styles.pillButtonText}>←</Text>
+          <AppSymbol
+            name={icons.back}
+            fallback={icons.back.fallback}
+            size={18}
+            tintColor={colors.text}
+          />
         </Pressable>
         <Pressable
           style={styles.titlePill}
@@ -462,7 +468,15 @@ export default function RoomScreen() {
           testID="room-invite"
           onPress={() => room && router.push(`/room/${room.id}/invite`)}
         >
-          <Text style={styles.pillButtonText}>+ Invite</Text>
+          <View style={styles.pillRow}>
+            <AppSymbol
+              name={icons.invite}
+              fallback={icons.invite.fallback}
+              size={16}
+              tintColor={colors.text}
+            />
+            <Text style={styles.pillButtonText}>Invite</Text>
+          </View>
         </Pressable>
         <Pressable
           style={styles.pillButton}
@@ -472,7 +486,12 @@ export default function RoomScreen() {
           onPress={() => room && router.push(`/room/${room.id}/settings`)}
         >
           {/* U+FE0E forces monochrome text presentation cross-platform. */}
-          <Text style={styles.pillButtonText}>{"\u2699\uFE0E"}</Text>
+          <AppSymbol
+            name={icons.settings}
+            fallback={icons.settings.fallback}
+            size={20}
+            tintColor={colors.text}
+          />
         </Pressable>
       </View>
 
@@ -504,7 +523,15 @@ export default function RoomScreen() {
             testID="room-navigate"
             onPress={() => void openExternalNavigation(myDest.lat, myDest.lng)}
           >
-            <Text style={styles.fabText}>Navigate ›</Text>
+            <View style={styles.pillRow}>
+              <AppSymbol
+                name={icons.navigate}
+                fallback={icons.navigate.fallback}
+                size={17}
+                tintColor={colors.text}
+              />
+              <Text style={styles.fabText}>Navigate</Text>
+            </View>
           </Pressable>
         )}
         <Pressable
@@ -514,7 +541,12 @@ export default function RoomScreen() {
           testID="room-recenter"
           onPress={recenter}
         >
-          <Text style={styles.fabText}>⊕</Text>
+          <AppSymbol
+            name={icons.recenter}
+            fallback={icons.recenter.fallback}
+            size={22}
+            tintColor={cameraMode === "auto" ? colors.accent : colors.text}
+          />
         </Pressable>
       </View>
 
@@ -597,6 +629,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   pillButtonText: { color: colors.text, fontWeight: "600", fontSize: 14 },
+  pillRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   titlePill: {
     flex: 1,
     backgroundColor: "rgba(15,17,21,0.85)",

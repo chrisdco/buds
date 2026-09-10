@@ -30,8 +30,14 @@ interface RoomSheetProps {
 
 export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetProps) {
   const { height: H } = useWindowDimensions();
-  const topFor = (d: SheetDetent): number =>
-    d === "peek" ? H - PEEK_HEIGHT : d === "half" ? H * (1 - HALF_RATIO) : H * (1 - FULL_RATIO);
+  // Worklet-marked so gesture callbacks (UI runtime) can call it
+  // synchronously. Worklets 0.10 forbids calling plain JS closures from the
+  // UI runtime ("Remote Function" error) — this directive is required, not
+  // optional. Calling it from JS (below) keeps working as a normal call.
+  const topFor = (d: SheetDetent): number => {
+    "worklet";
+    return d === "peek" ? H - PEEK_HEIGHT : d === "half" ? H * (1 - HALF_RATIO) : H * (1 - FULL_RATIO);
+  };
 
   const translateY = useSharedValue(topFor(detent));
   const dragStartY = useSharedValue(topFor(detent));

@@ -9,10 +9,12 @@ White space, Unity).
 
 ## Laws
 
-1. **No emoji in UI.** Glyphs must render monochrome cross-platform: ASCII
-   (`+`, `›`, `←`, `⊕`, `★`, `●`) or text-presentation-forced
-   (`⚙︎`/`⚑︎`/`⚠︎` with U+FE0E). Emoji-only codepoints (🧭 👥 👀 ⏳ 👆)
-   are banned — they render as color emoji on some OEM skins and break unity.
+1. **No emoji in UI.** Glyphs must render monochrome cross-platform: native
+   symbols via `components/AppSymbol.tsx` (SF Symbols on iOS, Material
+   Symbols on Android, explicit per-platform names validated by tsc, text
+   fallback always provided). Raw text glyphs are allowed only when
+   text-presentation is forced (U+FE0E) or the codepoint is text by default
+   (`← ⊕ ★ ● ›`). Emoji-only codepoints are banned.
 2. **One primary action per view.** Map chrome is the exception (it is all
    actions): pills share one language (same bg/border/radius/metrics).
 3. **Settings stay flat.** Toggle rows are full-bleed with hairline dividers,

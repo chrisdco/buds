@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { AppSymbol, icons } from "@/components/Symbol";
 import { colorForUser, colors } from "@/constants/theme";
 import { formatDistanceM } from "@/lib/geo";
 import { formatDurationS } from "@/lib/time";
@@ -80,7 +81,14 @@ export function MemberList({
               <Text style={styles.name} numberOfLines={1}>
                 {m.name}
               </Text>
-              {m.userId === leaderId && <Text style={styles.leaderBadge}>★</Text>}
+              {m.userId === leaderId && (
+                <AppSymbol
+                  name={icons.star}
+                  fallback={icons.star.fallback}
+                  size={12}
+                  tintColor={colors.warning}
+                />
+              )}
               {m.userId === hostId && <Text style={styles.hostBadge}>HOST</Text>}
             </View>
             <Text style={styles.status} numberOfLines={1}>
