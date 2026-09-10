@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors } from "@/constants/theme";
@@ -7,7 +8,9 @@ export interface TripProgress {
   total: number;
 }
 
-export function InsightsPanel({
+// Memoized: props (headline + progress) only change when room data changes,
+// so the 5s presence tick skips this subtree entirely.
+export const InsightsPanel = memo(function InsightsPanel({
   headline,
   progress,
 }: {
@@ -39,7 +42,7 @@ export function InsightsPanel({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   pill: {

@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { GeoJSONSource, Layer } from "@maplibre/maplibre-react-native";
 
 import { colorForUser } from "@/constants/theme";
@@ -16,7 +18,9 @@ interface RouteLinesProps {
   myUserId: string | null;
 }
 
-export function RouteLines({ routes, myUserId }: RouteLinesProps) {
+// Memoized: the routes record only changes identity on fetch/clear, so map
+// re-renders from the presence tick or camera moves skip all route layers.
+export const RouteLines = memo(function RouteLines({ routes, myUserId }: RouteLinesProps) {
   return (
     <>
       {Object.entries(routes).map(([userId, route]) => {
@@ -47,4 +51,4 @@ export function RouteLines({ routes, myUserId }: RouteLinesProps) {
       })}
     </>
   );
-}
+});

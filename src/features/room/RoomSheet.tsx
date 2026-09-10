@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -42,40 +42,47 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detent, H]);
 
-  const pan = Gesture.Pan()
-    // Vertical drags belong to the sheet; taps and horizontal scrolls
-    // (member list) pass through to children.
-    .activeOffsetY([-12, 12])
-    .onStart(() => {
-      dragStartY.value = translateY.value;
-    })
-    .onUpdate((e) => {
-      const min = topFor("full");
-      const max = topFor("peek");
-      // Worklet mutation is Reanimated's API; shared with JS intentionally.
-      // eslint-disable-next-line react-hooks/immutability
-      translateY.value = Math.min(max, Math.max(min, dragStartY.value + e.translationY));
-    })
-    .onEnd((e) => {
-      // Fling-aware snap: project along velocity, settle on nearest detent.
-      const projected = Math.min(
-        topFor("peek"),
-        Math.max(topFor("full"), translateY.value + e.velocityY * 0.12),
-      );
-      let best: SheetDetent = ORDER[0];
-      let bestDist = Infinity;
-      for (const d of ORDER) {
-        const dist = Math.abs(topFor(d) - projected);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = d;
-        }
-      }
-      // Worklet mutation is Reanimated's API; shared with JS intentionally.
-      // eslint-disable-next-line react-hooks/immutability
-      translateY.value = withSpring(topFor(best), SPRING);
-      runOnJS(onDetentChange)(best);
-    });
+  // Memoized on screen height + callback identity so parent re-renders
+  // (presence tick) never rebuild the gesture mid-drag and cancel it.
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        // Vertical drags belong to the sheet; taps and horizontal scrolls
+        // (member list) pass through to children.
+        .activeOffsetY([-12, 12])
+        .onStart(() => {
+          dragStartY.value = translateY.value;
+        })
+        .onUpdate((e) => {
+          const min = topFor("full");
+          const max = topFor("peek");
+          // Worklet mutation is Reanimated's API; shared with JS intentionally.
+          // eslint-disable-next-line react-hooks/immutability
+          translateY.value = Math.min(max, Math.max(min, dragStartY.value + e.translationY));
+        })
+        .onEnd((e) => {
+          // Fling-aware snap: project along velocity, settle on nearest detent.
+          const projected = Math.min(
+            topFor("peek"),
+            Math.max(topFor("full"), translateY.value + e.velocityY * 0.12),
+          );
+          let best: SheetDetent = ORDER[0];
+          let bestDist = Infinity;
+          for (const d of ORDER) {
+            const dist = Math.abs(topFor(d) - projected);
+            if (dist < bestDist) {
+              bestDist = dist;
+              best = d;
+            }
+          }
+          // Worklet mutation is Reanimated's API; shared with JS intentionally.
+          // eslint-disable-next-line react-hooks/immutability
+          translateY.value = withSpring(topFor(best), SPRING);
+          runOnJS(onDetentChange)(best);
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [H, onDetentChange],
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

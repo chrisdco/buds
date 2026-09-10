@@ -1,7 +1,7 @@
 import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -76,12 +76,13 @@ export default function RoomScreen() {
   const isHost = room != null && room.host_id === myUserId;
   const strategy = modeRegistry[room?.mode ?? "solo"];
 
+  // Data snapshot WITHOUT the clock: insights/alerts/routes recompute only
+  // when room data actually changes. The 5s presence tick (nowMs) drives
+  // presence labels, alert sustain timing, and route staleness checks — never
+  // a full recompute (previously every tick re-ran a turf scan per pair).
   const snap: ClientSnapshot | null = useMemo(
-    () =>
-      room
-        ? { room, members: membersMap, destRoom, destByMember, routes, nowMs }
-        : null,
-    [room, membersMap, destRoom, destByMember, routes, nowMs],
+    () => (room ? { room, members: membersMap, destRoom, destByMember, routes } : null),
+    [room, membersMap, destRoom, destByMember, routes],
   );
 
   const insights = useMemo(
@@ -117,7 +118,7 @@ export default function RoomScreen() {
     me != null &&
     me.role === "traveler" &&
     me.arrivedAt == null;
-  const checkIn = () => {
+  const checkIn = useCallback(() => {
     if (!room) return;
     // Idempotent server-side; the auto detector keeps trying regardless, so
     // a transient failure only needs a quiet toast, not a retry loop.
@@ -132,9 +133,10 @@ export default function RoomScreen() {
         ]);
       }
     });
-  };
+  }, [room]);
 
-  // Slow clock driving presence labels, insight recompute, route reconciliation.
+  // Slow clock driving presence labels, alert sustain timing, and route
+  // staleness checks — deliberately NOT part of the data snapshot above.
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 5_000);
     return () => clearInterval(timer);
@@ -158,12 +160,15 @@ export default function RoomScreen() {
       // backgrounded: surface as OS notifications instead
       for (const alert of alerts) void notifyAlert(alert);
     }
-  }, [snap, strategy, myUserId]);
+  }, [snap, strategy, myUserId, nowMs]);
 
   // Route reconciliation (staleness / deviation / moved destinations).
+  // Runs on data change AND on the slow tick: staleness is time-based, so a
+  // static scene still refetches expired routes. The reconcile itself is
+  // cheap early-outs when nothing is stale.
   useEffect(() => {
     if (snap && myUserId) void ensureRoutes(snap, strategy, myUserId);
-  }, [snap, strategy, myUserId]);
+  }, [snap, strategy, myUserId, nowMs]);
 
   // Self-reported arrival: within radius, sustained — see arrivalDetector.
   useEffect(() => {
@@ -239,11 +244,12 @@ export default function RoomScreen() {
   // map strip (Maps contentPadding pattern).
   const camPadBottom = detent === "peek" ? 200 : Math.round(H * 0.42 + 60);
 
-  const recenter = () => {
+  const recenter = useCallback(() => {
     useUiStore.getState().setFocusedMemberId(null);
     useUiStore.getState().setCameraMode("auto");
     if (snap && myUserId) applyCameraTarget(strategy.cameraTarget(snap, myUserId), camPadBottom);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap, myUserId, strategy, camPadBottom]);
 
   // Auto camera follows the strategy's policy until the user pans — unless a
   // member is focused (detail sheet "Follow"), which pins the camera to them.
@@ -335,12 +341,12 @@ export default function RoomScreen() {
     ]);
   };
 
-  const copyCode = async () => {
+  const copyCode = useCallback(async () => {
     if (!room) return;
     await Clipboard.setStringAsync(room.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-  };
+  }, [room]);
 
   const leave = () => {
     Alert.alert("Leave room?", "Your buds will see you go offline.", [
@@ -357,12 +363,28 @@ export default function RoomScreen() {
     ]);
   };
 
-  const onSelectMember = (userId: string) => {
-    if (room) router.push(`/room/${room.id}/member/${userId}`);
-  };
+  const onSelectMember = useCallback(
+    (userId: string) => {
+      if (room) router.push(`/room/${room.id}/member/${userId}`);
+    },
+    [room, router],
+  );
+  const onInvite = useCallback(() => {
+    if (room) router.push(`/room/${room.id}/invite`);
+  }, [room, router]);
+  const onSettings = useCallback(() => {
+    if (room) router.push(`/room/${room.id}/settings`);
+  }, [room, router]);
+  const onNavigateToDest = useCallback(() => {
+    if (myDest) void openExternalNavigation(myDest.lat, myDest.lng);
+  }, [myDest]);
 
   const showConnBanner = connection !== "connected";
+  // Primitives (not the expiry object) feed memoized children so the 5s
+  // presence tick doesn't churn their props.
   const expiry = expiryInfo(room?.expires_at ?? null, nowMs);
+  const expiryLabel = expiry && !expiry.expired ? expiry.label : null;
+  const expiryWarning = expiry?.warning ?? false;
   const focusedName =
     focusedMemberId != null ? membersMap[focusedMemberId]?.name ?? null : null;
 
@@ -500,8 +522,8 @@ export default function RoomScreen() {
               <>
                 <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
                 {/* Non-hosts otherwise never see the expiry until T-10min. */}
-                {!isHost && expiry && !expiry.warning && (
-                  <Text style={styles.expiryNote}>{expiry.label}</Text>
+                {!isHost && expiryLabel && !expiryWarning && (
+                  <Text style={styles.expiryNote}>{expiryLabel}</Text>
                 )}
                 {canCheckIn && (
                   <Pressable
@@ -528,17 +550,15 @@ export default function RoomScreen() {
                 code={room.code}
                 travelerCount={tripProgress?.total ?? 0}
                 spectatorCount={members.filter((m) => m.role === "spectator").length}
-                expiryLabel={expiry && !expiry.expired ? expiry.label : null}
+                expiryLabel={expiryLabel}
                 destLabel={destRoom?.label ?? null}
                 copied={copied}
-                onCopyCode={() => void copyCode()}
+                onCopyCode={copyCode}
                 canNavigate={myDest != null}
-                onNavigate={() =>
-                  myDest && void openExternalNavigation(myDest.lat, myDest.lng)
-                }
+                onNavigate={onNavigateToDest}
                 onRecenter={recenter}
-                onInvite={() => router.push(`/room/${room.id}/invite`)}
-                onSettings={() => router.push(`/room/${room.id}/settings`)}
+                onInvite={onInvite}
+                onSettings={onSettings}
               />
             )}
           </>

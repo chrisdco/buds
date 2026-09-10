@@ -93,7 +93,6 @@ export function makeSnap(partial: Partial<ClientSnapshot> = {}): ClientSnapshot 
     destRoom: null,
     destByMember: {},
     routes: {},
-    nowMs: 1_000_000,
     ...partial,
   };
 }

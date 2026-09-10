@@ -1,4 +1,10 @@
-import { bearingDeg, formatDistanceM, haversineMeters, round5 } from "@/lib/geo";
+import {
+  bearingDeg,
+  distToPolylineM,
+  formatDistanceM,
+  haversineMeters,
+  round5,
+} from "@/lib/geo";
 
 describe("haversineMeters", () => {
   it("measures ~1112m for 0.01° of latitude", () => {
@@ -33,5 +39,46 @@ describe("formatDistanceM", () => {
 describe("round5", () => {
   it("rounds to 5 decimals (~1m precision)", () => {
     expect(round5(48.20823456789)).toBe(48.20823);
+  });
+});
+
+describe("distToPolylineM", () => {
+  // Equator: 0.001° lng ≈ 111m.
+  const line: [number, number][] = [
+    [0, 0],
+    [0.01, 0],
+  ];
+
+  it("is ~0 for a point on the line", () => {
+    expect(distToPolylineM(0, 0.005, line)).toBeLessThan(1);
+  });
+
+  it("measures perpendicular distance (~111m for 0.001°)", () => {
+    const d = distToPolylineM(0.001, 0.005, line);
+    expect(d).toBeGreaterThan(105);
+    expect(d).toBeLessThan(118);
+  });
+
+  it("clamps to endpoints past the ends", () => {
+    const d = distToPolylineM(0, 0.02, line);
+    expect(d).toBeGreaterThan(1100);
+    expect(d).toBeLessThan(1130);
+  });
+
+  it("returns Infinity for degenerate or malformed input", () => {
+    expect(distToPolylineM(0, 0, [])).toBe(Infinity);
+    expect(distToPolylineM(0, 0, [[0, 0]])).toBe(Infinity);
+    expect(distToPolylineM(NaN, 0, line)).toBe(Infinity);
+    expect(
+      distToPolylineM(0, 0, [
+        [0, 0],
+        [NaN, NaN],
+      ]),
+    ).toBe(Infinity);
+  });
+
+  it("agrees with haversine for a mid-segment point", () => {
+    const d = distToPolylineM(0.0005, 0.005, line);
+    expect(d).toBeCloseTo(haversineMeters(0.0005, 0.005, 0, 0.005), -1);
   });
 });

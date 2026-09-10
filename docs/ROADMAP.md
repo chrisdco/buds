@@ -89,6 +89,27 @@ Routes: ORS (optional key) → OSRM demo → straight-line; refetched on stalene
   viewer-locally and never broadcast, so 8 clients can't all fire the same
   notification.
 
+## Performance budget (verified Sept 2026, static + local DB)
+
+- **Render loop:** the data snapshot excludes the clock, so insights/alerts/
+  routes recompute on data change only — the 5s tick drives presence labels,
+  alert sustain timing, and staleness checks (cheap early-outs). Memoized
+  leaves (`InsightsPanel`, `RoomDetails`, `RouteLines`, `DestinationMarkers`)
+  skip presence ticks; the sheet gesture is memoized so re-renders can't
+  cancel an active drag.
+- **No turf on hot paths:** deviation + route-overlap use local
+  equirectangular math (`lib/geo.distToPolylineM`, sub-percent error at city
+  scale); the 3 direct turf deps are removed (MapLibre keeps its own subset).
+- **Payloads:** location tick ~121 B, presence ~83 B. Worst case 10 travelers
+  × ~0.4 msg/s ≈ 4–5 realtime msg/s — a tiny fraction of the free quota.
+  Ticks stay broadcast-only (never DB writes) by design.
+- **DB:** EXPLAIN-verified index usage on join lookup, capacity count,
+  snapshot aggregation, and `last_seen` point updates — all index scans at
+  this scale. No backend perf work outstanding.
+- **Still needs a device:** GPS accuracy-vs-battery tuning, frame-rate
+  validation of the sheet drag + marker layers on low-end Android,
+  production bundle size, background-timer behavior.
+
 ## Setup blockers (must happen before any real use)
 
 1. **Hosted Supabase project** — create it, enable anonymous sign-ins,

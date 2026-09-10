@@ -1,7 +1,4 @@
-import turfDistance from "@turf/distance";
-import { lineString, point } from "@turf/helpers";
-import turfNearestPointOnLine from "@turf/nearest-point-on-line";
-
+import { distToPolylineM } from "@/lib/geo";
 import { arrivalConditions, personalDest, routeInsight, travelers } from "@/modes/shared";
 import type { ClientSnapshot, MemberInsight, ModeStrategy } from "@/modes/types";
 import type { RouteResult } from "@/types/contracts";
@@ -16,14 +13,20 @@ const MAX_SAMPLES = 25;
  */
 export function computeOverlapPct(mine: RouteResult, other: RouteResult): number {
   if (mine.coords.length < 2 || other.coords.length < 2) return 0;
-  const otherLine = lineString(other.coords);
   const step = Math.max(1, Math.floor(mine.coords.length / MAX_SAMPLES));
   let samples = 0;
   let near = 0;
   for (let i = 0; i < mine.coords.length; i += step) {
+    const s = mine.coords[i];
+    // Skip malformed sample points (old turf path threw and aborted the
+    // whole insight pass on one bad point).
+    if (!Array.isArray(s) || !Number.isFinite(s[0]) || !Number.isFinite(s[1])) {
+      continue;
+    }
     samples++;
-    const nearest = turfNearestPointOnLine(otherLine, point(mine.coords[i]));
-    const distM = turfDistance(point(mine.coords[i]), nearest, { units: "meters" });
+    // Local equirectangular math (lib/geo): same 150m semantics as before,
+    // without a turf scan per sample per pair per tick.
+    const distM = distToPolylineM(s[1], s[0], other.coords);
     if (distM <= OVERLAP_TOLERANCE_M) near++;
   }
   return samples === 0 ? 0 : Math.round((near / samples) * 100);

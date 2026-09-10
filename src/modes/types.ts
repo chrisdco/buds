@@ -17,7 +17,10 @@ export interface ClientSnapshot {
   destRoom: DestRow | null;
   destByMember: Record<string, DestRow>; // keyed by member_id
   routes: Record<string, RouteResult>; // keyed by user_id
-  nowMs: number;
+  // NOTE: no clock field. A previous revision carried nowMs here, which made
+  // every 5s presence tick rebuild insights/alerts/routes (incl. a turf scan
+  // per route pair). Presence/countdown UI reads Date.now() at render; all
+  // strategy math is a pure function of the data above.
 }
 
 export type DestinationPolicy =

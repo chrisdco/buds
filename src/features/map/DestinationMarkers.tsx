@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -10,7 +12,11 @@ interface DestinationMarkersProps {
   members: Record<string, MemberLive>; // keyed by user_id, for pin colors
 }
 
-export function DestinationMarkers({
+// Memoized: destinations change rarely; membersMap churns per accepted tick,
+// so this skips re-render unless a dest actually changed or membership did.
+// (Members affect pin colors via owner lookup — keyed comparison stays cheap
+// at n<=10.)
+export const DestinationMarkers = memo(function DestinationMarkers({
   destRoom,
   destByMember,
   members,
@@ -56,7 +62,7 @@ export function DestinationMarkers({
       })}
     </>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { alignItems: "center" },

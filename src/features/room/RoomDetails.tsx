@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/ui";
@@ -21,7 +22,9 @@ interface RoomDetailsProps {
   onSettings: () => void;
 }
 
-export function RoomDetails({
+// Memoized: all props are primitives or stable callbacks, so the 5s
+// presence tick skips the whole deck (it only renders at full detent).
+export const RoomDetails = memo(function RoomDetails({
   code,
   travelerCount,
   spectatorCount,
@@ -62,7 +65,7 @@ export function RoomDetails({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   block: { marginTop: space.sm, paddingBottom: space.md },

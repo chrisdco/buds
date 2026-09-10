@@ -1,6 +1,4 @@
-import turfDistance from "@turf/distance";
-import { lineString, point } from "@turf/helpers";
-import turfNearestPointOnLine from "@turf/nearest-point-on-line";
+import { distToPolylineM } from "@/lib/geo";
 
 import type { RouteResult } from "@/types/contracts";
 
@@ -11,14 +9,6 @@ export function distanceFromRouteM(
   lng: number,
 ): number {
   if (!route || route.coords.length < 2) return Infinity;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return Infinity;
-  try {
-    const p = point([lng, lat]);
-    const nearest = turfNearestPointOnLine(lineString(route.coords), p);
-    return turfDistance(p, nearest, { units: "meters" });
-  } catch {
-    // Malformed coords (NaN/empty from an unvalidated provider payload) must
-    // degrade to "not deviated", never crash the route reconciliation batch.
-    return Infinity;
-  }
+  // Local equirectangular math (lib/geo): no turf on the per-tick path.
+  return distToPolylineM(lat, lng, route.coords);
 }
