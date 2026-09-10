@@ -51,7 +51,7 @@ export function ConfirmSheet() {
           onPress={() => resolveConfirm(true)}
         />
         <Button
-          label="Cancel"
+          label={confirm?.cancelLabel ?? "Cancel"}
           variant="text"
           testID="confirm-cancel"
           onPress={() => resolveConfirm(false)}

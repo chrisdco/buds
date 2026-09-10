@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
+import * as Linking from "expo-linking";
 import { useEffect, useRef } from "react";
 import { Alert, AppState } from "react-native";
 
@@ -86,9 +87,15 @@ export default function RoomLayout() {
         const granted = await ensureForegroundLocation();
         if (!granted) {
           pipelineRunning.current = false;
+          // Deny recovery: the banner names the breakage and offers the
+          // one-tap Settings path instead of a dead end.
           Alert.alert(
             "Location is off",
             "Without location access your buds can't see you on the map. You can still watch the room.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => void Linking.openSettings() },
+            ],
           );
           return;
         }
@@ -101,6 +108,10 @@ export default function RoomLayout() {
           Alert.alert(
             "Location services are off",
             "Turn on location services on this device so your buds can see you on the map. You can still watch the room.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => void Linking.openSettings() },
+            ],
           );
           return;
         }

@@ -34,6 +34,12 @@ describe("formatDistanceM", () => {
     expect(formatDistanceM(4_200)).toBe("4.2 km");
     expect(formatDistanceM(42_000)).toBe("42 km");
   });
+
+  it("formats miles when asked", () => {
+    expect(formatDistanceM(1609, "mi")).toBe("1.0 mi");
+    expect(formatDistanceM(160934, "mi")).toBe("100 mi");
+    expect(formatDistanceM(420, "mi")).toBe("0.3 mi");
+  });
 });
 
 describe("round5", () => {

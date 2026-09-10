@@ -42,6 +42,16 @@ White space, Unity).
 9. **Tone tokens first.** `colors` + `space` in `constants/theme.ts` are the
    only source of palette/rhythm; new styles use them (migration of older
    literals is progressive, not big-bang).
+10. **First run is minimal.** No signup wall (anonymous by design), value in
+    ~90 seconds, inline teaching over carousels. Home carries a 3-step strip,
+    not a tour.
+11. **Permissions are double-prompted.** Our sheet explains the exchange at
+    the moment of intent (Not now = harmless, never blocks); the OS dialog
+    only follows Continue. Denials surface an inline banner + Settings
+    deep-link, never a dead end. Never chain system dialogs.
+12. **Settings has two homes.** App settings (`/settings`: profile, prefs,
+    trips, support) vs per-room settings (room controls). Destructive
+    identity actions always confirm and verify.
 
 ## 8-principle audit (re-check on every visual change)
 

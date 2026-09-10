@@ -13,6 +13,8 @@ export interface ConfirmRequest {
   title: string;
   body?: string;
   confirmLabel: string;
+  /** Defaults to "Cancel". Priming sheets say "Not now". */
+  cancelLabel?: string;
   destructive: boolean;
 }
 

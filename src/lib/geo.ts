@@ -35,7 +35,15 @@ function toDeg(rad: number): number {
   return (rad * 180) / Math.PI;
 }
 
-export function formatDistanceM(meters: number): string {
+export type DistanceUnit = "km" | "mi";
+
+const METERS_PER_MILE = 1609.344;
+
+export function formatDistanceM(meters: number, unit: DistanceUnit = "km"): string {
+  if (unit === "mi") {
+    const miles = meters / METERS_PER_MILE;
+    return `${miles.toFixed(miles < 10 ? 1 : 0)} mi`;
+  }
   if (meters < 1000) return `${Math.round(meters)} m`;
   return `${(meters / 1000).toFixed(meters < 10_000 ? 1 : 0)} km`;
 }

@@ -11,6 +11,7 @@ import { formatDurationS } from "@/lib/time";
 import { presenceLabel, presenceOf, useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useRouteStore } from "@/stores/routeStore";
+import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 
 // Per-member detail + focus sheet (issue #16): live presence, route ETA /
@@ -26,6 +27,7 @@ export default function MemberDetailScreen() {
   const member = useMembersStore((s) => (uid ? s.members[uid] : undefined));
   const route = useRouteStore((s) => (uid ? s.routes[uid] : undefined));
   const focusedMemberId = useUiStore((s) => s.focusedMemberId);
+  const units = useSessionStore((s) => s.units);
   // Slow clock for presence/updated labels (matches the room screen tick).
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -83,7 +85,7 @@ export default function MemberDetailScreen() {
           <Label>Route</Label>
           {route ? (
             <Text style={styles.stat}>
-              {formatDistanceM(route.distanceM)} · ETA {formatDurationS(route.durationS)}
+              {formatDistanceM(route.distanceM, units)} · ETA {formatDurationS(route.durationS)}
               {route.source === "straightline" ? " (estimate)" : ""}
             </Text>
           ) : (
@@ -98,7 +100,11 @@ export default function MemberDetailScreen() {
           {member.pos ? (
             <Text style={styles.stat}>
               Updated {Math.max(0, Math.round((nowMs - member.pos.atMs) / 1000))}s ago
-              {member.pos.speed != null ? ` · ${(member.pos.speed * 3.6).toFixed(0)} km/h` : ""}
+              {member.pos.speed != null
+                ? units === "mi"
+                  ? ` · ${(member.pos.speed * 2.237).toFixed(0)} mph`
+                  : ` · ${(member.pos.speed * 3.6).toFixed(0)} km/h`
+                : ""}
             </Text>
           ) : (
             <Text style={styles.dim}>No position shared yet.</Text>

@@ -61,8 +61,8 @@ export const formationStrategy: ModeStrategy = {
       centroid == null
         ? null
         : outside === 0
-          ? `Formation tight · radius ${formatDistanceM(radius)}`
-          : `${outside} outside the ${formatDistanceM(radius)} radius`;
+          ? `Formation tight · radius ${formatDistanceM(radius, snap.units)}`
+          : `${outside} outside the ${formatDistanceM(radius, snap.units)} radius`;
 
     return { headline, perMember };
   },
@@ -84,7 +84,7 @@ export const formationStrategy: ModeStrategy = {
         sustainMs: BREAKAWAY_SUSTAIN_MS,
         severity: "warn",
         title: isSelf ? "You've left the formation" : `${m.name} broke away`,
-        body: d != null ? `${formatDistanceM(d)} from the group` : undefined,
+        body: d != null ? `${formatDistanceM(d, snap.units)} from the group` : undefined,
       });
     }
     return conditions;

@@ -3,27 +3,27 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colorForUser, colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { formatDistanceM } from "@/lib/geo";
+import { formatDistanceM, type DistanceUnit } from "@/lib/geo";
 import { formatDurationS } from "@/lib/time";
 import type { MemberInsight } from "@/modes/types";
 import { presenceLabel, presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
 
-function insightLine(insight: MemberInsight | undefined): string | null {
+function insightLine(insight: MemberInsight | undefined, units: DistanceUnit): string | null {
   if (!insight) return null;
   if (insight.arrivedRank != null) return `Arrived #${insight.arrivedRank}`;
   const parts: string[] = [];
   if (insight.etaS != null) parts.push(`ETA ${formatDurationS(insight.etaS)}`);
-  if (insight.remainingM != null) parts.push(formatDistanceM(insight.remainingM));
+  if (insight.remainingM != null) parts.push(formatDistanceM(insight.remainingM, units));
   if (parts.length === 0 && insight.distanceToLeaderM != null) {
-    parts.push(`${formatDistanceM(insight.distanceToLeaderM)} behind`);
+    parts.push(`${formatDistanceM(insight.distanceToLeaderM, units)} behind`);
   }
   if (parts.length === 0 && insight.distanceFromCentroidM != null) {
     parts.push(
       insight.outsideRadius
         ? // U+FE0E forces monochrome text presentation cross-platform.
-          `${"\u26A0\uFE0E"} ${formatDistanceM(insight.distanceFromCentroidM)} out`
-        : `${formatDistanceM(insight.distanceFromCentroidM)} from center`,
+          `${"\u26A0\uFE0E"} ${formatDistanceM(insight.distanceFromCentroidM, units)} out`
+        : `${formatDistanceM(insight.distanceFromCentroidM, units)} from center`,
     );
   }
   if (insight.overlapPct != null && insight.overlapPct >= 30) {
@@ -38,6 +38,7 @@ interface MemberListProps {
   leaderId: string | null;
   insights: Record<string, MemberInsight>;
   nowMs: number;
+  units: DistanceUnit;
   /** Opens the member detail sheet; omitted = cards not tappable. */
   onSelectMember?: (userId: string) => void;
 }
@@ -48,6 +49,7 @@ export function MemberList({
   leaderId,
   insights,
   nowMs,
+  units,
   onSelectMember,
 }: MemberListProps) {
   const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name));
@@ -66,7 +68,7 @@ export function MemberList({
     >
       {sorted.map((m) => {
         const state = presenceOf(m, nowMs);
-        const extra = m.role === "spectator" ? null : insightLine(insights[m.userId]);
+        const extra = m.role === "spectator" ? null : insightLine(insights[m.userId], units);
         return (
           <Pressable
             key={m.userId}

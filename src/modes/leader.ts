@@ -70,9 +70,9 @@ export const leaderStrategy: ModeStrategy = {
       headline =
         followers.length === 0
           ? "You're leading — waiting for buds"
-          : `You're leading · farthest bud ${formatDistanceM(farthest)} back`;
+          : `You're leading · farthest bud ${formatDistanceM(farthest, snap.units)} back`;
     } else if (mySep != null && leaderName) {
-      headline = `${formatDistanceM(mySep)} behind ${leaderName}`;
+      headline = `${formatDistanceM(mySep, snap.units)} behind ${leaderName}`;
     }
 
     return { headline, perMember };
@@ -96,7 +96,7 @@ export const leaderStrategy: ModeStrategy = {
           sustainMs: SEPARATION_SUSTAIN_MS,
           severity: "warn",
           title: `${m.name} is falling behind`,
-          body: sep != null ? `${formatDistanceM(sep)} back` : undefined,
+          body: sep != null ? `${formatDistanceM(sep, snap.units)} back` : undefined,
         });
       }
     } else {
@@ -109,7 +109,7 @@ export const leaderStrategy: ModeStrategy = {
         sustainMs: SEPARATION_SUSTAIN_MS,
         severity: "warn",
         title: `You're falling behind ${leaderName}`,
-        body: sep != null ? `${formatDistanceM(sep)} of separation` : undefined,
+        body: sep != null ? `${formatDistanceM(sep, snap.units)} of separation` : undefined,
       });
     }
     return conditions;

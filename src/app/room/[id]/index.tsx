@@ -33,7 +33,8 @@ import { MemberList } from "@/features/room/MemberList";
 import { RoomDetails } from "@/features/room/RoomDetails";
 import { RoomSheet, type SheetDetent } from "@/features/room/RoomSheet";
 import { Toasts } from "@/features/room/Toasts";
-import { notifyAlert } from "@/services/notifications";
+import { notifyAlert, ensureNotificationPermission } from "@/services/notifications";
+import { alertCategory } from "@/events/notifyPrefs";
 import { ensureTripPack } from "@/services/map/offlinePacks";
 import { modeRegistry } from "@/modes/registry";
 import { travelers } from "@/modes/shared";
@@ -82,9 +83,10 @@ export default function RoomScreen() {
   // when room data actually changes. The 5s presence tick (nowMs) drives
   // presence labels, alert sustain timing, and route staleness checks — never
   // a full recompute (previously every tick re-ran a turf scan per pair).
+  const units = useSessionStore((s) => s.units);
   const snap: ClientSnapshot | null = useMemo(
-    () => (room ? { room, members: membersMap, destRoom, destByMember, routes } : null),
-    [room, membersMap, destRoom, destByMember, routes],
+    () => (room ? { room, members: membersMap, destRoom, destByMember, routes, units } : null),
+    [room, membersMap, destRoom, destByMember, routes, units],
   );
 
   const insights = useMemo(
@@ -149,6 +151,23 @@ export default function RoomScreen() {
   useEffect(() => {
     engineRef.current.reset();
   }, [room?.id, room?.mode]);
+  const maybePrimeNotifications = () => {
+    const session = useSessionStore.getState();
+    if (session.primedNotifications) return;
+    session.setPrimed("notifications");
+    // Double-prompt: our sheet explains the value, the OS dialog follows
+    // only on Continue. Either way the moment was already alert-worthy.
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "Stay in the loop?",
+        body: "Buds can notify you about arrivals and alerts even with the screen off.",
+        confirmLabel: "Continue",
+        cancelLabel: "Not now",
+        destructive: false,
+      });
+      if (ok) void ensureNotificationPermission();
+    })();
+  };
   useEffect(() => {
     if (!snap || !myUserId) return;
     const alerts = engineRef.current.evaluate(
@@ -157,10 +176,18 @@ export default function RoomScreen() {
     );
     if (alerts.length === 0) return;
     if (AppState.currentState === "active") {
+      // Foreground toasts always show; first alert-worthy moment also primes
+      // notifications (double-prompt: our sheet first, OS dialog second).
+      maybePrimeNotifications();
       useUiStore.getState().pushAlerts(alerts); // in-app toast
     } else {
-      // backgrounded: surface as OS notifications instead
-      for (const alert of alerts) void notifyAlert(alert);
+      // Backgrounded: OS notifications only for enabled categories.
+      // "other" (internal errors) always notifies — it's never toggled off.
+      const prefs = useSessionStore.getState().notifyPrefs;
+      for (const alert of alerts) {
+        const category = alertCategory(alert.id);
+        if (category === "other" || prefs[category] !== false) void notifyAlert(alert);
+      }
     }
   }, [snap, strategy, myUserId, nowMs]);
 
@@ -592,6 +619,7 @@ export default function RoomScreen() {
                   leaderId={room?.mode === "leader" ? (room?.leader_id ?? null) : null}
                   insights={insights.perMember}
                   nowMs={nowMs}
+                  units={units}
                   onSelectMember={onSelectMember}
                 />
               </>

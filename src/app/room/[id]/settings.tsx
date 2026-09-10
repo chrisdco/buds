@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { useState } from "react";
 import {
   Alert,
@@ -50,11 +51,28 @@ export default function RoomSettingsScreen() {
       await stopBackgroundUpdates();
       return;
     }
+    // Prime once: explain the Always ask before the OS dialog appears.
+    const session = useSessionStore.getState();
+    if (!session.primedBackground) {
+      session.setPrimed("background");
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "Share with the screen off?",
+        body: "Buds will ask for always-on location so your group keeps seeing you during the trip.",
+        confirmLabel: "Continue",
+        cancelLabel: "Not now",
+        destructive: false,
+      });
+      if (!ok) return;
+    }
     const granted = await ensureBackgroundLocation();
     if (!granted) {
       Alert.alert(
         "Background location needed",
         "Allow location 'Always' in settings so Buds can keep sharing with the screen off.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Open Settings", onPress: () => void Linking.openSettings() },
+        ],
       );
       return;
     }

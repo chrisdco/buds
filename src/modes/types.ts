@@ -10,6 +10,7 @@ import type {
   RoomRow,
   RouteResult,
 } from "@/types/contracts";
+import type { DistanceUnit } from "@/lib/geo";
 
 export interface ClientSnapshot {
   room: RoomRow;
@@ -17,6 +18,8 @@ export interface ClientSnapshot {
   destRoom: DestRow | null;
   destByMember: Record<string, DestRow>; // keyed by member_id
   routes: Record<string, RouteResult>; // keyed by user_id
+  /** Viewer unit preference for humanized distances (stable string). */
+  units: DistanceUnit;
   // NOTE: no clock field. A previous revision carried nowMs here, which made
   // every 5s presence tick rebuild insights/alerts/routes (incl. a turf scan
   // per route pair). Presence/countdown UI reads Date.now() at render; all
