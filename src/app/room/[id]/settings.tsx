@@ -122,6 +122,7 @@ export default function RoomSettingsScreen() {
               key={m.id}
               label={m.label}
               selected={m.id === room.mode}
+              testID={`settings-mode-${m.id}`}
               onPress={() => setMode(m.id)}
             />
           ))}
@@ -156,6 +157,7 @@ export default function RoomSettingsScreen() {
               </Text>
               <Switch
                 value={me.sharing}
+                testID="settings-sharing"
                 onValueChange={(sharing) => void roomsRpc.setSharing(room.id, sharing)}
                 trackColor={{ true: colors.accent, false: colors.border }}
                 thumbColor={colors.text}
@@ -168,6 +170,7 @@ export default function RoomSettingsScreen() {
               </Text>
               <Switch
                 value={backgroundSharing}
+                testID="settings-background"
                 onValueChange={(enabled) => void toggleBackgroundSharing(enabled)}
                 trackColor={{ true: colors.accent, false: colors.border }}
                 thumbColor={colors.text}
@@ -189,6 +192,7 @@ export default function RoomSettingsScreen() {
           <Switch
             value={room.locked}
             disabled={!isHost}
+            testID="settings-lock"
             onValueChange={(locked) => void guard(() => roomsRpc.lockRoom(room.id, locked))}
             trackColor={{ true: colors.accent, false: colors.border }}
             thumbColor={colors.text}
@@ -205,9 +209,10 @@ export default function RoomSettingsScreen() {
         {isHost && (
           <View style={styles.chips}>
             <Chip
-              label="+1 hour"
-              selected={false}
-              onPress={() =>
+                label="+1 hour"
+                selected={false}
+                testID="settings-expiry-1h"
+                onPress={() =>
                 void guard(() =>
                   roomsRpc.setExpiry(
                     room.id,
@@ -217,9 +222,10 @@ export default function RoomSettingsScreen() {
               }
             />
             <Chip
-              label="+4 hours"
-              selected={false}
-              onPress={() =>
+                label="+4 hours"
+                selected={false}
+                testID="settings-expiry-4h"
+                onPress={() =>
                 void guard(() =>
                   roomsRpc.setExpiry(
                     room.id,
@@ -267,6 +273,7 @@ export default function RoomSettingsScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${m.name} from the room`}
+                testID={`settings-kick-${m.userId}`}
                 hitSlop={12}
                 onPress={() => kick(m.userId, m.name)}
               >
@@ -277,7 +284,14 @@ export default function RoomSettingsScreen() {
         ))}
 
         <ErrorText>{error}</ErrorText>
-        {isHost && <Button label="End room for everyone" variant="danger" onPress={endRoom} />}
+        {isHost && (
+          <Button
+            label="End room for everyone"
+            variant="danger"
+            testID="settings-end"
+            onPress={endRoom}
+          />
+        )}
         <Button label="Back to map" variant="ghost" onPress={() => router.back()} />
         <View style={{ height: 24 }} />
       </ScrollView>

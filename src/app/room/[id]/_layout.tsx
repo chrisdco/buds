@@ -1,4 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { useEffect, useRef } from "react";
 import { Alert, AppState } from "react-native";
 
@@ -14,6 +15,7 @@ import {
   stopForegroundPipeline,
 } from "@/services/location/pipeline";
 import { disposePublisher } from "@/services/location/publisher";
+import { clearTripPack } from "@/services/map/offlinePacks";
 import { ensureNotificationPermission } from "@/services/notifications";
 import {
   connectRoomChannel,
@@ -57,6 +59,7 @@ export default function RoomLayout() {
       pipelineRunning.current = false;
       disposePublisher();
       resetRouteManager();
+      void clearTripPack();
       void disconnectRoomChannel().catch(() => {});
     };
   }, [id]);
@@ -85,6 +88,18 @@ export default function RoomLayout() {
           Alert.alert(
             "Location is off",
             "Without location access your buds can't see you on the map. You can still watch the room.",
+          );
+          return;
+        }
+        // Device-wide location services off is a separate failure: permission
+        // grants succeed, startLocationUpdates succeeds, the notification
+        // shows — and zero fixes ever arrive. Gate it honestly up front.
+        const servicesOn = await Location.hasServicesEnabledAsync();
+        if (!servicesOn) {
+          pipelineRunning.current = false;
+          Alert.alert(
+            "Location services are off",
+            "Turn on location services on this device so your buds can see you on the map. You can still watch the room.",
           );
           return;
         }

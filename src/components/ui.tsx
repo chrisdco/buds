@@ -54,6 +54,8 @@ interface ButtonProps {
   size?: "default" | "compact";
   /** Screen-reader label; defaults to the visible label. */
   a11yLabel?: string;
+  /** Stable selector for Maestro E2E flows (zero runtime cost). */
+  testID?: string;
 }
 
 export function Button({
@@ -64,6 +66,7 @@ export function Button({
   variant = "primary",
   size = "default",
   a11yLabel,
+  testID,
 }: ButtonProps) {
   const base =
     variant === "primary"
@@ -78,6 +81,7 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
       accessibilityState={{ disabled: disabled || busy, busy: !!busy }}
+      testID={testID}
       style={({ pressed }) => [
         styles.btn,
         base,
@@ -108,12 +112,15 @@ export function Chip({
   selected,
   onPress,
   a11yLabel,
+  testID,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   /** Screen-reader label; defaults to the visible label. */
   a11yLabel?: string;
+  /** Stable selector for Maestro E2E flows (zero runtime cost). */
+  testID?: string;
 }) {
   return (
     <Pressable
@@ -121,6 +128,7 @@ export function Chip({
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
       accessibilityState={{ selected }}
+      testID={testID}
       style={[styles.chip, selected && styles.chipSelected]}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>

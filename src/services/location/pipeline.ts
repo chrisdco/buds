@@ -34,6 +34,18 @@ export async function startForegroundPipeline(roomId: string): Promise<void> {
       publisher.publish(toFix(location));
     },
   );
+
+  // Instant first marker: the watcher only fires on new fixes, which can take
+  // seconds indoors. The last known position (if any) paints immediately and
+  // the live stream corrects it — same codec, same throttle, no special path.
+  try {
+    const last = await Location.getLastKnownPositionAsync();
+    if (last && useSessionStore.getState().userId) {
+      publisher.publish(toFix(last));
+    }
+  } catch {
+    // No cached fix (fresh install, location never used) — watcher covers it.
+  }
 }
 
 export function stopForegroundPipeline(): void {

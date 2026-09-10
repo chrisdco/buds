@@ -90,12 +90,18 @@ export default function CreateRoomScreen() {
       </View>
 
       <Label>Room name</Label>
-      <TextField value={name} onChangeText={setName} maxLength={60} />
+      <TextField value={name} onChangeText={setName} maxLength={60} testID="create-name" />
 
       <Label>Mode</Label>
       <View style={styles.chips}>
         {MODES.map((m) => (
-          <Chip key={m.id} label={m.label} selected={m.id === mode} onPress={() => setMode(m.id)} />
+          <Chip
+            key={m.id}
+            label={m.label}
+            selected={m.id === mode}
+            testID={`create-mode-${m.id}`}
+            onPress={() => setMode(m.id)}
+          />
         ))}
       </View>
       <Text style={styles.blurb}>{selectedMode.blurb}</Text>
@@ -124,7 +130,7 @@ export default function CreateRoomScreen() {
       </View>
 
       <ErrorText>{error}</ErrorText>
-      <Button label="Create room" busy={busy} onPress={() => void create()} />
+      <Button label="Create room" busy={busy} testID="create-submit" onPress={() => void create()} />
       <Button label="Back" variant="ghost" onPress={() => router.back()} />
     </Screen>
   );

@@ -111,6 +111,7 @@ export default function MemberDetailScreen() {
             <Button
               label="Navigate to them"
               a11yLabel={`Navigate to ${member.name} in external maps`}
+              testID="member-navigate"
               onPress={() =>
                 void openExternalNavigation(member.pos!.lat, member.pos!.lng)
               }
@@ -119,9 +120,15 @@ export default function MemberDetailScreen() {
           <Button
             label={isFocused ? "Unfollow" : "Follow on map"}
             variant="ghost"
+            testID="member-follow"
             onPress={toggleFollow}
           />
-          <Button label="Back to map" variant="ghost" onPress={() => router.back()} />
+          <Button
+            label="Back to map"
+            variant="ghost"
+            testID="member-back"
+            onPress={() => router.back()}
+          />
         </View>
       </View>
     </Screen>

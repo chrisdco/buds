@@ -99,6 +99,7 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
           style={styles.handleZone}
           accessibilityRole="button"
           accessibilityLabel={`Trip panel, ${detent}. Activate to ${detent === "full" ? "collapse" : "expand"}.`}
+          testID="room-sheet-handle"
           onPress={cycle}
         >
           <View style={styles.handle} />

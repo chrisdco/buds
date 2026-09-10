@@ -1,0 +1,16 @@
+# Destination + route: long-press the map, confirm, expect route UI.
+# Assumes the app is already inside a room as host (run home-create-room.yml
+# first in the same session, or reorder flows). Map coordinates are in
+# percent-of-screen and may need adjusting per device (verified on the
+# buds_pixel AVD, 1080x2400).
+appId: com.buds.app
+---
+- launchApp
+# Long-press near map center to drop a destination (host-only confirm dialog).
+- longPressOn:
+    point: "50%,40%"
+- assertVisible: "Set room destination?"
+- tapOn: "Set destination"
+# Route reconciliation fetches OSRM, then renders pin + ETA + Navigate.
+- assertVisible: "Navigate"
+  timeout: 30000

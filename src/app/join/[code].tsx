@@ -68,6 +68,7 @@ export default function DeepLinkJoinScreen() {
               <Button
                 label="Join as spectator"
                 busy={retryBusy}
+                testID="deeplink-join-spectator"
                 onPress={() => {
                   if (retryBusy) return;
                   setRetryBusy(true);

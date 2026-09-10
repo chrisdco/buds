@@ -49,14 +49,20 @@ export default function InviteScreen() {
       <Button
         label={copied ? "Copied!" : "Copy code"}
         variant="ghost"
+        testID="invite-copy"
         onPress={() => {
           void Clipboard.setStringAsync(room.code);
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         }}
       />
-      <Button label="Share invite" onPress={share} />
-      <Button label="Back to map" variant="ghost" onPress={() => router.back()} />
+      <Button label="Share invite" testID="invite-share" onPress={share} />
+      <Button
+        label="Back to map"
+        variant="ghost"
+        testID="invite-back"
+        onPress={() => router.back()}
+      />
     </Screen>
   );
 }

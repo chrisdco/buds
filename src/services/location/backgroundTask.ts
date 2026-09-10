@@ -70,7 +70,10 @@ export async function startBackgroundUpdates(): Promise<boolean> {
   await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
     accuracy: Location.Accuracy.High,
     timeInterval: 3_000,
-    distanceInterval: 8,
+    // 0 = no provider-side culling: Android filters here (not hints), which
+    // drops 3-4x samples exactly when the screen is off and fixes are
+    // coarsest. Our JS throttle dedupes instead — steady cadence wins.
+    distanceInterval: 0,
     deferredUpdatesInterval: 0,
     pausesUpdatesAutomatically: false, // iOS
     activityType: Location.ActivityType.OtherNavigation, // iOS
@@ -80,6 +83,9 @@ export async function startBackgroundUpdates(): Promise<boolean> {
       notificationTitle: "Buds is sharing your location",
       notificationBody: "Your group can see you during this trip.",
       notificationColor: "#208AEF",
+      // Without this, swiping the app away kills the service and tracking
+      // stops silently while the notification may linger.
+      killServiceOnDestroy: false,
     },
   });
   return true;

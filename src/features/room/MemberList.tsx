@@ -72,6 +72,7 @@ export function MemberList({
             disabled={!onSelectMember}
             accessibilityRole={onSelectMember ? "button" : undefined}
             accessibilityLabel={onSelectMember ? `View ${m.name}` : undefined}
+            testID={onSelectMember ? `member-card-${m.userId}` : undefined}
             onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
           >
             <View style={styles.cardHeader}>

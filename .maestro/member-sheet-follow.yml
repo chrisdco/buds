@@ -1,0 +1,16 @@
+# Member sheet + follow: open own card, follow, verify focus chip, unfollow.
+# Assumes an active room with at least self positioned (mock location set).
+appId: com.buds.app
+---
+- launchApp
+# Open the member detail sheet via the member list card (name is dynamic).
+- tapOn: "Maestro"
+- assertVisible: "Follow on map"
+# Follow pins the camera and shows the focus chip back on the map.
+- tapOn:
+    id: "member-follow"
+- assertVisible: "Following Maestro"
+# Re-center releases focus.
+- tapOn:
+    id: "room-recenter"
+- assertNotVisible: "Following Maestro"

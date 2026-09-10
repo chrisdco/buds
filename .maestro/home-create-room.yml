@@ -1,0 +1,19 @@
+# Buds smoke: launch, name entry, room creation, live map.
+# Prereqs (see docs/e2e.md): emulator booted, supabase running, Metro up,
+# location + notification permissions pre-granted, mock location set.
+appId: com.buds.app
+---
+- launchApp
+- assertVisible: "Live maps for small groups"
+- tapOn:
+    id: "home-name"
+- inputText: "Maestro"
+- hideKeyboard
+- tapOn:
+    id: "home-create"
+- assertVisible: "Room name"
+- tapOn:
+    id: "create-submit"
+- assertVisible:
+    id: "room-copy-code"
+    timeout: 15000

@@ -65,6 +65,7 @@ export default function HomeScreen() {
         placeholder="e.g. Chris"
         maxLength={24}
         autoCapitalize="words"
+        testID="home-name"
       />
 
       {activeRoom && (
@@ -74,6 +75,7 @@ export default function HomeScreen() {
             label={`Rejoin “${activeRoom.name}”`}
             variant="ghost"
             busy={rejoinBusy}
+            testID="home-rejoin"
             onPress={() => void rejoin()}
           />
           <ErrorText>{rejoinError}</ErrorText>
@@ -84,12 +86,14 @@ export default function HomeScreen() {
         <Button
           label="Create a room"
           disabled={!nameValid}
+          testID="home-create"
           onPress={() => router.push("/create")}
         />
         <Button
           label="Join with code"
           variant="ghost"
           disabled={!nameValid}
+          testID="home-join"
           onPress={() => router.push("/join")}
         />
         {!nameValid && (

@@ -33,6 +33,7 @@ import { RoomDetails } from "@/features/room/RoomDetails";
 import { RoomSheet, type SheetDetent } from "@/features/room/RoomSheet";
 import { Toasts } from "@/features/room/Toasts";
 import { notifyAlert } from "@/services/notifications";
+import { ensureTripPack } from "@/services/map/offlinePacks";
 import { modeRegistry } from "@/modes/registry";
 import { travelers } from "@/modes/shared";
 import {
@@ -281,6 +282,7 @@ export default function RoomScreen() {
             useUiStore.getState().pushAlerts([
               { id: "dest-err", severity: "warn", title: "Couldn't set destination" },
             ]);
+          else void ensureTripPack(lat, lng);
         });
     const setMyDest = () => {
       if (!myMemberId) return;
@@ -297,6 +299,7 @@ export default function RoomScreen() {
             useUiStore.getState().pushAlerts([
               { id: "dest-err", severity: "warn", title: "Couldn't set destination" },
             ]);
+          else void ensureTripPack(lat, lng);
         });
     };
 
@@ -433,6 +436,7 @@ export default function RoomScreen() {
           style={styles.pillButton}
           accessibilityRole="button"
           accessibilityLabel="Leave room"
+          testID="room-leave"
           onPress={leave}
         >
           <Text style={styles.pillButtonText}>←</Text>
@@ -441,6 +445,7 @@ export default function RoomScreen() {
           style={styles.titlePill}
           accessibilityRole="button"
           accessibilityLabel="Copy room code"
+          testID="room-copy-code"
           onPress={() => void copyCode()}
         >
           <Text style={styles.roomName} numberOfLines={1}>
@@ -454,6 +459,7 @@ export default function RoomScreen() {
           style={styles.pillButton}
           accessibilityRole="button"
           accessibilityLabel="Invite buds"
+          testID="room-invite"
           onPress={() => room && router.push(`/room/${room.id}/invite`)}
         >
           <Text style={styles.pillButtonText}>+ Invite</Text>
@@ -462,6 +468,7 @@ export default function RoomScreen() {
           style={styles.pillButton}
           accessibilityRole="button"
           accessibilityLabel="Room settings"
+          testID="room-settings"
           onPress={() => room && router.push(`/room/${room.id}/settings`)}
         >
           {/* U+FE0E forces monochrome text presentation cross-platform. */}
@@ -494,6 +501,7 @@ export default function RoomScreen() {
             style={[styles.fab, styles.fabWide]}
             accessibilityRole="button"
             accessibilityLabel="Navigate to destination in external maps"
+            testID="room-navigate"
             onPress={() => void openExternalNavigation(myDest.lat, myDest.lng)}
           >
             <Text style={styles.fabText}>Navigate ›</Text>
@@ -503,6 +511,7 @@ export default function RoomScreen() {
           style={[styles.fab, cameraMode === "auto" && styles.fabActive]}
           accessibilityRole="button"
           accessibilityLabel="Re-center map on the group"
+          testID="room-recenter"
           onPress={recenter}
         >
           <Text style={styles.fabText}>⊕</Text>
@@ -530,6 +539,7 @@ export default function RoomScreen() {
                     style={styles.checkin}
                     accessibilityRole="button"
                     accessibilityLabel="Mark yourself arrived"
+                    testID="room-checkin"
                     onPress={checkIn}
                   >
                     <Text style={styles.checkinText}>I&apos;m here</Text>

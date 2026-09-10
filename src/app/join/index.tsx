@@ -112,6 +112,7 @@ export default function JoinRoomScreen() {
             autoCorrect={false}
             maxLength={CODE_LENGTH}
             style={styles.codeInput}
+            testID="join-code"
           />
 
           <Label>Join as</Label>
@@ -141,9 +142,15 @@ export default function JoinRoomScreen() {
             label="Join room"
             busy={busy}
             disabled={code.length !== CODE_LENGTH}
+            testID="join-submit"
             onPress={() => void join(code, role)}
           />
-          <Button label="Scan QR code" variant="ghost" onPress={() => void startScan()} />
+          <Button
+            label="Scan QR code"
+            variant="ghost"
+            testID="join-scan"
+            onPress={() => void startScan()}
+          />
           <Button label="Back" variant="ghost" onPress={() => router.back()} />
         </>
       )}

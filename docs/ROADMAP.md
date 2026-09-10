@@ -16,6 +16,7 @@ The phased execution plan (P0–P3) is tracked in the GitHub issue tracker
 | M4 — Background & host tooling | 🟡 code-complete | Host controls, QR/deep-link, pause-sharing, separation/breakaway alerts, **background location task lane, OEM battery-exemption prompt, local notifications** all implemented. The background/notification paths are written + unit-tested where pure, but **not yet verified on a device** |
 | M5 — Resilience & release | 🟡 started | **Expiry-countdown UI + host extend done.** Remaining: GPS tuning with real traces, on-device E2E drills, signed APK |
 | P0 — Stability hardening | ✅ done (desktop) | Migration `0007` + client fixes: publisher lane refresh, arrival server-confirm retry, store/exit hygiene, deep-link + realtime/routing guards, capacity lock, host auto-promote, typed validation errors. Verified via tsc/lint/unit/SQL smoke; device drill still pending |
+| P1a — Location reliability + E2E + offline | ✅ done (desktop) | `killServiceOnDestroy: false`, provider-culling off (`distanceInterval: 0`), services-off gate, last-known first fix, `testID`s + Maestro flows (`docs/e2e.md`), offline trip packs, Atlas runbook (`docs/bundle.md`). Runtime behavior needs a device; no Sentry (deferred by decision) |
 
 ## Current phase plan (P0–P3)
 
