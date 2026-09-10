@@ -6,6 +6,7 @@ import QRCode from "react-native-qrcode-svg";
 
 import { Button, Screen, Title } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { useRoomStore } from "@/stores/roomStore";
 
 export default function InviteScreen() {
@@ -70,8 +71,13 @@ export default function InviteScreen() {
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 18 },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { color: colors.textDim, fontSize: 14, marginTop: 12 },
-  sub: { color: colors.textDim, fontSize: 14, marginTop: 4 },
+  loadingText: {
+    color: colors.textDim,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    marginTop: 12,
+  },
+  sub: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular, marginTop: 4 },
   qrBox: {
     alignSelf: "center",
     backgroundColor: "#FFFFFF",
@@ -81,7 +87,7 @@ const styles = StyleSheet.create({
   code: {
     color: colors.text,
     fontSize: 34,
-    fontWeight: "800",
+    fontFamily: fontFamily.extraBold,
     letterSpacing: 10,
     textAlign: "center",
     marginTop: 18,

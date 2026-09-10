@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { expiryInfo } from "@/lib/expiry";
 
 interface ExpiryBannerProps {
@@ -29,5 +30,5 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     marginBottom: 8,
   },
-  text: { color: "#1A1300", fontWeight: "700", fontSize: 12 },
+  text: { color: "#1A1300", fontFamily: fontFamily.bold, fontSize: 12 },
 });

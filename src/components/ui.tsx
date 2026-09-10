@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors } from "@/constants/theme";
+import { colors, space } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 
 export function Screen({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
@@ -91,13 +92,15 @@ export function Button({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={colors.text} />
+        <ActivityIndicator color={variant === "primary" ? colors.onPrimary : colors.text} />
       ) : (
         <Text
           style={[
             styles.btnText,
             size === "compact" && styles.btnTextCompact,
-            variant === "ghost" && { color: colors.accent },
+            variant === "primary" && styles.btnTextPrimary,
+            variant === "danger" && styles.btnTextDanger,
+            variant === "ghost" && styles.btnTextGhost,
           ]}
         >
           {label}
@@ -149,21 +152,23 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 0.2,
+    marginBottom: space.xs,
   },
   label: {
     color: colors.textDim,
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: fontFamily.semiBold,
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: space.md + 2,
+    marginBottom: space.sm,
   },
   error: {
     color: colors.danger,
     fontSize: 14,
+    fontFamily: fontFamily.regular,
     marginTop: 10,
   },
   input: {
@@ -175,15 +180,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: colors.text,
     fontSize: 16,
+    fontFamily: fontFamily.regular,
   },
   btn: {
-    borderRadius: 12,
+    borderRadius: 999,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
   },
-  btnPrimary: { backgroundColor: colors.accent },
+  // Uber polarity flip for dark mode: primary CTA is white ink on canvas.
+  btnPrimary: { backgroundColor: colors.primary },
   btnDanger: { backgroundColor: colors.danger },
   btnGhost: {
     backgroundColor: "transparent",
@@ -194,9 +201,14 @@ const styles = StyleSheet.create({
   btnPressed: { opacity: 0.85 },
   btnCompact: { paddingVertical: 10, marginTop: 8 },
   btnTextCompact: { fontSize: 14 },
-  btnText: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  // Primary/danger labels sit on filled ink: black/white respectively.
+  // Ghost labels are plain white text (was accent blue).
+  btnText: { fontSize: 16, fontFamily: fontFamily.medium },
+  btnTextPrimary: { color: colors.onPrimary },
+  btnTextDanger: { color: "#FFFFFF" },
+  btnTextGhost: { color: colors.text },
   chip: {
-    borderRadius: 20,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -206,10 +218,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   chipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  chipText: { color: colors.textDim, fontSize: 14, fontWeight: "600" },
-  chipTextSelected: { color: colors.text },
+  chipText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
+  chipTextSelected: { color: colors.onPrimary },
   row: { flexDirection: "row", alignItems: "center" },
 });

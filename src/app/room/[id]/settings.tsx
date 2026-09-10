@@ -12,6 +12,7 @@ import {
 
 import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
 import { colorForUser, colors, space } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { extendedExpiryIso } from "@/lib/expiry";
 import { modeRegistry } from "@/modes/registry";
 import { requestBatteryOptimizationExemption } from "@/services/location/battery";
@@ -21,6 +22,7 @@ import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUiStore } from "@/stores/uiStore";
 import type { RoomMode } from "@/types/contracts";
 
 const MODES = Object.values(modeRegistry);
@@ -83,25 +85,27 @@ export default function RoomSettingsScreen() {
   };
 
   const kick = (userId: string, name: string) => {
-    Alert.alert(`Remove ${name}?`, "They won't be able to rejoin this room.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => void guard(() => roomsRpc.kickMember(room.id, userId)),
-      },
-    ]);
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: `Remove ${name}?`,
+        body: "They won't be able to rejoin this room.",
+        confirmLabel: "Remove",
+        destructive: true,
+      });
+      if (ok) void guard(() => roomsRpc.kickMember(room.id, userId));
+    })();
   };
 
   const endRoom = () => {
-    Alert.alert("End room for everyone?", "This closes the room for all members.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "End room",
-        style: "destructive",
-        onPress: () => void roomsRpc.endRoom(room.id),
-      },
-    ]);
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "End room for everyone?",
+        body: "This closes the room for all members.",
+        confirmLabel: "End room",
+        destructive: true,
+      });
+      if (ok) void roomsRpc.endRoom(room.id);
+    })();
   };
 
   return (
@@ -301,9 +305,15 @@ export default function RoomSettingsScreen() {
 
 const styles = StyleSheet.create({
   header: { marginTop: 16, marginBottom: 4 },
-  sub: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  sub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
-  lockText: { color: colors.text, fontSize: 14, flexShrink: 1, marginRight: 10 },
+  lockText: {
+    color: colors.text,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    flexShrink: 1,
+    marginRight: 10,
+  },
   // Flat settings rows separated by hairlines (grouping by proximity, not
   // boxes): heterogeneous blocks are separated by spacing instead.
   flatRow: {
@@ -323,6 +333,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  memberName: { color: colors.text, fontSize: 15, flex: 1 },
-  kick: { color: colors.danger, fontWeight: "600", fontSize: 13, padding: 4 },
+  memberName: { color: colors.text, fontSize: 15, fontFamily: fontFamily.regular, flex: 1 },
+  kick: { color: colors.danger, fontFamily: fontFamily.medium, fontSize: 13, padding: 4 },
 });

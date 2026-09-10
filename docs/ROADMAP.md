@@ -18,6 +18,7 @@ The phased execution plan (P0–P3) is tracked in the GitHub issue tracker
 | P0 — Stability hardening | ✅ done (desktop) | Migration `0007` + client fixes: publisher lane refresh, arrival server-confirm retry, store/exit hygiene, deep-link + realtime/routing guards, capacity lock, host auto-promote, typed validation errors. Verified via tsc/lint/unit/SQL smoke; device drill still pending |
 | P1a — Location reliability + E2E + offline | ✅ done (desktop) | `killServiceOnDestroy: false`, provider-culling off (`distanceInterval: 0`), services-off gate, last-known first fix, `testID`s + Maestro flows (`docs/e2e.md`), offline trip packs, Atlas runbook (`docs/bundle.md`). Runtime behavior needs a device; no Sentry (deferred by decision) |
 | SDK 57 upgrade | ✅ done (device-verified) | Expo 57 / RN 0.86 / Reanimated 4.5, doctor 21/21, full regression on emulator: launch, map, drag sheet, destination + route, member sheet. Two upgrade incidents fixed: ERESOLVE (stale lockfile) and a global-`Symbol` shadowing crash + Worklets 0.10 remote-function strictness (both now guarded). Native icon pass (`AppSymbol`) verified rendering |
+| Uber design pass | ✅ done (device-verified) | Inter type system (no bare fontWeight), ink/white duet, 999px pills, 16px cards, flat settings, fixed-width member cards, native ConfirmSheet replacing Alert.alert confirms. Verified on emulator across home/create/map/sheet/settings/invite |
 
 ## Current phase plan (P0–P3)
 

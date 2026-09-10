@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Button, Label, Screen, Title } from "@/components/ui";
 import { colorForUser, colors, space } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
 import { openExternalNavigation } from "@/lib/nav";
 import { formatDurationS } from "@/lib/time";
@@ -149,9 +150,15 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
     marginBottom: 8,
   },
-  initial: { color: "#FFFFFF", fontWeight: "700", fontSize: 26 },
-  sub: { color: colors.textDim, fontSize: 14, marginTop: 4, textAlign: "center" },
-  stat: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  dim: { color: colors.textDim, fontSize: 14 },
+  initial: { color: "#FFFFFF", fontFamily: fontFamily.bold, fontSize: 26 },
+  sub: {
+    color: colors.textDim,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    marginTop: 4,
+    textAlign: "center",
+  },
+  stat: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold },
+  dim: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular },
   actions: { marginTop: "auto", paddingTop: space.md },
 });

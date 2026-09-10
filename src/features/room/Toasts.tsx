@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { useUiStore } from "@/stores/uiStore";
 
 const TOAST_TTL_MS = 6_000;
@@ -53,15 +54,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignSelf: "center",
     maxWidth: "86%",
-    backgroundColor: "rgba(26,29,36,0.95)",
+    backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
     alignItems: "center",
   },
   warn: { borderColor: colors.warning },
-  title: { color: colors.text, fontWeight: "700", fontSize: 13 },
-  body: { color: colors.textDim, fontSize: 12, marginTop: 1 },
+  title: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 13 },
+  body: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, marginTop: 1 },
 });

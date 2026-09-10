@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -114,7 +115,18 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: { marginTop: 48, marginBottom: 12 },
-  tagline: { color: colors.textDim, fontSize: 15, lineHeight: 21 },
+  tagline: {
+    color: colors.textDim,
+    fontSize: 15,
+    lineHeight: 21,
+    fontFamily: fontFamily.regular,
+  },
   actions: { marginTop: 28 },
-  hint: { color: colors.textDim, fontSize: 13, marginTop: 10, textAlign: "center" },
+  hint: {
+    color: colors.textDim,
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: "center",
+    fontFamily: fontFamily.regular,
+  },
 });

@@ -2,6 +2,7 @@ import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 
 export interface TripProgress {
   arrived: number;
@@ -47,16 +48,21 @@ export const InsightsPanel = memo(function InsightsPanel({
 const styles = StyleSheet.create({
   pill: {
     alignSelf: "center",
-    backgroundColor: "rgba(15,17,21,0.85)",
+    backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginBottom: 8,
     maxWidth: "92%",
   },
-  text: { color: colors.text, fontSize: 13, fontWeight: "600", textAlign: "center" },
+  text: {
+    color: colors.text,
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
+    textAlign: "center",
+  },
   track: {
     flexDirection: "row",
     height: 4,

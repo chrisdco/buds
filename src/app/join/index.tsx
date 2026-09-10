@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode, parseInviteCode } from "@/lib/ids";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -163,6 +164,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap" },
   codeInput: {
     fontSize: 24,
+    fontFamily: fontFamily.bold,
     letterSpacing: 8,
     textAlign: "center",
     fontVariant: ["tabular-nums"],
@@ -180,5 +182,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 10,
     fontSize: 13,
+    fontFamily: fontFamily.regular,
   },
 });

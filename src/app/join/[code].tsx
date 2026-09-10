@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { joinErrorMessage } from "./index";
 import { Button, Screen, Title } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode } from "@/lib/ids";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -112,5 +113,11 @@ export default function DeepLinkJoinScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center" },
   spinner: { marginTop: 24 },
-  error: { color: colors.danger, fontSize: 15, marginTop: 8, marginBottom: 12 },
+  error: {
+    color: colors.danger,
+    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    marginTop: 8,
+    marginBottom: 12,
+  },
 });

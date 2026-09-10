@@ -4,6 +4,7 @@ import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colorForUser, colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import type { DestRow, MemberLive } from "@/types/contracts";
 
 interface DestinationMarkersProps {
@@ -68,12 +69,12 @@ const styles = StyleSheet.create({
   wrap: { alignItems: "center" },
   label: {
     color: colors.text,
-    backgroundColor: "rgba(15,17,21,0.75)",
+    backgroundColor: colors.scrim,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 1,
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fontFamily.semiBold,
     marginBottom: 2,
     maxWidth: 110,
     overflow: "hidden",
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   pinSmall: { width: 22, height: 22, borderRadius: 11 },
-  pinGlyph: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  pinGlyph: { color: "#FFFFFF", fontSize: 13, fontFamily: fontFamily.bold },
   pinGlyphSmall: { color: "#FFFFFF", fontSize: 9 },
   tip: {
     width: 0,

@@ -1,14 +1,22 @@
 export const colors = {
-  bg: "#0F1115",
-  surface: "#1A1D24",
-  surfaceAlt: "#242833",
-  border: "#2E3340",
-  text: "#F2F4F8",
-  textDim: "#9AA3B2",
+  // Uber duet adapted to our dark product: ink black canvas, white primary
+  // CTAs, neutral grays. Blue survives ONLY as information color (live
+  // codes, ETAs, links) — never decoration. Member hues are wayfinding.
+  bg: "#000000",
+  surface: "#111111",
+  surfaceAlt: "#1A1A1A",
+  border: "#2A2A2A",
+  text: "#FFFFFF",
+  textDim: "#A8A8A8",
+  /** Primary CTA surface (Uber polarity flip for dark mode). */
+  primary: "#FFFFFF",
+  onPrimary: "#000000",
   accent: "#4F8EF7",
   danger: "#E5484D",
   success: "#46A758",
   warning: "#F5A623",
+  /** Map chrome pills/labels floating over tiles. */
+  scrim: "rgba(0,0,0,0.85)",
 };
 
 const memberPalette = [

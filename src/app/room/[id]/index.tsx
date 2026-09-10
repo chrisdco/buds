@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   Pressable,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { createAlertEngine } from "@/events/alertEngine";
 import { createArrivalDetector, type ArrivalDetector } from "@/events/arrivalDetector";
 import { clearActiveRoom } from "@/lib/activeRoom";
@@ -322,10 +322,15 @@ export default function RoomScreen() {
         ]);
         return;
       }
-      Alert.alert("Set room destination?", "Everyone will head here.", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Set destination", onPress: setRoomDest },
-      ]);
+      void (async () => {
+        const ok = await useUiStore.getState().requestConfirm({
+          title: "Set room destination?",
+          body: "Everyone will head here.",
+          confirmLabel: "Set destination",
+          destructive: false,
+        });
+        if (ok) setRoomDest();
+      })();
       return;
     }
 
@@ -339,10 +344,14 @@ export default function RoomScreen() {
       return;
     }
 
-    Alert.alert("Set your destination?", undefined, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Set destination", onPress: setMyDest },
-    ]);
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "Set your destination?",
+        confirmLabel: "Set destination",
+        destructive: false,
+      });
+      if (ok) setMyDest();
+    });
   };
 
   const copyCode = useCallback(async () => {
@@ -353,18 +362,18 @@ export default function RoomScreen() {
   }, [room]);
 
   const leave = () => {
-    Alert.alert("Leave room?", "Your buds will see you go offline.", [
-      { text: "Stay", style: "cancel" },
-      {
-        text: "Leave",
-        style: "destructive",
-        onPress: () => {
-          if (room) void roomsRpc.leaveRoom(room.id);
-          clearActiveRoom();
-          router.replace("/");
-        },
-      },
-    ]);
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "Leave room?",
+        body: "Your buds will see you go offline.",
+        confirmLabel: "Leave",
+        destructive: true,
+      });
+      if (!ok || !room) return;
+      void roomsRpc.leaveRoom(room.id);
+      clearActiveRoom();
+      router.replace("/");
+    })();
   };
 
   const onSelectMember = useCallback(
@@ -621,36 +630,41 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pillButton: {
-    backgroundColor: "rgba(15,17,21,0.85)",
+    backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  pillButtonText: { color: colors.text, fontWeight: "600", fontSize: 14 },
+  pillButtonText: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 14 },
   pillRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   titlePill: {
     flex: 1,
-    backgroundColor: "rgba(15,17,21,0.85)",
+    backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
     alignItems: "center",
   },
-  roomName: { color: colors.text, fontWeight: "700", fontSize: 14 },
-  roomCode: { color: colors.accent, fontWeight: "700", fontSize: 11, letterSpacing: 1 },
+  roomName: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 14 },
+  roomCode: {
+    color: colors.accent,
+    fontFamily: fontFamily.bold,
+    fontSize: 11,
+    letterSpacing: 1,
+  },
   connBanner: {
     position: "absolute",
     alignSelf: "center",
     backgroundColor: colors.warning,
-    borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 5,
   },
-  connBannerText: { color: "#1A1300", fontWeight: "700", fontSize: 12 },
+  connBannerText: { color: "#1A1300", fontFamily: fontFamily.bold, fontSize: 12 },
   loadingOverlay: {
     position: "absolute",
     left: 0,
@@ -661,40 +675,46 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.bg,
   },
-  loadingText: { color: colors.textDim, fontSize: 14, marginTop: 12 },
+  loadingText: {
+    color: colors.textDim,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    marginTop: 12,
+  },
   waitingPill: {
     position: "absolute",
     alignSelf: "center",
-    backgroundColor: "rgba(15,17,21,0.85)",
+    backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 5,
   },
-  waitingText: { color: colors.textDim, fontWeight: "600", fontSize: 12 },
+  waitingText: { color: colors.textDim, fontFamily: fontFamily.semiBold, fontSize: 12 },
   expiryNote: {
     color: colors.textDim,
     fontSize: 11,
+    fontFamily: fontFamily.regular,
     textAlign: "center",
     marginBottom: 2,
   },
   checkin: {
     alignSelf: "center",
-    borderColor: colors.accent,
+    borderColor: colors.text,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 7,
     marginBottom: 8,
   },
-  checkinText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
+  checkinText: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 13 },
   fabColumn: { position: "absolute", right: 16, alignItems: "flex-end", gap: 10 },
   fab: {
     minWidth: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "rgba(15,17,21,0.85)",
+    backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
     alignItems: "center",
@@ -702,6 +722,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   fabWide: { paddingHorizontal: 16 },
-  fabActive: { borderColor: colors.accent },
-  fabText: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  fabActive: { borderColor: colors.text },
+  fabText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
 });

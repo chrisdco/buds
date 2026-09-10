@@ -15,28 +15,39 @@ White space, Unity).
    fallback always provided). Raw text glyphs are allowed only when
    text-presentation is forced (U+FE0E) or the codepoint is text by default
    (`← ⊕ ★ ● ›`). Emoji-only codepoints are banned.
-2. **One primary action per view.** Map chrome is the exception (it is all
+2. **Uber duet + Inter.** Ink-black canvas, white primary CTAs with black
+   labels, neutral grays; blue survives only as information (live codes,
+   ETAs, links). Type is Inter only (`constants/fonts.ts`, exact family
+   names, no bare `fontWeight` — Android can't synthesize weights):
+   700 titles/codes, 600 labels/insights, 500 buttons, 400 body. Pills are
+   999px stadium; cards 16px.
+3. **Confirms are native sheets, not system alerts.** Destructive or
+   consequential choices go through `ConfirmSheet` (@expo/ui modal
+   BottomSheet + scrim); `Alert.alert` remains only for pure notices.
+   Callers `await requestConfirm()` — replacement resolves pending false,
+   so no one hangs.
+4. **One primary action per view.** Map chrome is the exception (it is all
    actions): pills share one language (same bg/border/radius/metrics).
-3. **Settings stay flat.** Toggle rows are full-bleed with hairline dividers,
+5. **Settings stay flat.** Toggle rows are full-bleed with hairline dividers,
    48px+ touch height; heterogeneous blocks separated by spacing, not boxes.
    Cards are earned (map overlays, member cards), not default.
-4. **Eyebrow labels for hierarchy.** `Label` (uppercase, letterspaced, dim)
+6. **Eyebrow labels for hierarchy.** `Label` (uppercase, letterspaced, dim)
    introduces every section; values stay larger/brighter than their labels.
-5. **Sheets balance top-to-bottom.** Detail screens anchor actions at the
+7. **Sheets balance top-to-bottom.** Detail screens anchor actions at the
    bottom (`marginTop: auto`) so the primary CTA sits in the thumb zone;
    no top-packed voids.
-6. **Honest states over blank screens.** Loading skeletons, waiting pills,
+8. **Honest states over blank screens.** Loading skeletons, waiting pills,
    empty states, and staleness labels (`Updated Xs ago`, `Last seen Xm ago`)
    — never a blank map or white screen.
-7. **Tone tokens first.** `colors` + `space` in `constants/theme.ts` are the
+9. **Tone tokens first.** `colors` + `space` in `constants/theme.ts` are the
    only source of palette/rhythm; new styles use them (migration of older
    literals is progressive, not big-bang).
 
 ## 8-principle audit (re-check on every visual change)
 
-- **Contrast** — one blue primary per view; `accent` never used for status;
-  destructive red reserved for end/kick; warning amber reserved for
-  expiry/formation alerts.
+- **Contrast** — one white primary per view; `accent` blue is information
+  only (codes, ETAs); destructive red reserved for end/kick; warning amber
+  reserved for expiry/formation alerts.
 - **Hierarchy** — map > insights headline > member cards; sheet: identity >
   route/position > actions; settings: section label > row value > caption.
 - **Alignment** — 20px screen axis (`Screen`), 12px map-overlay axis; one

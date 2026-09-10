@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colorForUser, colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
 import { formatDurationS } from "@/lib/time";
 import type { MemberInsight } from "@/modes/types";
@@ -107,29 +108,34 @@ export function MemberList({
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 12, gap: 8 },
+  content: { paddingHorizontal: 20, gap: 8, alignItems: "flex-start" },
   empty: { paddingHorizontal: 16, paddingVertical: 10 },
-  emptyText: { color: colors.textDim, fontSize: 13 },
+  emptyText: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 130,
-    maxWidth: 180,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    width: 168,
+    flexShrink: 0,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  name: { color: colors.text, fontWeight: "600", fontSize: 14, flexShrink: 1 },
+  name: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 14, flexShrink: 1 },
   hostBadge: {
     color: colors.warning,
     fontSize: 9,
-    fontWeight: "800",
+    fontFamily: fontFamily.extraBold,
     letterSpacing: 0.5,
   },
   leaderBadge: { color: colors.warning, fontSize: 12 },
-  status: { color: colors.textDim, fontSize: 12, marginTop: 3 },
-  insight: { color: colors.accent, fontSize: 12, marginTop: 2, fontWeight: "600" },
+  status: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, marginTop: 3 },
+  insight: {
+    color: colors.accent,
+    fontSize: 12,
+    marginTop: 2,
+    fontFamily: fontFamily.semiBold,
+  },
 });

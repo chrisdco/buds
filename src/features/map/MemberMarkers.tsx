@@ -2,6 +2,7 @@ import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colorForUser, colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
 
@@ -98,16 +99,16 @@ const styles = StyleSheet.create({
   },
   /** Self marker: accent ring instead of white (Maps blue-dot language). */
   selfAvatar: { borderColor: colors.accent, borderWidth: 3 },
-  initial: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
+  initial: { color: "#FFFFFF", fontFamily: fontFamily.bold, fontSize: 15 },
   name: {
     marginTop: 2,
     color: colors.text,
-    backgroundColor: "rgba(15,17,21,0.75)",
+    backgroundColor: colors.scrim,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 1,
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fontFamily.semiBold,
     overflow: "hidden",
   },
 });

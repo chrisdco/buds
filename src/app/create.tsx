@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -139,7 +140,7 @@ export default function CreateRoomScreen() {
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 4 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
-  blurb: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  blurb: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   stepper: { flexDirection: "row", alignItems: "center", gap: 18 },
   stepBtn: {
     width: 44,
@@ -151,6 +152,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBtnText: { color: colors.text, fontSize: 22, fontWeight: "600" },
-  stepValue: { color: colors.text, fontSize: 20, fontWeight: "700", minWidth: 28, textAlign: "center" },
+  stepBtnText: { color: colors.text, fontSize: 22, fontFamily: fontFamily.medium },
+  stepValue: {
+    color: colors.text,
+    fontSize: 20,
+    fontFamily: fontFamily.bold,
+    minWidth: 28,
+    textAlign: "center",
+  },
 });

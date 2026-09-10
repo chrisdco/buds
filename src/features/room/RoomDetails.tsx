@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/ui";
 import { colors, space } from "@/constants/theme";
+import { fontFamily } from "@/constants/fonts";
 
 // Full-detent deck: the Uber-style trip card — room facts plus the action
 // deck (navigate / re-center / invite / settings) so expanded controls never
@@ -72,10 +73,10 @@ const styles = StyleSheet.create({
   facts: { alignItems: "center", gap: 2, marginBottom: space.sm },
   code: {
     color: colors.accent,
-    fontWeight: "800",
+    fontFamily: fontFamily.extraBold,
     fontSize: 20,
     letterSpacing: 4,
   },
-  fact: { color: colors.textDim, fontSize: 13 },
+  fact: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular },
   actions: { gap: 0 },
 });
