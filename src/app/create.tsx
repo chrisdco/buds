@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -6,6 +6,7 @@ import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/comp
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
+import { TRIP_PRESETS, parseCreateParams } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { RoomMode, RpcError } from "@/types/contracts";
@@ -45,12 +46,18 @@ function createErrorMessage(error: RpcError): string {
 export default function CreateRoomScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
+  // Trip templates arrive as validated params (Trips tab cards); direct
+  // entry falls back to the standard defaults. Prefilled values stay fully
+  // editable — presets suggest, never lock.
+  const rawParams = useLocalSearchParams();
+  const preset = parseCreateParams(rawParams);
+  const presetTitle = TRIP_PRESETS.find((p) => p.id === rawParams.preset)?.title;
   const [name, setName] = useState(
-    displayName.trim() ? `${displayName.trim()}'s trip` : "Our trip",
+    preset.name ?? (displayName.trim() ? `${displayName.trim()}'s trip` : "Our trip"),
   );
-  const [mode, setMode] = useState<RoomMode>("converge");
-  const [limit, setLimit] = useState(10);
-  const [durationHours, setDurationHours] = useState<number | null>(12);
+  const [mode, setMode] = useState<RoomMode>(preset.mode);
+  const [limit, setLimit] = useState(preset.limit);
+  const [durationHours, setDurationHours] = useState<number | null>(preset.durationHours);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +95,7 @@ export default function CreateRoomScreen() {
     <Screen>
       <View style={styles.header}>
         <Title>New room</Title>
+        {presetTitle && <Text style={styles.presetHint}>{presetTitle} preset — tweak anything</Text>}
       </View>
 
       <Label>Room name</Label>
@@ -139,6 +147,7 @@ export default function CreateRoomScreen() {
 
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 4 },
+  presetHint: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
   blurb: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   stepper: { flexDirection: "row", alignItems: "center", gap: 18 },

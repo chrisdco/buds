@@ -16,3 +16,11 @@ appId: com.buds.app
 - tapOn:
     id: "tab-home"
 - assertVisible: "Live maps for small groups"
+# Trip template preselects /create (Meet up = converge, prefilled name).
+- tapOn:
+    id: "tab-trips"
+- tapOn:
+    id: "trips-template-meet-up"
+- assertVisible: "Meet up preset"
+- tapOn: "Back"
+- assertVisible: "Recent trips"
