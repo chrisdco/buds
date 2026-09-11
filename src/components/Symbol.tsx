@@ -44,6 +44,8 @@ export const icons = {
   trips: { ios: "map.fill", android: "map", fallback: "▤" },
   profile: { ios: "person.fill", android: "person", fallback: "●" },
   navigate: { ios: "arrow.up.right", android: "arrow_outward", fallback: "›" },
+  search: { ios: "magnifyingglass", android: "search", fallback: "⌕" },
+  history: { ios: "clock", android: "history", fallback: "↻" },
   recenter: { ios: "location", android: "my_location", fallback: "⊕" },
   star: { ios: "star.fill", android: "star", fallback: "★" },
   flag: { ios: "flag.fill", android: "flag", fallback: "⚑︎" },

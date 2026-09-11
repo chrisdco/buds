@@ -18,6 +18,13 @@ export interface ConfirmRequest {
   destructive: boolean;
 }
 
+/** Destination picked in search, awaiting map adjust + confirm on the map. */
+export interface DestDraft {
+  lat: number;
+  lng: number;
+  label: string;
+}
+
 interface UiState {
   toasts: ToastItem[];
   cameraMode: CameraMode;
@@ -25,6 +32,9 @@ interface UiState {
   focusedMemberId: string | null;
   /** Active native confirm dialog (ConfirmSheet); null when closed. */
   confirm: ConfirmRequest | null;
+  /** Search/long-press pick waiting for adjust + confirm; null when idle. */
+  destDraft: DestDraft | null;
+  setDestDraft: (draft: DestDraft | null) => void;
   pushAlerts: (alerts: LocalAlert[]) => void;
   dismissToast: (key: string) => void;
   setCameraMode: (mode: CameraMode) => void;
@@ -46,6 +56,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   cameraMode: "auto",
   focusedMemberId: null,
   confirm: null,
+  destDraft: null,
 
   pushAlerts: (alerts) => {
     if (alerts.length === 0) return;
@@ -61,6 +72,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setCameraMode: (cameraMode) => set({ cameraMode }),
 
   setFocusedMemberId: (focusedMemberId) => set({ focusedMemberId }),
+
+  setDestDraft: (destDraft) => set({ destDraft }),
 
   requestConfirm: (req) =>
     new Promise<boolean>((resolve) => {
@@ -79,6 +92,6 @@ export const useUiStore = create<UiState>()((set, get) => ({
   reset: () => {
     confirmResolve?.(false);
     confirmResolve = null;
-    set({ toasts: [], cameraMode: "auto", focusedMemberId: null, confirm: null });
+    set({ toasts: [], cameraMode: "auto", focusedMemberId: null, confirm: null, destDraft: null });
   },
 }));

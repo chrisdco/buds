@@ -1,4 +1,4 @@
-import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
+import type { CameraRef, LngLat, MapRef } from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +22,7 @@ import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
 import { collectFitPoints } from "@/lib/mapBounds";
 import { AppSymbol, icons } from "@/components/Symbol";
+import { Button } from "@/components/ui";
 import { openExternalNavigation } from "@/lib/nav";
 import { serverNowMs } from "@/lib/time";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
@@ -67,13 +68,18 @@ export default function RoomScreen() {
   const routes = useRouteStore((s) => s.routes);
   const cameraMode = useUiStore((s) => s.cameraMode);
   const focusedMemberId = useUiStore((s) => s.focusedMemberId);
+  const destDraft = useUiStore((s) => s.destDraft);
   const myUserId = useSessionStore((s) => s.userId);
 
   const cameraRef = useRef<CameraRef | null>(null);
+  const mapRef = useRef<MapRef | null>(null);
   const engineRef = useRef(createAlertEngine());
   const arrivalRef = useRef<ArrivalDetector | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
+  // Adjust-pin draft: picked via search or long-press, awaiting map adjust +
+  // confirm. Coords track the live map center while active.
+  const [adjust, setAdjust] = useState<{ lat: number; lng: number; label: string } | null>(null);
 
   const members = useMemo(() => Object.values(membersMap), [membersMap]);
   const positioned = useMemo(() => members.filter((m) => m.pos), [members]);
@@ -290,8 +296,9 @@ export default function RoomScreen() {
 
   // Auto camera follows the strategy's policy until the user pans — unless a
   // member is focused (detail sheet "Follow"), which pins the camera to them.
+  // Suspended while adjusting a destination pin (the pin, not the camera, moves).
   useEffect(() => {
-    if (cameraMode !== "auto" || !snap || !myUserId) return;
+    if (cameraMode !== "auto" || adjust || !snap || !myUserId) return;
     const focused =
       focusedMemberId && membersMap[focusedMemberId]?.pos ? focusedMemberId : null;
     applyCameraTarget(
@@ -301,7 +308,38 @@ export default function RoomScreen() {
       camPadBottom,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nowMs, cameraMode, room?.mode, focusedMemberId, detent, H]);
+  }, [nowMs, cameraMode, adjust, room?.mode, focusedMemberId, detent, H]);
+
+  const setRoomDest = (lat: number, lng: number, label: string) => {
+    if (!room) return;
+    void roomsRpc
+      .setDestination({ roomId: room.id, lat, lng, label })
+      .then((r) => {
+        if (!r.ok)
+          useUiStore.getState().pushAlerts([
+            { id: "dest-err", severity: "warn", title: "Couldn't set destination" },
+          ]);
+        else void ensureTripPack(lat, lng);
+      });
+  };
+  const setMyDest = (lat: number, lng: number, label: string) => {
+    if (!myMemberId || !room) return;
+    void roomsRpc
+      .setDestination({
+        roomId: room.id,
+        lat,
+        lng,
+        label,
+        memberId: myMemberId,
+      })
+      .then((r) => {
+        if (!r.ok)
+          useUiStore.getState().pushAlerts([
+            { id: "dest-err", severity: "warn", title: "Couldn't set destination" },
+          ]);
+        else void ensureTripPack(lat, lng);
+      });
+  };
 
   const onLongPress = (lngLat: LngLat) => {
     if (!room || !myUserId) return;
@@ -309,35 +347,6 @@ export default function RoomScreen() {
     const me = membersMap[myUserId];
     const policy = strategy.destinationPolicy;
     const isLeaderMe = room.leader_id === myUserId;
-
-    const setRoomDest = () =>
-      void roomsRpc
-        .setDestination({ roomId: room.id, lat, lng, label: "Meet point" })
-        .then((r) => {
-          if (!r.ok)
-            useUiStore.getState().pushAlerts([
-              { id: "dest-err", severity: "warn", title: "Couldn't set destination" },
-            ]);
-          else void ensureTripPack(lat, lng);
-        });
-    const setMyDest = () => {
-      if (!myMemberId) return;
-      void roomsRpc
-        .setDestination({
-          roomId: room.id,
-          lat,
-          lng,
-          label: "Destination",
-          memberId: myMemberId,
-        })
-        .then((r) => {
-          if (!r.ok)
-            useUiStore.getState().pushAlerts([
-              { id: "dest-err", severity: "warn", title: "Couldn't set destination" },
-            ]);
-          else void ensureTripPack(lat, lng);
-        });
-    };
 
     if (me?.role === "spectator") {
       useUiStore.getState().pushAlerts([
@@ -357,15 +366,9 @@ export default function RoomScreen() {
         ]);
         return;
       }
-      void (async () => {
-        const ok = await useUiStore.getState().requestConfirm({
-          title: "Set room destination?",
-          body: "Everyone will head here.",
-          confirmLabel: "Set destination",
-          destructive: false,
-        });
-        if (ok) setRoomDest();
-      })();
+      // Long-press seeds adjust-pin mode (drag to fine-tune, then confirm)
+      // instead of setting immediately — same confirm copy as before.
+      setAdjust({ lat, lng, label: "Meet point" });
       return;
     }
 
@@ -379,14 +382,60 @@ export default function RoomScreen() {
       return;
     }
 
+    setAdjust({ lat, lng, label: "Destination" });
+  };
+
+  // Search picks land here via the store: fly the pin into view, then hand
+  // to adjust mode so the same policy gates + confirm apply. Deferred to a
+  // microtask: consuming external-store state synchronously in an effect is
+  // a cascading-render hazard (zigzag: search screen set -> this effect set).
+  useEffect(() => {
+    if (!destDraft) return;
+    const draft = destDraft;
+    queueMicrotask(() => {
+      useUiStore.getState().setDestDraft(null);
+      cameraRef.current?.easeTo({ center: [draft.lng, draft.lat], zoom: 15, duration: 700 });
+      setAdjust({ lat: draft.lat, lng: draft.lng, label: draft.label });
+    });
+  }, [destDraft]);
+
+  // While adjusting, the pin stays screen-centered: track the live map center
+  // as the user drags (fires on gesture end, not per frame).
+  const onAdjustRegionChange = () => {
+    if (!adjust) return;
+    void mapRef.current?.getCenter().then(([lng, lat]) => {
+      setAdjust((prev) => (prev ? { ...prev, lat, lng } : prev));
+    }).catch(() => {});
+  };
+
+  const confirmAdjust = () => {
+    if (!room || !myUserId || !adjust) return;
+    const { lat, lng, label } = adjust;
+    const policy = strategy.destinationPolicy;
+    const finish = () => setAdjust(null);
+    if (policy === "room") {
+      void (async () => {
+        const ok = await useUiStore.getState().requestConfirm({
+          title: "Set room destination?",
+          body: `${label} — everyone will head here.`,
+          confirmLabel: "Set destination",
+          destructive: false,
+        });
+        if (ok) setRoomDest(lat, lng, label);
+        finish();
+      })();
+      return;
+    }
     void (async () => {
       const ok = await useUiStore.getState().requestConfirm({
         title: "Set your destination?",
+        body: label,
         confirmLabel: "Set destination",
         destructive: false,
       });
-      if (ok) setMyDest();
-    });
+      if (ok) setMyDest(lat, lng, label);
+      finish();
+    })();
   };
 
   const copyCode = useCallback(async () => {
@@ -440,8 +489,10 @@ export default function RoomScreen() {
     <View style={styles.container}>
       <RoomMap
         cameraRef={cameraRef}
+        mapRef={mapRef}
         onLongPress={onLongPress}
         onUserPan={() => useUiStore.getState().setCameraMode("manual")}
+        onRegionChange={onAdjustRegionChange}
         ornamentPosition={
           detent === "peek" ? { bottom: 8, right: 8 } : { top: insets.top + 76, right: 8 }
         }
@@ -544,6 +595,74 @@ export default function RoomScreen() {
           <Text style={styles.connBannerText}>
             {connection === "reconnecting" ? "Reconnecting…" : "Connecting…"}
           </Text>
+        </View>
+      )}
+
+      {/* Destination entry + adjust-pin card: Uber "Where to?" grammar.
+      Sits below the top bar (under the conn banner when visible). */}
+      {!adjust ? (
+        <Pressable
+          style={[styles.searchPill, { top: insets.top + (showConnBanner ? 108 : 60) }]}
+          accessibilityRole="button"
+          accessibilityLabel={destRoom ? `Change destination, currently ${destRoom.label}` : "Search for a destination"}
+          testID="room-dest-search"
+          onPress={() => {
+            if (!room || !myUserId) return;
+            const me = membersMap[myUserId];
+            if (me?.role === "spectator") {
+              useUiStore.getState().pushAlerts([
+                { id: "dest-spectator", severity: "info", title: "Spectators just watch" },
+              ]);
+              return;
+            }
+            router.push(`/room/${room.id}/dest-search`);
+          }}
+        >
+          <AppSymbol
+            name={icons.search}
+            fallback={icons.search.fallback}
+            size={17}
+            tintColor={colors.textDim}
+          />
+          <Text style={styles.searchText} numberOfLines={1}>
+            {destRoom?.label ?? "Where to?"}
+          </Text>
+        </Pressable>
+      ) : (
+        <View style={[styles.adjustCard, { top: insets.top + (showConnBanner ? 108 : 60) }]}>
+          <Text style={styles.adjustLabel} numberOfLines={1}>
+            {adjust.label}
+          </Text>
+          <Text style={styles.adjustHint}>Drag the map to fine-tune the pin</Text>
+          <View style={styles.adjustRow}>
+            <View style={styles.adjustBtn}>
+              <Button
+                label="Cancel"
+                variant="ghost"
+                size="compact"
+                testID="adjust-cancel"
+                onPress={() => setAdjust(null)}
+              />
+            </View>
+            <View style={styles.adjustBtn}>
+              <Button
+                label="Set destination"
+                size="compact"
+                testID="adjust-confirm"
+                onPress={confirmAdjust}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Adjust pin: fixed at the visible map strip while the map moves under it. */}
+      {adjust && (
+        <View style={styles.adjustPin} pointerEvents="none">
+          <View style={[styles.pinCircle, { backgroundColor: colors.accent }]}>
+            <Text style={styles.pinGlyph}>{"\u2691\uFE0E"}</Text>
+          </View>
+          <View style={[styles.pinTip, { borderTopColor: colors.accent }]} />
         </View>
       )}
 
@@ -701,6 +820,57 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   connBannerText: { color: "#1A1300", fontFamily: fontFamily.bold, fontSize: 12 },
+  searchPill: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.scrim,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  searchText: { color: colors.textDim, fontSize: 15, fontFamily: fontFamily.regular, flexShrink: 1 },
+  adjustCard: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  adjustLabel: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold },
+  adjustHint: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, marginTop: 2 },
+  adjustRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  adjustBtn: { flex: 1 },
+  adjustPin: { position: "absolute", top: "24%", alignSelf: "center", alignItems: "center" },
+  pinCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  pinGlyph: { color: "#FFFFFF", fontSize: 14, fontFamily: fontFamily.bold },
+  pinTip: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 7,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    marginTop: -1,
+  },
   loadingOverlay: {
     position: "absolute",
     left: 0,

@@ -3,6 +3,7 @@ import {
   Map,
   type CameraRef,
   type LngLat,
+  type MapRef,
 } from "@maplibre/maplibre-react-native";
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
@@ -25,8 +26,12 @@ export type OrnamentPosition =
 
 interface RoomMapProps {
   cameraRef?: RefObject<CameraRef | null>;
+  /** Exposes getCenter() for adjust-pin mode (pin stays screen-centered). */
+  mapRef?: RefObject<MapRef | null>;
   onLongPress?: (lngLat: LngLat) => void;
   onUserPan?: () => void;
+  /** Fires on every region change (user or programmatic). */
+  onRegionChange?: () => void;
   /** Keeps the attribution visible above the bottom sheet. */
   ornamentPosition?: OrnamentPosition;
   children?: ReactNode;
@@ -34,8 +39,10 @@ interface RoomMapProps {
 
 export function RoomMap({
   cameraRef,
+  mapRef,
   onLongPress,
   onUserPan,
+  onRegionChange,
   ornamentPosition = { bottom: 8, right: 8 },
   children,
 }: RoomMapProps) {
@@ -55,6 +62,7 @@ export function RoomMap({
     <Map
       style={StyleSheet.absoluteFill}
       mapStyle={mapStyle}
+      ref={mapRef}
       // No MapLibre badge: the required tile attribution (OpenMapTiles/OSM)
       // stays as the tappable (i) button, bottom-right out of the map's way.
       logo={false}
@@ -62,6 +70,7 @@ export function RoomMap({
       onLongPress={(event) => onLongPress?.(event.nativeEvent.lngLat)}
       onRegionDidChange={(event) => {
         if (event.nativeEvent.userInteraction) onUserPan?.();
+        onRegionChange?.();
       }}
     >
       <Camera ref={cameraRef} initialViewState={{ zoom: 1.2 }} maxZoom={19} />
