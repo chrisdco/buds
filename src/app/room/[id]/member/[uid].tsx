@@ -26,7 +26,7 @@ export default function MemberDetailScreen() {
   const room = useRoomStore((s) => s.room);
   const member = useMembersStore((s) => (uid ? s.members[uid] : undefined));
   const route = useRouteStore((s) => (uid ? s.routes[uid] : undefined));
-  const focusedMemberId = useUiStore((s) => s.focusedMemberId);
+  const focusUserIds = useUiStore((s) => s.focusUserIds);
   const units = useSessionStore((s) => s.units);
   // Slow clock for presence/updated labels (matches the room screen tick).
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -48,15 +48,15 @@ export default function MemberDetailScreen() {
   }
 
   const state = presenceOf(member, nowMs);
-  const isFocused = focusedMemberId === member.userId;
+  const isFocused = focusUserIds.includes(member.userId);
   const isHost = room?.host_id === member.userId;
   const isLeader = room?.mode === "leader" && room?.leader_id === member.userId;
 
   const toggleFollow = () => {
     if (isFocused) {
-      useUiStore.getState().setFocusedMemberId(null);
+      useUiStore.getState().setFocusUserIds(focusUserIds.filter((id) => id !== member.userId));
     } else {
-      useUiStore.getState().setFocusedMemberId(member.userId);
+      useUiStore.getState().setFocusUserIds([member.userId]);
       useUiStore.getState().setCameraMode("auto");
       router.back();
     }

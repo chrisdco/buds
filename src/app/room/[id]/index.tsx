@@ -67,7 +67,7 @@ export default function RoomScreen() {
   const membersMap = useMembersStore((s) => s.members);
   const routes = useRouteStore((s) => s.routes);
   const cameraMode = useUiStore((s) => s.cameraMode);
-  const focusedMemberId = useUiStore((s) => s.focusedMemberId);
+  const focusUserIds = useUiStore((s) => s.focusUserIds);
   const destDraft = useUiStore((s) => s.destDraft);
   const myUserId = useSessionStore((s) => s.userId);
 
@@ -288,27 +288,28 @@ export default function RoomScreen() {
   const camPadBottom = detent === "peek" ? 200 : Math.round(H * 0.42 + 60);
 
   const recenter = useCallback(() => {
-    useUiStore.getState().setFocusedMemberId(null);
+    useUiStore.getState().setFocusUserIds([]);
     useUiStore.getState().setCameraMode("auto");
     if (snap && myUserId) applyCameraTarget(strategy.cameraTarget(snap, myUserId), camPadBottom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap, myUserId, strategy, camPadBottom]);
 
-  // Auto camera follows the strategy's policy until the user pans — unless a
-  // member is focused (detail sheet "Follow"), which pins the camera to them.
-  // Suspended while adjusting a destination pin (the pin, not the camera, moves).
+  // Auto camera follows the strategy's policy until the user pans — unless
+  // members are focused (marker toggle / detail Follow): one pins the camera
+  // to them, several frames the set. Suspended while adjusting a pin.
   useEffect(() => {
     if (cameraMode !== "auto" || adjust || !snap || !myUserId) return;
-    const focused =
-      focusedMemberId && membersMap[focusedMemberId]?.pos ? focusedMemberId : null;
+    const focused = focusUserIds.filter((id) => membersMap[id]?.pos);
     applyCameraTarget(
-      focused
-        ? { kind: "follow", userId: focused }
-        : strategy.cameraTarget(snap, myUserId),
+      focused.length === 1
+        ? { kind: "follow", userId: focused[0] }
+        : focused.length > 1
+          ? { kind: "fitUsers", userIds: focused }
+          : strategy.cameraTarget(snap, myUserId),
       camPadBottom,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nowMs, cameraMode, adjust, room?.mode, focusedMemberId, detent, H]);
+  }, [nowMs, cameraMode, adjust, room?.mode, focusUserIds, detent, H]);
 
   const setRoomDest = (lat: number, lng: number, label: string) => {
     if (!room) return;
@@ -483,7 +484,7 @@ export default function RoomScreen() {
   const expiryLabel = expiry && !expiry.expired ? expiry.label : null;
   const expiryWarning = expiry?.warning ?? false;
   const focusedName =
-    focusedMemberId != null ? membersMap[focusedMemberId]?.name ?? null : null;
+    focusUserIds.length === 1 ? (membersMap[focusUserIds[0]]?.name ?? null) : null;
 
   return (
     <View style={styles.container}>
@@ -507,7 +508,11 @@ export default function RoomScreen() {
           members={positioned}
           nowMs={nowMs}
           myUserId={myUserId}
-          onSelectMember={onSelectMember}
+          selectedIds={focusUserIds}
+          onToggleFocus={(userId) => {
+            useUiStore.getState().toggleFocusUserId(userId);
+            useUiStore.getState().setCameraMode("auto");
+          }}
         />
       </RoomMap>
 
@@ -671,12 +676,20 @@ export default function RoomScreen() {
 
       {/* Floating actions */}
       <View style={[styles.fabColumn, { bottom: insets.bottom + 160 }]}>
-        {focusedName && cameraMode === "auto" && (
-          <View style={[styles.fab, styles.fabWide]}>
+        {(focusedName || focusUserIds.length > 1) && cameraMode === "auto" && (
+          <Pressable
+            style={[styles.fab, styles.fabWide]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              focusUserIds.length > 1 ? `Clear focus on ${focusUserIds.length} members` : `Unfollow ${focusedName}`
+            }
+            testID="focus-chip"
+            onPress={() => useUiStore.getState().setFocusUserIds([])}
+          >
             <Text style={styles.fabText} numberOfLines={1}>
-              Following {focusedName}
+              {focusUserIds.length > 1 ? `Focusing ${focusUserIds.length}` : `Following ${focusedName}`}
             </Text>
-          </View>
+          </Pressable>
         )}
         {myDest && (
           <Pressable
@@ -748,6 +761,7 @@ export default function RoomScreen() {
                   nowMs={nowMs}
                   units={units}
                   onSelectMember={onSelectMember}
+                  selectedIds={focusUserIds}
                 />
               </>
             )}
@@ -915,7 +929,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   checkinText: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 13 },
-  fabColumn: { position: "absolute", right: 16, alignItems: "flex-end", gap: 10 },
+  fabColumn: {
+    position: "absolute",
+    right: 16,
+    alignItems: "flex-end",
+    gap: 10,
+    // Above the bottom sheet (elevation 8): FABs stay tappable at every
+    // detent instead of sinking under the deck. Native modals still cover all.
+    elevation: 9,
+    zIndex: 9,
+  },
   fab: {
     minWidth: 46,
     height: 46,

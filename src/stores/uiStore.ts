@@ -28,8 +28,9 @@ export interface DestDraft {
 interface UiState {
   toasts: ToastItem[];
   cameraMode: CameraMode;
-  /** Member the auto-camera is pinned to (member detail sheet "Follow"). */
-  focusedMemberId: string | null;
+  /** Camera focus set: members the map frames. Empty = strategy default;
+  one = follow; several = fit. Toggled from map markers, set from detail. */
+  focusUserIds: string[];
   /** Active native confirm dialog (ConfirmSheet); null when closed. */
   confirm: ConfirmRequest | null;
   /** Search/long-press pick waiting for adjust + confirm; null when idle. */
@@ -38,7 +39,8 @@ interface UiState {
   pushAlerts: (alerts: LocalAlert[]) => void;
   dismissToast: (key: string) => void;
   setCameraMode: (mode: CameraMode) => void;
-  setFocusedMemberId: (userId: string | null) => void;
+  setFocusUserIds: (userIds: string[]) => void;
+  toggleFocusUserId: (userId: string) => void;
   /**
    * Native replacement for Alert.alert confirms. Resolves true on confirm,
    * false on dismiss/cancel. A pending request is resolved false when
@@ -54,7 +56,7 @@ let confirmResolve: ((confirmed: boolean) => void) | null = null;
 export const useUiStore = create<UiState>()((set, get) => ({
   toasts: [],
   cameraMode: "auto",
-  focusedMemberId: null,
+  focusUserIds: [],
   confirm: null,
   destDraft: null,
 
@@ -71,7 +73,14 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
   setCameraMode: (cameraMode) => set({ cameraMode }),
 
-  setFocusedMemberId: (focusedMemberId) => set({ focusedMemberId }),
+  setFocusUserIds: (focusUserIds) => set({ focusUserIds }),
+
+  toggleFocusUserId: (userId) =>
+    set((state) => ({
+      focusUserIds: state.focusUserIds.includes(userId)
+        ? state.focusUserIds.filter((id) => id !== userId)
+        : [...state.focusUserIds, userId],
+    })),
 
   setDestDraft: (destDraft) => set({ destDraft }),
 
@@ -92,6 +101,6 @@ export const useUiStore = create<UiState>()((set, get) => ({
   reset: () => {
     confirmResolve?.(false);
     confirmResolve = null;
-    set({ toasts: [], cameraMode: "auto", focusedMemberId: null, confirm: null, destDraft: null });
+    set({ toasts: [], cameraMode: "auto", focusUserIds: [], confirm: null, destDraft: null });
   },
 }));

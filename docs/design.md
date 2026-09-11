@@ -106,6 +106,11 @@ Shared grammar, Buds brand. Learn the pattern, not the pixels.
 - **Life360 — Circles ≡ rooms**, member rows with live status, place
   alerts ≡ arrival/destination alerts, **Check-in ≡ "I'm here"** manual
   arrival (coexists with the auto detector; server-idempotent).
+- **Uber — selectable rows:** map markers toggle camera focus with a ring;
+  list cards mirror the set with a bright selected border. One focus follows,
+  several fit; the chip names one ("Following X") or counts many
+  ("Focusing N") and clears on tap. FABs float above the sheet at every
+  detent so focus stays reachable.
 - **Explicitly not adopted:** member battery % (needs a presence/tick
   protocol change — P3), driving reports/crash/SOS-dispatch (out of scope),
   multi-Circle switcher (one active room; revisit with real demand).
