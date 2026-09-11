@@ -18,7 +18,6 @@ import {
 import { disposePublisher } from "@/services/location/publisher";
 import { clearTripPack } from "@/services/map/offlinePacks";
 import { ensureNotificationPermission } from "@/services/notifications";
-import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import {
   connectRoomChannel,
   disconnectRoomChannel,
@@ -168,15 +167,11 @@ export default function RoomLayout() {
   }, [exitReason, router]);
 
   return (
-    <>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      />
-      {/* Native confirm dialogs shared by every room screen. */}
-      <ConfirmSheet />
-    </>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bg },
+      }}
+    />
   );
 }

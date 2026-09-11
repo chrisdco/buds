@@ -12,6 +12,7 @@ import "@/services/location/backgroundTask";
 
 import { appFonts } from "@/constants/fonts";
 import { colors } from "@/constants/theme";
+import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import { setupNotifications } from "@/services/notifications";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -57,6 +58,11 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       />
+      {/* Native confirm dialogs shared by every screen: location priming on
+      home, identity/wipe in settings, leave/end/kick in rooms. Must live
+      here — requestConfirm() callers outside the room layout (home,
+      settings) would otherwise await a sheet that never renders. */}
+      <ConfirmSheet />
     </GestureHandlerRootView>
   );
 }
