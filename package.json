@@ -56,7 +56,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gen:types": "supabase gen types typescript --local > src/types/supabase.ts"
   },
   "private": true,
   "jest": {
