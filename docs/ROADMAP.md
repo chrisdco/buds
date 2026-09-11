@@ -92,6 +92,27 @@ Routes: ORS (optional key) → OSRM demo → straight-line; refetched on stalene
   viewer-locally and never broadcast, so 8 clients can't all fire the same
   notification.
 
+## Backend structure (decision: one repo until a trigger fires)
+
+The backend is 100% Supabase (Postgres + `SECURITY DEFINER` RPC + realtime +
+anon auth) with zero custom server code. `supabase/` (migrations, `smoke.sql`,
+checked-in generated types in `src/types/supabase.ts` + CI drift check) **is**
+the backend repo in miniature — versioned, tested, deployable per environment
+via `db push`. A second consumer (P3 web spectator) does NOT trigger a split:
+one Supabase project serves mobile + web + admin through RLS, with the
+generated types as the shared contract.
+
+Split into a separate repo/service only when the backend becomes independently
+deployable runtime, i.e.:
+- always-on workers / queues outgrow Edge Functions + pg_cron/pgmq,
+- a self-hosted engine with SLAs (e.g. routing if #9 outgrows ORS/OSRM-demo),
+- custom realtime (nowhere close: ~5 msg/s vs 2M free/mo),
+- logic that needs libraries SQL can't express, or a workload Postgres can't shape,
+- a second human working the backend full-time.
+Long-running jobs, fan-out, webhooks, Redis-style caching, and observability
+all start in-repo (functions/cron/managed add-ons). Rehearsal for independence:
+add a staging project at P3 and promote staging → prod.
+
 ## Performance budget (verified Sept 2026, static + local DB)
 
 - **Render loop:** the data snapshot excludes the clock, so insights/alerts/
