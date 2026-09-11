@@ -1,0 +1,28 @@
+# Destination search + adjust-pin: open search from the map, exercise the
+# offline-safe path (empty result -> back -> long-press adjust -> cancel).
+# Live Photon search is covered by unit tests + manual pass (needs network
+# and returns non-deterministic results).
+# Assumes the app is already inside a room (run home-create-room.yml first).
+appId: com.buds.app
+---
+- launchApp
+- tapOn:
+    id: "room-dest-search"
+- assertVisible: "Set destination"
+- tapOn:
+    id: "dest-search-field"
+- inputText: "xyz-no-such-place-abc"
+- hideKeyboard
+- assertVisible: "No places found"
+  timeout: 15000
+- tapOn:
+    id: "dest-search-map"
+- assertVisible:
+    id: "room-dest-search"
+- longPressOn:
+    point: "50%,40%"
+- assertVisible: "Drag the map to fine-tune the pin"
+- tapOn:
+    id: "adjust-cancel"
+- assertVisible:
+    id: "room-dest-search"

@@ -96,6 +96,10 @@ Shared grammar, Buds brand. Learn the pattern, not the pixels.
   positions, so a halo would imply false precision.)
 - **Google Maps — share-duration:** expiry chips are the analogue of Maps'
   "share for 1 hour"; non-hosts always see the countdown line.
+- **Uber — destination search + adjust:** "Where to?" pill over the map,
+  bold-name/dim-address/distance rows, then a fixed-center-pin adjust step
+  (drag the map, pin stays put) before the native confirm. Search never sets
+  directly — picks seed adjust mode, where the existing policy gates apply.
 - **Uber — trip progress + dark map:** arrived/travelers progress bar under
   the insights headline; OpenFreeMap `dark` basemap so chrome stays legible;
   full-detent deck is the trip card (facts + action deck).
