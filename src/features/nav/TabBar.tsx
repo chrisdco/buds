@@ -50,15 +50,15 @@ export function TabBar() {
                 if (!selected) router.replace(tab.href);
               }}
             >
-              <View style={[styles.pill, selected && styles.pillSelected]}>
-                <AppSymbol
-                  name={{ ios: tab.icon.ios, android: tab.icon.android }}
-                  fallback={tab.icon.fallback}
-                  size={22}
-                  tintColor={selected ? colors.text : colors.textDim}
-                />
-              </View>
+            <View style={[styles.pill, selected && styles.pillSelected]}>
+              <AppSymbol
+                name={{ ios: tab.icon.ios, android: tab.icon.android }}
+                fallback={tab.icon.fallback}
+                size={24}
+                tintColor={selected ? colors.text : colors.textDim}
+              />
               <Text style={[styles.label, selected && styles.labelSelected]}>{tab.label}</Text>
+            </View>
             </Pressable>
           );
         })}
@@ -74,10 +74,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 28,
-    marginHorizontal: 16,
+    borderRadius: 32,
+    marginHorizontal: 12,
     marginBottom: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
     // Elevated above content like Uber's floating bar (Android shadow).
     elevation: 8,
     shadowColor: "#000000",
@@ -85,10 +86,13 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 56 },
   pill: {
-    paddingHorizontal: 20,
-    paddingVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    paddingHorizontal: 24,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: "transparent",
   },
