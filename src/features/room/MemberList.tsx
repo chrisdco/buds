@@ -41,6 +41,8 @@ interface MemberListProps {
   units: DistanceUnit;
   /** Opens the member detail sheet; omitted = cards not tappable. */
   onSelectMember?: (userId: string) => void;
+  /** Focus-set members render selected (Uber selected-card border). */
+  selectedIds?: string[];
 }
 
 export function MemberList({
@@ -51,7 +53,9 @@ export function MemberList({
   nowMs,
   units,
   onSelectMember,
+  selectedIds,
 }: MemberListProps) {
+  const selected = new Set(selectedIds ?? []);
   const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name));
   if (sorted.length === 0) {
     return (
@@ -72,7 +76,7 @@ export function MemberList({
         return (
           <Pressable
             key={m.userId}
-            style={styles.card}
+            style={[styles.card, selected.has(m.userId) && styles.cardSelected]}
             disabled={!onSelectMember}
             accessibilityRole={onSelectMember ? "button" : undefined}
             accessibilityLabel={onSelectMember ? `View ${m.name}` : undefined}
@@ -124,6 +128,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  /** Focused card: bright border like Uber's selected ride row. */
+  cardSelected: { borderColor: colors.text },
   dot: { width: 10, height: 10, borderRadius: 5 },
   name: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 14, flexShrink: 1 },
   hostBadge: {

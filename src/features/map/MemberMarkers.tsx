@@ -11,16 +11,20 @@ interface MemberMarkersProps {
   nowMs: number;
   /** Self marker gets the Maps-style treatment (accent ring). */
   myUserId?: string | null;
-  /** Opens the member detail sheet; omitted = markers not tappable. */
-  onSelectMember?: (userId: string) => void;
+  /** Focused members get a bright ring (subset-focus set). */
+  selectedIds?: string[];
+  /** Toggles focus membership; omitted = markers not tappable. */
+  onToggleFocus?: (userId: string) => void;
 }
 
 export function MemberMarkers({
   members,
   nowMs,
   myUserId,
-  onSelectMember,
+  selectedIds,
+  onToggleFocus,
 }: MemberMarkersProps) {
+  const selected = new Set(selectedIds ?? []);
   return (
     <>
       {members
@@ -35,7 +39,7 @@ export function MemberMarkers({
               id={m.userId}
               lngLat={[m.pos!.lng, m.pos!.lat]}
               anchor="center"
-              onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
+              onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
             >
               <View style={[styles.wrap, faded && styles.faded]}>
                 {m.pos!.heading != null && state === "moving" && (
@@ -53,6 +57,7 @@ export function MemberMarkers({
                     styles.avatar,
                     { backgroundColor: colorForUser(m.userId) },
                     isSelf && styles.selfAvatar,
+                    !isSelf && selected.has(m.userId) && styles.selectedAvatar,
                   ]}
                 >
                   <Text style={styles.initial}>{m.name.slice(0, 1).toUpperCase()}</Text>
@@ -99,6 +104,8 @@ const styles = StyleSheet.create({
   },
   /** Self marker: accent ring instead of white (Maps blue-dot language). */
   selfAvatar: { borderColor: colors.accent, borderWidth: 3 },
+  /** Focused member: bright ring so the camera set reads on the map. */
+  selectedAvatar: { borderColor: colors.text, borderWidth: 3 },
   initial: { color: "#FFFFFF", fontFamily: fontFamily.bold, fontSize: 15 },
   name: {
     marginTop: 2,
