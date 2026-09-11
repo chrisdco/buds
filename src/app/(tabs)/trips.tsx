@@ -3,9 +3,11 @@ import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ErrorText, Label, Screen, Title } from "@/components/ui";
+import { AppSymbol, icons } from "@/components/Symbol";
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { getRecentRooms, pruneRecentRoom, setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
+import { TRIP_PRESETS, presetCreateParams } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -16,6 +18,13 @@ export default function TripsScreen() {
   const router = useRouter();
   const [recents, setRecents] = useState<ActiveRoomRef[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const startFromTemplate = (presetId: (typeof TRIP_PRESETS)[number]["id"]) => {
+    const preset = TRIP_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    const displayName = useSessionStore.getState().displayName;
+    router.push({ pathname: "/create", params: presetCreateParams(preset, displayName) });
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -54,7 +63,36 @@ export default function TripsScreen() {
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false}>
         <Title>Trips</Title>
-        <Text style={styles.caption}>Pick up where you left off — rooms you create or join show up here.</Text>
+        <Text style={styles.caption}>Start from a template, or pick up where you left off.</Text>
+
+        <Label>Start a trip</Label>
+        <View style={styles.templates}>
+          {TRIP_PRESETS.map((preset) => (
+            <Pressable
+              key={preset.id}
+              style={styles.template}
+              accessibilityRole="button"
+              accessibilityLabel={`Start a ${preset.title} trip`}
+              testID={`trips-template-${preset.id}`}
+              onPress={() => startFromTemplate(preset.id)}
+            >
+              <View style={styles.templateIcon}>
+                <AppSymbol
+                  name={icons[preset.icon]}
+                  fallback={icons[preset.icon].fallback}
+                  size={22}
+                  tintColor={colors.text}
+                />
+              </View>
+              <Text style={styles.templateTitle} numberOfLines={1}>
+                {preset.title}
+              </Text>
+              <Text style={styles.templateBlurb} numberOfLines={2}>
+                {preset.blurb}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
         <Label>Recent trips</Label>
         {recents.length === 0 ? (
@@ -79,7 +117,8 @@ export default function TripsScreen() {
           ))
         )}
         <ErrorText>{error}</ErrorText>
-        <View style={{ height: 24 }} />
+        {/* Clearance above the floating tab pill. */}
+        <View style={{ height: 110 }} />
       </ScrollView>
     </Screen>
   );
@@ -87,6 +126,42 @@ export default function TripsScreen() {
 
 const styles = StyleSheet.create({
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
+  templates: { flexDirection: "row", gap: 8 },
+  template: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    minHeight: 132,
+  },
+  templateIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  templateTitle: {
+    color: colors.text,
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  templateBlurb: {
+    color: colors.textDim,
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginTop: 2,
+    textAlign: "center",
+  },
   tripRow: {
     flexDirection: "row",
     alignItems: "center",

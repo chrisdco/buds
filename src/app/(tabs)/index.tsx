@@ -168,6 +168,8 @@ export default function HomeScreen() {
           />
         )}
       </View>
+      {/* Clearance above the floating tab pill. */}
+      <View style={{ height: 110 }} />
     </Screen>
   );
 }

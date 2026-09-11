@@ -188,7 +188,8 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Button label="Back" variant="ghost" onPress={() => router.back()} />
-        <View style={{ height: 24 }} />
+        {/* Clearance above the floating tab pill. */}
+        <View style={{ height: 110 }} />
       </ScrollView>
     </Screen>
   );
