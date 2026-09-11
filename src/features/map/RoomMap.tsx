@@ -24,7 +24,7 @@ interface RoomMapProps {
   cameraRef?: RefObject<CameraRef | null>;
   onLongPress?: (lngLat: LngLat) => void;
   onUserPan?: () => void;
-  /** Keeps logo/attribution visible above the bottom sheet. */
+  /** Keeps the attribution visible above the bottom sheet. */
   ornamentPosition?: OrnamentPosition;
   children?: ReactNode;
 }
@@ -33,15 +33,17 @@ export function RoomMap({
   cameraRef,
   onLongPress,
   onUserPan,
-  ornamentPosition = { bottom: 8, left: 8 },
+  ornamentPosition = { bottom: 8, right: 8 },
   children,
 }: RoomMapProps) {
   return (
     <Map
       style={StyleSheet.absoluteFill}
       mapStyle={MAP_STYLE_URL}
+      // No MapLibre badge: the required tile attribution (OpenMapTiles/OSM)
+      // stays as the tappable (i) button, bottom-right out of the map's way.
+      logo={false}
       attributionPosition={ornamentPosition}
-      logoPosition={ornamentPosition}
       onLongPress={(event) => onLongPress?.(event.nativeEvent.lngLat)}
       onRegionDidChange={(event) => {
         if (event.nativeEvent.userInteraction) onUserPan?.();

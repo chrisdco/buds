@@ -20,6 +20,7 @@ import { createArrivalDetector, type ArrivalDetector } from "@/events/arrivalDet
 import { clearActiveRoom } from "@/lib/activeRoom";
 import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
+import { collectFitPoints } from "@/lib/mapBounds";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { openExternalNavigation } from "@/lib/nav";
 import { serverNowMs } from "@/lib/time";
@@ -254,8 +255,15 @@ export default function RoomScreen() {
       target.kind === "fitUsers"
         ? target.userIds.map(posOf).filter((p) => p != null)
         : positioned.map((m) => m.pos!);
-    const points = pool.map((p) => [p!.lng, p!.lat] as [number, number]);
-    if (destRoom && target.kind === "fitAll") points.push([destRoom.lng, destRoom.lat]);
+    // fitAll frames the whole trip: members + destination + every rendered
+    // route leg, so a detouring road route pulls the frame instead of
+    // running off-screen. fitUsers stays members-only by definition.
+    const points = collectFitPoints({
+      members: pool,
+      dest: target.kind === "fitAll" ? destRoom : null,
+      routeLines:
+        target.kind === "fitAll" ? Object.values(routes).map((r) => r.coords) : undefined,
+    });
     if (points.length === 0) return;
     if (points.length === 1) {
       cameraRef.current?.easeTo({ center: points[0], zoom: 15, duration: 700 });
@@ -435,7 +443,7 @@ export default function RoomScreen() {
         onLongPress={onLongPress}
         onUserPan={() => useUiStore.getState().setCameraMode("manual")}
         ornamentPosition={
-          detent === "peek" ? { bottom: 8, left: 8 } : { top: insets.top + 76, left: 8 }
+          detent === "peek" ? { bottom: 8, right: 8 } : { top: insets.top + 76, right: 8 }
         }
       >
         <RouteLines routes={routes} myUserId={myUserId} />
