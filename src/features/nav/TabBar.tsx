@@ -20,8 +20,12 @@ export function TabBar() {
   const router = useRouter();
   const segments = useSegments();
   // Segments include the group: (tabs)/index -> ["(tabs)"], (tabs)/trips
-  // -> ["(tabs)", "trips"]. Bare index contributes no segment.
-  const active = segments[1] ?? "index";
+  // -> ["(tabs)", "trips"]. Bare index contributes no segment. Matched by
+  // value on the joined path: positional indexing breaks under one of the
+  // two type regimes (generated tuple union locally vs 1-tuple fallback in
+  // CI, where Metro never generates router.d.ts).
+  const path = segments.join("/");
+  const active = path.endsWith("trips") ? "trips" : path.endsWith("profile") ? "profile" : "index";
 
   return (
     // SafeArea bottom keeps every tab fully above the system nav bar — the
