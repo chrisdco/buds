@@ -103,7 +103,7 @@ export default function HomeScreen() {
           accessibilityLabel="App settings"
           testID="home-settings"
           hitSlop={12}
-          onPress={() => router.push("/settings")}
+          onPress={() => router.replace("/profile")}
         >
           <Text style={styles.avatarText}>{initial}</Text>
         </Pressable>

@@ -40,6 +40,9 @@ export const icons = {
   invite: { ios: "plus", android: "add", fallback: "+" },
   // Fallbacks reuse the proven monochrome-forced glyphs (U+FE0E).
   settings: { ios: "gearshape", android: "settings", fallback: "⚙︎" },
+  home: { ios: "house.fill", android: "home", fallback: "⌂" },
+  trips: { ios: "map.fill", android: "map", fallback: "▤" },
+  profile: { ios: "person.fill", android: "person", fallback: "●" },
   navigate: { ios: "arrow.up.right", android: "arrow_outward", fallback: "›" },
   recenter: { ios: "location", android: "my_location", fallback: "⊕" },
   star: { ios: "star.fill", android: "star", fallback: "★" },

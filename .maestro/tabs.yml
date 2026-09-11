@@ -1,0 +1,18 @@
+# Bottom tabs: Home / Trips / Profile render, switch, and keep their content.
+# Room/create/join stay full-screen (no tab bar over the map).
+appId: com.buds.app
+---
+- launchApp
+- assertVisible: "Live maps for small groups"
+- assertVisible:
+    id: "tab-trips"
+- tapOn:
+    id: "tab-trips"
+- assertVisible: "Recent trips"
+- tapOn:
+    id: "tab-profile"
+- assertVisible: "Profile"
+- assertVisible: "Notifications"
+- tapOn:
+    id: "tab-home"
+- assertVisible: "Live maps for small groups"

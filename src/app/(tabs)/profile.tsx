@@ -9,58 +9,29 @@ import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/comp
 import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { NOTIFY_CATEGORY_LABELS } from "@/events/notifyPrefs";
-import { getRecentRooms, pruneRecentRoom, setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { ALL_NOTIFY_CATEGORIES, useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 
-// App-level settings home (avatar entry on home). Per-room controls live in
-// room/[id]/settings. Anonymous identity stays: profile = name + prefs.
-export default function AppSettingsScreen() {
+// Profile tab (avatar entry on home). Per-room controls live in
+// room/[id]/settings; recent trips live in the Trips tab. Anonymous
+// identity stays: profile = name + prefs + support.
+export default function ProfileScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const units = useSessionStore((s) => s.units);
   const notifyPrefs = useSessionStore((s) => s.notifyPrefs);
-  const [recents, setRecents] = useState<ActiveRoomRef[]>([]);
   const [osNotifGranted, setOsNotifGranted] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"reset" | "wipe" | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      void getRecentRooms().then(setRecents);
       void Notifications.getPermissionsAsync()
         .then((p) => setOsNotifGranted(p.granted))
         .catch(() => setOsNotifGranted(null));
     }, []),
   );
-
-  const openTrip = (ref: ActiveRoomRef) => {
-    void (async () => {
-      setError(null);
-      const name = useSessionStore.getState().displayName.trim() || "Anonymous";
-      const result = await roomsRpc.joinRoom({ code: ref.code, displayName: name, role: ref.role });
-      if (result.ok) {
-        setActiveRoom({
-          id: result.room.id,
-          code: result.room.code,
-          name: result.room.name,
-          role: result.member.role,
-        });
-        router.replace(`/room/${result.room.id}`);
-      } else {
-        if (result.error === "room_ended" || result.error === "bad_code" || result.error === "kicked") {
-          await pruneRecentRoom(ref.id);
-          setRecents(await getRecentRooms());
-        }
-        setError(
-          result.error === "room_ended" || result.error === "bad_code"
-            ? "That room has ended."
-            : "Couldn't rejoin the room.",
-        );
-      }
-    })();
-  };
 
   const resetIdentity = () => {
     void (async () => {
@@ -114,7 +85,7 @@ export default function AppSettingsScreen() {
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Title>Settings</Title>
+        <Title>Profile</Title>
 
         <Label>Profile</Label>
         <Text style={styles.caption}>Your display name — no account needed.</Text>
@@ -124,22 +95,23 @@ export default function AppSettingsScreen() {
           placeholder="e.g. Chris"
           maxLength={24}
           autoCapitalize="words"
-          testID="app-settings-name"
+          testID="profile-name"
         />
         <Button
           label="Reset identity"
           variant="ghost"
           busy={busyAction === "reset"}
-          testID="app-settings-reset-identity"
+          testID="profile-reset-identity"
           onPress={resetIdentity}
         />
         <Button
           label="Delete my data"
           variant="danger"
           busy={busyAction === "wipe"}
-          testID="app-settings-wipe"
+          testID="profile-wipe"
           onPress={wipeData}
         />
+        <ErrorText>{error}</ErrorText>
 
         <Label>Notifications</Label>
         <Text style={styles.caption}>
@@ -182,37 +154,16 @@ export default function AppSettingsScreen() {
           <Chip
             label="Kilometers"
             selected={units === "km"}
-            testID="app-settings-units-km"
+            testID="profile-units-km"
             onPress={() => useSessionStore.getState().setUnits("km")}
           />
           <Chip
             label="Miles"
             selected={units === "mi"}
-            testID="app-settings-units-mi"
+            testID="profile-units-mi"
             onPress={() => useSessionStore.getState().setUnits("mi")}
           />
         </View>
-
-        <Label>Recent trips</Label>
-        {recents.length === 0 ? (
-          <Text style={styles.caption}>No trips yet — create or join a room first.</Text>
-        ) : (
-          recents.map((r) => (
-            <Pressable
-              key={r.id}
-              style={styles.tripRow}
-              accessibilityRole="button"
-              accessibilityLabel={`Rejoin ${r.name}`}
-              onPress={() => openTrip(r)}
-            >
-              <Text style={styles.tripName} numberOfLines={1}>
-                {r.name}
-              </Text>
-              <Text style={styles.tripCode}>{r.code}</Text>
-            </Pressable>
-          ))
-        )}
-        <ErrorText>{error}</ErrorText>
 
         <Label>How it works</Label>
         <Text style={styles.body}>
@@ -257,14 +208,4 @@ const styles = StyleSheet.create({
   },
   rowText: { color: colors.text, fontSize: 14, fontFamily: fontFamily.regular, flexShrink: 1, marginRight: 10 },
   link: { color: colors.accent, fontSize: 14, fontFamily: fontFamily.medium, padding: 4 },
-  tripRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: space.sm + space.xs,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  tripName: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold, flexShrink: 1 },
-  tripCode: { color: colors.accent, fontSize: 13, fontFamily: fontFamily.bold, letterSpacing: 1 },
 });
