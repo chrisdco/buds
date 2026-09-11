@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Side-effect import: registers the headless background-location task at module
 // scope so the OS can run it when the app is backgrounded (required placement).
@@ -51,18 +52,20 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      />
-      {/* Native confirm dialogs shared by every screen: location priming on
-      home, identity/wipe in settings, leave/end/kick in rooms. Must live
-      here — requestConfirm() callers outside the room layout (home,
-      settings) would otherwise await a sheet that never renders. */}
-      <ConfirmSheet />
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        />
+        {/* Native confirm dialogs shared by every screen: location priming on
+        home, identity/wipe in settings, leave/end/kick in rooms. Must live
+        here — requestConfirm() callers outside the room layout (home,
+        settings) would otherwise await a sheet that never renders. */}
+        <ConfirmSheet />
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

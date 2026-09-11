@@ -49,9 +49,11 @@ White space, Unity).
     the moment of intent (Not now = harmless, never blocks); the OS dialog
     only follows Continue. Denials surface an inline banner + Settings
     deep-link, never a dead end. Never chain system dialogs.
-12. **Settings has two homes.** App settings (`/settings`: profile, prefs,
-    trips, support) vs per-room settings (room controls). Destructive
-    identity actions always confirm and verify.
+12. **First-level IA is three tabs; settings has two homes.** Home (create /
+    join), Trips (recents + rejoin), Profile (name, prefs, support) share one
+    custom Android-targeted tab bar; room/create/join stay full-screen stack
+    with no tabs. App profile home vs per-room settings stays split;
+    destructive identity actions always confirm and verify.
 
 ## 8-principle audit (re-check on every visual change)
 
