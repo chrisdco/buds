@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
+import { AppSymbol, icons } from "@/components/Symbol";
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
@@ -131,13 +132,35 @@ export default function HomeScreen() {
       {activeRoom && (
         <>
           <Label>Pick up where you left off</Label>
-          <Button
-            label={`Rejoin “${activeRoom.name}”`}
-            variant="ghost"
-            busy={rejoinBusy}
+          <Pressable
+            style={styles.rejoinCard}
+            accessibilityRole="button"
+            accessibilityLabel={`Rejoin ${activeRoom.name}`}
             testID="home-rejoin"
             onPress={() => void rejoin()}
-          />
+          >
+            <View style={styles.rejoinIcon}>
+              {rejoinBusy ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <AppSymbol
+                  name={icons.history}
+                  fallback={icons.history.fallback}
+                  size={22}
+                  tintColor={colors.textDim}
+                />
+              )}
+            </View>
+            <View style={styles.rejoinBody}>
+              <Text style={styles.rejoinName} numberOfLines={1}>
+                {activeRoom.name}
+              </Text>
+              <Text style={styles.rejoinSub} numberOfLines={1}>
+                {activeRoom.code}
+              </Text>
+            </View>
+            <Text style={styles.rejoinChev}>›</Text>
+          </Pressable>
           <ErrorText>{rejoinError}</ErrorText>
         </>
       )}
@@ -176,7 +199,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   heroRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  hero: { marginTop: 48, marginBottom: 12, flexShrink: 1, marginRight: 12 },
+  hero: { marginTop: 24, marginBottom: 12, flexShrink: 1, marginRight: 12 },
   avatar: {
     marginTop: 52,
     width: 44,
@@ -189,7 +212,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: colors.text, fontSize: 18, fontFamily: fontFamily.bold },
-  strip: { flexDirection: "row", gap: 8, marginTop: 4, marginBottom: 4 },
+  strip: { flexDirection: "row", gap: 8, marginTop: 12, marginBottom: 8 },
   step: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 6 },
   stepNum: {
     color: colors.onPrimary,
@@ -211,6 +234,30 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   actions: { marginTop: 28 },
+  rejoinCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+  },
+  rejoinIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rejoinBody: { flex: 1, flexShrink: 1 },
+  rejoinName: { color: colors.text, fontSize: 17, fontFamily: fontFamily.semiBold },
+  rejoinSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
+  rejoinChev: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
   hint: {
     color: colors.textDim,
     fontSize: 13,
