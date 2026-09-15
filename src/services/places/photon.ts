@@ -65,18 +65,45 @@ export function parsePhoton(
   });
 }
 
-/** Thin fetch wrapper: bias + limit, parser does the rest. Throws on HTTP error. */
+/** True for fetch rejections caused by an AbortController (timeout or caller cancel). */
+export function isAbortError(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "name" in e &&
+    (e as { name?: unknown }).name === "AbortError"
+  );
+}
+
+const SEARCH_TIMEOUT_MS = 8_000;
+
+/**
+ * Thin fetch wrapper: bias + limit, parser does the rest. Throws on HTTP
+ * error. Aborts after SEARCH_TIMEOUT_MS or when `signal` fires (the routing
+ * chain's fetchers take a signal the same way) — callers must swallow
+ * aborts via isAbortError, every other error is a real failure.
+ */
 export async function searchPlaces(
   query: string,
   origin?: { lat: number; lng: number },
   limit = 6,
+  signal?: AbortSignal,
 ): Promise<PlaceResult[]> {
   const params = new URLSearchParams({ q: query.trim(), limit: String(limit) });
   if (origin) {
     params.set("lat", String(origin.lat));
     params.set("lon", String(origin.lng));
   }
-  const res = await fetch(`${PHOTON_URL}?${params.toString()}`);
-  if (!res.ok) throw new Error(`photon:${res.status}`);
-  return parsePhoton((await res.json()) as { features?: PhotonFeature[] }, origin);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  const onCallerAbort = () => controller.abort();
+  signal?.addEventListener("abort", onCallerAbort);
+  try {
+    const res = await fetch(`${PHOTON_URL}?${params.toString()}`, { signal: controller.signal });
+    if (!res.ok) throw new Error(`photon:${res.status}`);
+    return parsePhoton((await res.json()) as { features?: PhotonFeature[] }, origin);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onCallerAbort);
+  }
 }
