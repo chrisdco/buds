@@ -42,4 +42,7 @@ and target `testID`s (see `src/components/ui.tsx` — `Button`/`Chip` accept
 EAS Workflows has a first-class Maestro job, but we stay local-first: no
 `eas.json`, no cloud builds. A future option is GitHub Actions +
 `android-emulator-runner` running these same flows; do that when the suite
-proves stable locally.
+proves stable locally. The cloud alternative, if local-first ever stops
+fitting, is the canonical `eas/maestro_test` step from `expo/examples`
+`with-maestro` (`.eas/build/build-and-maestro-test.yml`, `flow_path` per
+flow) — verified as the official pattern in the Pass 7 scan (#39).
