@@ -12,7 +12,7 @@ import {
 import Animated, { cubicBezier } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, space } from "@/constants/theme";
+import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 
 // Shared near-imperceptible press transition (expo-animation skill recipe):
@@ -179,6 +179,18 @@ export function Row({ children, style }: { children: ReactNode; style?: ViewStyl
   return <View style={[styles.row, style]}>{children}</View>;
 }
 
+// Shared honest-loading block (law 8): centered spinner + optional label,
+// no positioning opinions — callers wrap it in their Screen/overlay. One
+// copy instead of the four that grew across _layout/invite/room/join.
+export function LoadingView({ label, testID }: { label?: string; testID?: string }) {
+  return (
+    <View style={styles.loadingView} testID={testID}>
+      <ActivityIndicator size="large" color={colors.accent} />
+      {label ? <Text style={styles.loadingViewText}>{label}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -211,7 +223,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: colors.text,
@@ -219,7 +231,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   btn: {
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
@@ -246,10 +258,10 @@ const styles = StyleSheet.create({
   // Ghost labels are plain white text (was accent blue).
   btnText: { fontSize: 16, fontFamily: fontFamily.medium },
   btnTextPrimary: { color: colors.onPrimary },
-  btnTextDanger: { color: "#FFFFFF" },
+  btnTextDanger: { color: colors.text },
   btnTextGhost: { color: colors.text },
   chip: {
-    borderRadius: 999,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -266,4 +278,11 @@ const styles = StyleSheet.create({
   chipText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
   chipTextSelected: { color: colors.onPrimary },
   row: { flexDirection: "row", alignItems: "center" },
+  loadingView: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingViewText: {
+    color: colors.textDim,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    marginTop: space.sm + 4,
+  },
 });

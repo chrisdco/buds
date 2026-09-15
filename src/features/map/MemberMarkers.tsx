@@ -1,7 +1,7 @@
 import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colorForUser, colors } from "@/constants/theme";
+import { colorForUser, colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
@@ -99,19 +99,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: colors.text,
     elevation: 4,
   },
   /** Self marker: accent ring instead of white (Maps blue-dot language). */
   selfAvatar: { borderColor: colors.accent, borderWidth: 3 },
   /** Focused member: bright ring so the camera set reads on the map. */
   selectedAvatar: { borderColor: colors.text, borderWidth: 3 },
-  initial: { color: "#FFFFFF", fontFamily: fontFamily.bold, fontSize: 15 },
+  initial: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 15 },
   name: {
     marginTop: 2,
     color: colors.text,
     backgroundColor: colors.scrim,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 1,
     fontSize: 11,

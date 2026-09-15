@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode, parseInviteCode } from "@/lib/ids";
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   scannerBox: {
     height: 320,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     overflow: "hidden",
     marginTop: 12,
     backgroundColor: colors.surface,

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ErrorText, Label, Screen, Title } from "@/components/ui";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { getRecentRooms, pruneRecentRoom, setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { TRIP_PRESETS, presetCreateParams } from "@/lib/tripPresets";
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     paddingHorizontal: 10,
     paddingVertical: 12,
     alignItems: "center",
@@ -171,5 +171,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   tripName: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold, flexShrink: 1 },
-  tripCode: { color: colors.accent, fontSize: 13, fontFamily: fontFamily.bold, letterSpacing: 1 },
+  tripCode: {
+    color: colors.accent,
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 1,
+    fontVariant: ["tabular-nums"],
+  },
 });

@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colorForUser, colors } from "@/constants/theme";
+import { colorForUser, colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM, type DistanceUnit } from "@/lib/geo";
 import { formatDurationS } from "@/lib/time";
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 10,
     width: 168,

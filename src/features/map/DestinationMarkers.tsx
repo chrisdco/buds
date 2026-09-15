@@ -3,7 +3,7 @@ import { memo } from "react";
 import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colorForUser, colors } from "@/constants/theme";
+import { colorForUser, colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import type { DestRow, MemberLive } from "@/types/contracts";
 
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   label: {
     color: colors.text,
     backgroundColor: colors.scrim,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 1,
     fontSize: 11,
@@ -86,11 +86,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: colors.text,
   },
   pinSmall: { width: 22, height: 22, borderRadius: 11 },
-  pinGlyph: { color: "#FFFFFF", fontSize: 13, fontFamily: fontFamily.bold },
-  pinGlyphSmall: { color: "#FFFFFF", fontSize: 9 },
+  pinGlyph: { color: colors.text, fontSize: 13, fontFamily: fontFamily.bold },
+  pinGlyphSmall: { color: colors.text, fontSize: 9 },
   tip: {
     width: 0,
     height: 0,

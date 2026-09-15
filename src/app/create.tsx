@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { TRIP_PRESETS, parseCreateParams } from "@/lib/tripPresets";
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   stepBtn: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,

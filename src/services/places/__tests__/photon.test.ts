@@ -1,4 +1,4 @@
-import { isAbortError, parsePhoton, searchPlaces } from "@/services/places/photon";
+import { isAbortError, parsePhoton, SEARCH_TIMEOUT_MS, searchPlaces } from "@/services/places/photon";
 
 const BERLIN = { lat: 52.52, lng: 13.405 };
 
@@ -108,5 +108,34 @@ describe("searchPlaces transport", () => {
     const pending = searchPlaces("cafe", undefined, 6, controller.signal);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("rejects with AbortError when the internal timeout fires", async () => {
+    jest.useFakeTimers();
+    try {
+      global.fetch = ((_url: unknown, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("timed out", "AbortError")),
+          );
+        })) as unknown as typeof fetch;
+      const pending = searchPlaces("cafe");
+      const assertion = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+      await jest.advanceTimersByTimeAsync(SEARCH_TIMEOUT_MS);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not fire fetch for a pre-aborted caller signal", async () => {
+    const mock = jest.fn(async () => ({ ok: true, json: async () => ({ features: [] }) }));
+    global.fetch = mock as unknown as typeof fetch;
+    const controller = new AbortController();
+    controller.abort();
+    await expect(searchPlaces("cafe", undefined, 6, controller.signal)).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(mock).not.toHaveBeenCalled();
   });
 });

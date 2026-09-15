@@ -3,7 +3,6 @@ import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   AppState,
   Pressable,
   StyleSheet,
@@ -13,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { createAlertEngine } from "@/events/alertEngine";
 import { createArrivalDetector, type ArrivalDetector } from "@/events/arrivalDetector";
@@ -22,7 +21,7 @@ import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
 import { collectFitPoints } from "@/lib/mapBounds";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { Button } from "@/components/ui";
+import { Button, LoadingView } from "@/components/ui";
 import { openExternalNavigation } from "@/lib/nav";
 import { serverNowMs } from "@/lib/time";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
@@ -519,8 +518,7 @@ export default function RoomScreen() {
       {/* First paint before the snapshot: honest loading state, not a world map. */}
       {!room && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading room…</Text>
+          <LoadingView label="Loading room…" />
         </View>
       )}
 
@@ -802,7 +800,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
@@ -813,7 +811,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 6,
     alignItems: "center",
@@ -824,16 +822,22 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: 11,
     letterSpacing: 1,
+    fontVariant: ["tabular-nums"],
   },
   connBanner: {
     position: "absolute",
     alignSelf: "center",
     backgroundColor: colors.warning,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 5,
   },
-  connBannerText: { color: "#1A1300", fontFamily: fontFamily.bold, fontSize: 12 },
+  connBannerText: {
+    color: colors.onWarning,
+    fontFamily: fontFamily.bold,
+    fontSize: 12,
+    fontVariant: ["tabular-nums"],
+  },
   searchPill: {
     position: "absolute",
     left: 12,
@@ -844,7 +848,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
@@ -856,7 +860,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -872,9 +876,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: colors.text,
   },
-  pinGlyph: { color: "#FFFFFF", fontSize: 14, fontFamily: fontFamily.bold },
+  pinGlyph: { color: colors.text, fontSize: 14, fontFamily: fontFamily.bold },
   pinTip: {
     width: 0,
     height: 0,
@@ -895,19 +899,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.bg,
   },
-  loadingText: {
-    color: colors.textDim,
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
-    marginTop: 12,
-  },
   waitingPill: {
     position: "absolute",
     alignSelf: "center",
     backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 5,
   },
@@ -923,7 +921,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderColor: colors.text,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 16,
     paddingVertical: 7,
     marginBottom: 8,
