@@ -1,11 +1,19 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
+import Animated, { Easing, FadeInDown, FadeOutDown } from "react-native-reanimated";
 
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useUiStore } from "@/stores/uiStore";
 
 const TOAST_TTL_MS = 6_000;
+
+// Toast motion (expo-animation skill recipe): enter from below over 300ms,
+// exit the same way ~20% faster. Builders live at module scope — inline
+// chains rebuild on every render. Uninvited UI stays quick and quiet.
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const TOAST_ENTER = FadeInDown.duration(300).easing(EASE_OUT);
+const TOAST_EXIT = FadeOutDown.duration(250).easing(EASE_OUT);
 
 export function Toasts({ topOffset }: { topOffset: number }) {
   const toasts = useUiStore((s) => s.toasts);
@@ -26,24 +34,23 @@ export function Toasts({ topOffset }: { topOffset: number }) {
   return (
     <>
       {toasts.map((t, i) => (
-        <Pressable
+        <Animated.View
           key={t.key}
-          style={[
-            styles.toast,
-            t.severity === "warn" && styles.warn,
-            { top: topOffset + i * 54 },
-          ]}
-          onPress={() => dismissToast(t.key)}
+          entering={TOAST_ENTER}
+          exiting={TOAST_EXIT}
+          style={[styles.toast, t.severity === "warn" && styles.warn, { top: topOffset + i * 54 }]}
         >
-          <Text style={styles.title} numberOfLines={1}>
-            {t.title}
-          </Text>
-          {t.body ? (
-            <Text style={styles.body} numberOfLines={1}>
-              {t.body}
+          <Pressable onPress={() => dismissToast(t.key)}>
+            <Text style={styles.title} numberOfLines={1}>
+              {t.title}
             </Text>
-          ) : null}
-        </Pressable>
+            {t.body ? (
+              <Text style={styles.body} numberOfLines={1}>
+                {t.body}
+              </Text>
+            ) : null}
+          </Pressable>
+        </Animated.View>
       ))}
     </>
   );

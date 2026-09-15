@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,10 +9,22 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from "react-native";
+import Animated, { cubicBezier } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+
+// Shared near-imperceptible press transition (expo-animation skill recipe):
+// 3% scale over 120ms. cubicBezier is required — Reanimated 4 rejects raw
+// 'cubic-bezier(...)' strings at runtime. The cast bridges a typing gap:
+// RN's StyleSheet types don't know Reanimated's easing object.
+const pressTransition = {
+  transform: [{ scale: 1 }],
+  transitionProperty: "transform",
+  transitionDuration: "120ms",
+  transitionTimingFunction: cubicBezier(0.23, 1, 0.32, 1) as unknown as string,
+};
 
 export function Screen({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
@@ -75,37 +87,51 @@ export function Button({
       : variant === "danger"
         ? styles.btnDanger
         : styles.btnGhost;
+  // Near-imperceptible press feedback (expo-animation skill recipe):
+  // 3% scale over 120ms via Reanimated CSS transition — no gesture, no
+  // shared value. setState fires twice per press, never per frame. The
+  // visuals live on the inner Animated.View so the scale carries the
+  // background with the label (what makes it read as physical); the outer
+  // Pressable owns layout, hit area, and disabled opacity.
+  const [pressed, setPressed] = useState(false);
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      hitSlop={12}
+      pressRetentionOffset={16}
       disabled={disabled || busy}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
       accessibilityState={{ disabled: disabled || busy, busy: !!busy }}
       testID={testID}
-      style={({ pressed }) => [
-        styles.btn,
-        base,
-        size === "compact" && styles.btnCompact,
-        (disabled || busy) && styles.btnDisabled,
-        pressed && styles.btnPressed,
-      ]}
+      style={[styles.btnOuter, size === "compact" && styles.btnOuterCompact, (disabled || busy) && styles.btnDisabled, pressed && styles.btnPressed]}
     >
-      {busy ? (
-        <ActivityIndicator color={variant === "primary" ? colors.onPrimary : colors.text} />
-      ) : (
-        <Text
-          style={[
-            styles.btnText,
-            size === "compact" && styles.btnTextCompact,
-            variant === "primary" && styles.btnTextPrimary,
-            variant === "danger" && styles.btnTextDanger,
-            variant === "ghost" && styles.btnTextGhost,
-          ]}
-        >
-          {label}
-        </Text>
-      )}
+      <Animated.View
+        style={[
+          styles.btn,
+          base,
+          size === "compact" && styles.btnCompact,
+          pressed && styles.btnScalePressed,
+        ]}
+      >
+        {busy ? (
+          <ActivityIndicator color={variant === "primary" ? colors.onPrimary : colors.text} />
+        ) : (
+          <Text
+            style={[
+              styles.btnText,
+              size === "compact" && styles.btnTextCompact,
+              variant === "primary" && styles.btnTextPrimary,
+              variant === "danger" && styles.btnTextDanger,
+              variant === "ghost" && styles.btnTextGhost,
+            ]}
+          >
+            {label}
+          </Text>
+        )}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -125,16 +151,26 @@ export function Chip({
   /** Stable selector for Maestro E2E flows (zero runtime cost). */
   testID?: string;
 }) {
+  // Same near-imperceptible press scale as Button (tens of presses/day
+  // tier). Selected state is a color change, kept — reduced motion drops
+  // the scale but never the selection signal.
+  const [pressed, setPressed] = useState(false);
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      hitSlop={8}
+      pressRetentionOffset={12}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
       accessibilityState={{ selected }}
       testID={testID}
-      style={[styles.chip, selected && styles.chipSelected]}
+      style={styles.chipOuter}
     >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+      <Animated.View style={[styles.chip, selected && styles.chipSelected, pressed && styles.chipPressed]}>
+        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -187,8 +223,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
+    ...pressTransition,
+  },
+  btnOuter: {
     marginTop: 12,
   },
+  btnOuterCompact: { marginTop: 8 },
+  btnScalePressed: { transform: [{ scale: 0.97 }] },
   // Uber polarity flip for dark mode: primary CTA is white ink on canvas.
   btnPrimary: { backgroundColor: colors.primary },
   btnDanger: { backgroundColor: colors.danger },
@@ -199,7 +240,7 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnPressed: { opacity: 0.85 },
-  btnCompact: { paddingVertical: 10, marginTop: 8 },
+  btnCompact: { paddingVertical: 10 },
   btnTextCompact: { fontSize: 14 },
   // Primary/danger labels sit on filled ink: black/white respectively.
   // Ghost labels are plain white text (was accent blue).
@@ -214,9 +255,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
+    ...pressTransition,
   },
+  chipOuter: { marginRight: 8, marginBottom: 8 },
+  chipPressed: { transform: [{ scale: 0.97 }] },
   chipSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,

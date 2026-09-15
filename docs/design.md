@@ -88,6 +88,15 @@ White space, Unity).
 
 - Map markers keep per-member colors (wayfinding needs them; Focus's
   single-accent rule doesn't apply to a multi-actor map).
+- Motion follows the expo-animation skill, with three keeps: member markers
+  move in discrete jumps (ticks arrive every 2.5–20s and MapLibre markers
+  aren't Reanimated views — per-frame geo interpolation would cross the
+  bridge per marker per frame and imply a precision the throttle
+  deliberately threw away; heading arrow + presence opacity carry the
+  aliveness), full-screen map loads keep the honest spinner (a map canvas
+  has no layout to skeletonize — shimmer is reserved for list rows like
+  dest-search results), and press feedback is a 3% / 120ms scale on buttons
+  and chips only (list rows highlight instead of scaling).
 - Expiry extend actions stay as chips (compact map-adjacent language),
   not full buttons — they are low-frequency host tools, not conversion CTAs.
 
