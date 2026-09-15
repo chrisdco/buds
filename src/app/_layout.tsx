@@ -1,5 +1,6 @@
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { DarkTheme, ThemeProvider } from "expo-router";
+import Stack from "expo-router/stack";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -53,18 +54,23 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.bg },
-          }}
-        />
-        {/* Native confirm dialogs shared by every screen: location priming on
-        home, identity/wipe in settings, leave/end/kick in rooms. Must live
-        here — requestConfirm() callers outside the room layout (home,
-        settings) would otherwise await a sheet that never renders. */}
-        <ConfirmSheet />
+        {/* Dark navigation theme (expo-router skill): pins native surfaces
+        to dark so future native chrome (tabs glass, sheets) matches our ink
+        UI instead of flashing white. Visual no-op today — all headers hidden. */}
+        <ThemeProvider value={DarkTheme}>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          />
+          {/* Native confirm dialogs shared by every screen: location priming on
+          home, identity/wipe in settings, leave/end/kick in rooms. Must live
+          here — requestConfirm() callers outside the room layout (home,
+          settings) would otherwise await a sheet that never renders. */}
+          <ConfirmSheet />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

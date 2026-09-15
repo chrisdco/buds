@@ -1,4 +1,5 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack } from "expo-router/stack";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 import { useEffect, useRef } from "react";
