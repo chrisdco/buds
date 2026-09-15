@@ -77,6 +77,15 @@ White space, Unity).
 
 ## Deliberate deviations
 
+- `@expo/ui` is the default for native controls (ConfirmSheet BottomSheet,
+  buttons, text) — except three hand-rolled keeps, audited per the expo-ui
+  skill: RN `Switch` (universal Switch has no track/thumb tint, and our duet
+  needs exact neutrals — platform tint modifiers would cost a file split for
+  zero UX gain), flat settings rows instead of `List` (native `List` is iOS
+  grouped-settings styling; law 5 mandates flat ink rows), and chips/steppers
+  instead of `Picker` (compact map-adjacent language for 3–4 options).
+  RoomSheet stays hand-rolled: universal BottomSheet is modal-only.
+
 - Map markers keep per-member colors (wayfinding needs them; Focus's
   single-accent rule doesn't apply to a multi-actor map).
 - Expiry extend actions stay as chips (compact map-adjacent language),
