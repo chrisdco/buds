@@ -40,13 +40,17 @@ export function Toasts({ topOffset }: { topOffset: number }) {
           exiting={TOAST_EXIT}
           // Toasts announce themselves (native-ui Behavior): the container
           // is the live region, the nested Pressable stays the dismissal
-          // control.
-          accessible
+          // control. Note: no `accessible` here — grouping would fold the
+          // dismiss button into one element and hide it from screen readers.
           accessibilityRole="alert"
           accessibilityLiveRegion="polite"
           style={[styles.toast, t.severity === "warn" && styles.warn, { top: topOffset + i * 54 }]}
         >
-          <Pressable onPress={() => dismissToast(t.key)}>
+          <Pressable
+            onPress={() => dismissToast(t.key)}
+            accessibilityRole="button"
+            accessibilityHint="Dismisses this notification"
+          >
             <Text style={styles.title} numberOfLines={1}>
               {t.title}
             </Text>
