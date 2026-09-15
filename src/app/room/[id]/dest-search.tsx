@@ -8,7 +8,7 @@ import { AppSymbol, icons } from "@/components/Symbol";
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
-import { searchPlaces, type PlaceResult } from "@/services/places/photon";
+import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
 import { useMembersStore } from "@/stores/membersStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -29,7 +29,9 @@ export default function DestSearchScreen() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const requestId = useRef(0);
+  const inFlight = useRef<AbortController | null>(null);
 
   const myUserId = useSessionStore((s) => s.userId);
   const units = useSessionStore((s) => s.units);
@@ -43,16 +45,27 @@ export default function DestSearchScreen() {
     // Spinner starts with the request (not the keystroke): no flash for fast
     // answers, and no synchronous setState in the effect body.
     const timer = setTimeout(() => {
+      // Retype/unmount cancels the previous request (expo-data-fetching
+      // skill): the requestId guard alone would leave it burning data and
+      // battery to discard the answer. Aborts never surface as errors.
+      inFlight.current?.abort();
+      const controller = new AbortController();
+      inFlight.current = controller;
       setSearching(true);
-      void searchPlaces(q, origin ? { lat: origin.lat, lng: origin.lng } : undefined)
+      void searchPlaces(
+        q,
+        origin ? { lat: origin.lat, lng: origin.lng } : undefined,
+        6,
+        controller.signal,
+      )
         .then((r) => {
           if (requestId.current !== id) return;
           setResults(r);
           setSearched(true);
           setError(null);
         })
-        .catch(() => {
-          if (requestId.current !== id) return;
+        .catch((e: unknown) => {
+          if (requestId.current !== id || isAbortError(e)) return;
           setResults([]);
           setSearched(true);
           setError("Couldn't search — check your connection, or set the pin on the map.");
@@ -61,10 +74,14 @@ export default function DestSearchScreen() {
           if (requestId.current === id) setSearching(false);
         });
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      inFlight.current?.abort();
+    };
     // Origin fixed per mount: re-biasing mid-typing reshuffles the list.
+    // retryNonce re-fires the same query on explicit retry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [query, retryNonce]);
 
   const pick = (place: PlaceResult) => {
     useUiStore.getState().setDestDraft({
@@ -152,6 +169,20 @@ export default function DestSearchScreen() {
           </Text>
         )}
         <ErrorText>{error}</ErrorText>
+        {/* Error carries its own retry (skill: every error state offers one)
+        plus the map escape hatch below — retyping also refires, this just
+        says so. Hidden while a request is in flight. */}
+        {error && !searching && (
+          <Pressable
+            style={styles.retry}
+            accessibilityRole="button"
+            accessibilityLabel="Retry search"
+            testID="dest-search-retry"
+            onPress={() => setRetryNonce((n) => n + 1)}
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
+        )}
 
         <Pressable
           style={styles.row}
@@ -189,6 +220,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowBody: { flex: 1, flexShrink: 1 },
+  retry: {
+    marginTop: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignSelf: "flex-start",
+  },
+  retryText: { color: colors.text, fontSize: 14, fontFamily: fontFamily.semiBold },
   rowName: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   rowSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 1 },
   chev: { color: colors.textDim, fontSize: 20, fontFamily: fontFamily.regular },
