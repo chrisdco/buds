@@ -40,6 +40,10 @@ The phased execution plan (P0–P3) is tracked in the GitHub issue tracker
 
 Product direction: convoy coordination (converge/leader/formation) is the
 wedge; solo/multitrack stay as experimental candidates until validated.
+Sept 2026 market scan: the convoy niche is crowded (dots + codes are table
+stakes) — the wedge is coordination intelligence (the modes engine) plus
+verifiable privacy, not feature parity. Niche-parity items stay backlogged
+(#11); privacy evolution has its own track (#44).
 UI follows the Uber/Google Maps/Life360 grammar (dark map, 3-detent sheet,
 trip progress, check-in) — see `docs/design.md`. Backlog (#11) stays
 deferred.
