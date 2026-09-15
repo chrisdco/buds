@@ -343,6 +343,21 @@ describe("room events", () => {
     fake.emitBroadcast("evt", null);
     expect(useUiStore.getState().toasts.length).toBe(count);
   });
+
+  it("tracks peer SOS in the store, clears it, ignores malformed and own", async () => {
+    await connectSubscribed();
+    const t = Date.now();
+    fake.emitBroadcast("evt", { k: "sos", u: PEER, t });
+    expect(useMembersStore.getState().sosByUser[PEER]).toBe(t);
+    // Own + malformed SOS never lands.
+    fake.emitBroadcast("evt", { k: "sos", u: ME, t: t + 1 });
+    fake.emitBroadcast("evt", { k: "sos", u: PEER, t: Number.NaN });
+    fake.emitBroadcast("evt", { k: "sos" });
+    expect(useMembersStore.getState().sosByUser[ME]).toBeUndefined();
+    expect(useMembersStore.getState().sosByUser[PEER]).toBe(t);
+    fake.emitBroadcast("evt", { k: "sos_clear", u: PEER, t: t + 2 });
+    expect(useMembersStore.getState().sosByUser[PEER]).toBeUndefined();
+  });
 });
 
 describe("reconnect + teardown", () => {

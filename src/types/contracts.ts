@@ -78,7 +78,13 @@ export interface LocTick {
 export type RoomEvt =
   | { k: "arrived"; u: string; t: number }
   | { k: "deviated"; u: string; t: number; offM: number }
-  | { k: "rejoined"; u: string; t: number };
+  | { k: "rejoined"; u: string; t: number }
+  // Explicit panic action (#45): receivers show a persistent banner + an OS
+  // notification when backgrounded. No location in the payload — peers
+  // already hold live ticks; the banner navigates to the sender's marker.
+  // Ephemeral like every broadcast: late-joiners miss it by design.
+  | { k: "sos"; u: string; t: number }
+  | { k: "sos_clear"; u: string; t: number };
 
 /** Presence meta — tracked once per connection, updated only on state transitions. */
 export interface PresenceMeta {
