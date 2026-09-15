@@ -2,11 +2,14 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  runOnJS,
+  ReduceMotion,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
+import * as Haptics from "expo-haptics";
 
 import { colors, space } from "@/constants/theme";
 
@@ -20,7 +23,25 @@ const ORDER: SheetDetent[] = ["peek", "half", "full"];
 const PEEK_HEIGHT = 140;
 const HALF_RATIO = 0.42;
 const FULL_RATIO = 0.85;
-const SPRING = { damping: 30, stiffness: 300 };
+// Apple designer params (expo-animation skill): sheet settle, no overshoot
+// past the detent list (targets are interior, so clamping would deaden it).
+const SPRING = { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System } as const;
+
+// Apple's exponential-decay projection (expo-animation skill recipe):
+// where the finger would come to rest if it kept decelerating. A fast
+// short flick commits; a slow long drag doesn't — distance alone would
+// make the sheet feel heavy.
+function project(velocity: number, decelerationRate = 0.998): number {
+  "worklet";
+  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
+}
+
+// The further past the edge, the less the sheet follows — resistance
+// instead of a dead clamp, so the boundary reads as physical.
+function rubberband(overshoot: number, dimension: number, constant = 0.55): number {
+  "worklet";
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
 
 interface RoomSheetProps {
   detent: SheetDetent;
@@ -28,8 +49,14 @@ interface RoomSheetProps {
   renderContent: (detent: SheetDetent) => ReactNode;
 }
 
+/** Single light tick when a detent catches — visual leads, haptic follows. */
+function settleHaptic(): void {
+  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+}
+
 export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetProps) {
   const { height: H } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
   // Worklet-marked so gesture callbacks (UI runtime) can call it
   // synchronously. Worklets 0.10 forbids calling plain JS closures from the
   // UI runtime ("Remote Function" error) — this directive is required, not
@@ -44,7 +71,7 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
 
   // Tap-handle / programmatic moves animate; drags drive the value directly.
   useEffect(() => {
-    translateY.value = withSpring(topFor(detent), SPRING);
+    translateY.set(withSpring(topFor(detent), SPRING));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detent, H]);
 
@@ -57,20 +84,26 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
         // (member list) pass through to children.
         .activeOffsetY([-12, 12])
         .onStart(() => {
-          dragStartY.value = translateY.value;
+          dragStartY.set(translateY.get());
         })
         .onUpdate((e) => {
           const min = topFor("full");
           const max = topFor("peek");
-          // Worklet mutation is Reanimated's API; shared with JS intentionally.
-          // eslint-disable-next-line react-hooks/immutability
-          translateY.value = Math.min(max, Math.max(min, dragStartY.value + e.translationY));
+          const next = dragStartY.get() + e.translationY;
+          // Interior travel is free; past either edge the sheet resists.
+          translateY.set(
+            next < min
+              ? min + rubberband(next - min, H)
+              : next > max
+                ? max + rubberband(next - max, H)
+                : next,
+          );
         })
         .onEnd((e) => {
           // Fling-aware snap: project along velocity, settle on nearest detent.
           const projected = Math.min(
             topFor("peek"),
-            Math.max(topFor("full"), translateY.value + e.velocityY * 0.12),
+            Math.max(topFor("full"), translateY.get() + project(e.velocityY)),
           );
           let best: SheetDetent = ORDER[0];
           let bestDist = Infinity;
@@ -81,20 +114,20 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
               best = d;
             }
           }
-          // Worklet mutation is Reanimated's API; shared with JS intentionally.
-          // eslint-disable-next-line react-hooks/immutability
-          translateY.value = withSpring(topFor(best), SPRING);
-          runOnJS(onDetentChange)(best);
+          translateY.set(withSpring(topFor(best), { ...SPRING, velocity: e.velocityY }));
+          scheduleOnRN(onDetentChange, best);
+          if (!reducedMotion) scheduleOnRN(settleHaptic);
         }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [H, onDetentChange],
+    [H, onDetentChange, reducedMotion],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   const cycle = () => {
+    if (!reducedMotion) settleHaptic();
     onDetentChange(ORDER[(ORDER.indexOf(detent) + 1) % ORDER.length]);
   };
 

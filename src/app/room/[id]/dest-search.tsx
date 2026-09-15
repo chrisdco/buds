@@ -1,8 +1,9 @@
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ErrorText, Screen, TextField, Title } from "@/components/ui";
+import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
@@ -100,10 +101,11 @@ export default function DestSearchScreen() {
         />
 
         {searching && (
-          <View style={styles.statusRow}>
-            <ActivityIndicator size="small" color={colors.accent} />
-            <Text style={styles.statusText}>Searching…</Text>
-          </View>
+          <>
+            <SearchResultSkeleton />
+            <SearchResultSkeleton />
+            <SearchResultSkeleton />
+          </>
         )}
 
         {!searching && !searched && (
@@ -178,8 +180,6 @@ export default function DestSearchScreen() {
 
 const styles = StyleSheet.create({
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 12 },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
-  statusText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular },
   row: {
     flexDirection: "row",
     alignItems: "center",
