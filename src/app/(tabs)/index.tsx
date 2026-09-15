@@ -33,7 +33,6 @@ export default function HomeScreen() {
   );
 
   const nameValid = displayName.trim().length > 0;
-  const initial = displayName.trim().slice(0, 1).toUpperCase() || "?";
 
   // Location priming (double-prompt): our sheet explains the exchange at the
   // moment of intent; the OS dialog follows later at room join. Either button
@@ -91,23 +90,11 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <View style={styles.heroRow}>
-        <View style={styles.hero}>
-          <Title>Buds</Title>
-          <Text style={styles.tagline}>
-            Live maps for small groups — see your buds, converge, convoy.
-          </Text>
-        </View>
-        <Pressable
-          style={styles.avatar}
-          accessibilityRole="button"
-          accessibilityLabel="App settings"
-          testID="home-settings"
-          hitSlop={12}
-          onPress={() => router.replace("/profile")}
-        >
-          <Text style={styles.avatarText}>{initial}</Text>
-        </Pressable>
+      <View style={styles.hero}>
+        <Title>Buds</Title>
+        <Text style={styles.tagline}>
+          Live maps for small groups — see your buds, converge, convoy.
+        </Text>
       </View>
 
       <View style={styles.strip} accessibilityLabel="How it works">
@@ -198,20 +185,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  heroRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  hero: { marginTop: 24, marginBottom: 12, flexShrink: 1, marginRight: 12 },
-  avatar: {
-    marginTop: 52,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: colors.text, fontSize: 18, fontFamily: fontFamily.bold },
+  hero: { marginTop: 24, marginBottom: 12, flexShrink: 1 },
   strip: { flexDirection: "row", gap: 8, marginTop: 12, marginBottom: 8 },
   step: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 6 },
   stepNum: {
