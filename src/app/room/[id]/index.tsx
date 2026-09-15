@@ -33,6 +33,7 @@ import { InsightsPanel } from "@/features/room/InsightsPanel";
 import { MemberList } from "@/features/room/MemberList";
 import { RoomDetails } from "@/features/room/RoomDetails";
 import { RoomSheet, type SheetDetent } from "@/features/room/RoomSheet";
+import { SosBanner, type SosBannerItem } from "@/features/room/SosBanner";
 import { Toasts } from "@/features/room/Toasts";
 import { notifyAlert, ensureNotificationPermission } from "@/services/notifications";
 import { alertCategory } from "@/events/notifyPrefs";
@@ -47,7 +48,7 @@ import {
 import { ensureRoutes } from "@/services/routing/routeManager";
 import { sendEvt } from "@/services/realtime/roomChannel";
 import { roomsRpc } from "@/services/rpc/rooms";
-import { useMembersStore } from "@/stores/membersStore";
+import { useMembersStore, activeSos } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useRouteStore } from "@/stores/routeStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -64,6 +65,7 @@ export default function RoomScreen() {
   const destByMember = useRoomStore((s) => s.destByMember);
   const connection = useRoomStore((s) => s.connection);
   const membersMap = useMembersStore((s) => s.members);
+  const sosByUser = useMembersStore((s) => s.sosByUser);
   const routes = useRouteStore((s) => s.routes);
   const cameraMode = useUiStore((s) => s.cameraMode);
   const focusUserIds = useUiStore((s) => s.focusUserIds);
@@ -121,6 +123,63 @@ export default function RoomScreen() {
   }, [snap]);
 
   const me = myUserId ? membersMap[myUserId] : undefined;
+  const isTraveler = me?.role === "traveler";
+
+  // Active SOS alerts, viewer-derived (#45): fresh sender timestamps from
+  // the store joined to membership rows for names + live positions.
+  // Recomputed on the 5s tick so expired entries clear without new traffic.
+  // Own SOS excluded from the banner — the sender gets FAB state instead.
+  const sosItems: SosBannerItem[] = useMemo(() => {
+    const items: SosBannerItem[] = [];
+    for (const { userId, atMs } of activeSos(sosByUser, nowMs)) {
+      if (userId === myUserId) continue;
+      const m = membersMap[userId];
+      if (!m) continue;
+      items.push({
+        userId,
+        name: m.name,
+        atMs,
+        pos: m.pos ? { lat: m.pos.lat, lng: m.pos.lng } : null,
+      });
+    }
+    return items;
+  }, [sosByUser, membersMap, nowMs, myUserId]);
+  const mySosActive =
+    myUserId != null && activeSos(sosByUser, nowMs).some((i) => i.userId === myUserId);
+  const showSos = sosItems.length > 0;
+
+  // Explicit panic action: confirm-gated send (an SOS alarms the whole
+  // room), frictionless cancel (a resolved emergency shouldn't fight UI).
+  // Travelers only — spectators just watch.
+  const sendSos = useCallback(() => {
+    if (!myUserId || !isTraveler) return;
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "Send SOS to the room?",
+        body: "Everyone in the room gets an urgent alert with your live location.",
+        confirmLabel: "Send SOS",
+        destructive: true,
+      });
+      if (!ok || !myUserId) return;
+      // One clock for the broadcast and the local mirror (skew-corrected;
+      // TTL comparisons below run against the same basis).
+      const t = serverNowMs();
+      sendEvt({ k: "sos", u: myUserId, t });
+      useMembersStore.getState().setSos(myUserId, t);
+      useUiStore.getState().pushAlerts([
+        { id: "sos-sent", severity: "warn", title: "SOS sent — your room can see you" },
+      ]);
+    })();
+  }, [myUserId, isTraveler]);
+
+  const cancelSos = useCallback(() => {
+    if (!myUserId) return;
+    sendEvt({ k: "sos_clear", u: myUserId, t: serverNowMs() });
+    useMembersStore.getState().clearSos(myUserId);
+    useUiStore.getState().pushAlerts([
+      { id: "sos-cleared", severity: "info", title: "SOS cleared" },
+    ]);
+  }, [myUserId]);
   const canCheckIn =
     room != null &&
     myDest != null &&
@@ -601,11 +660,21 @@ export default function RoomScreen() {
         </View>
       )}
 
+      {/* Peer SOS alerts stack below the connection banner when visible. */}
+      {showSos && (
+        <SosBanner
+          items={sosItems}
+          nowMs={nowMs}
+          top={insets.top + (showConnBanner ? 108 : 64)}
+          onNavigate={(lat, lng) => void openExternalNavigation(lat, lng)}
+        />
+      )}
+
       {/* Destination entry + adjust-pin card: Uber "Where to?" grammar.
-      Sits below the top bar (under the conn banner when visible). */}
+      Sits below the top bar (under the conn/SOS banners when visible). */}
       {!adjust ? (
         <Pressable
-          style={[styles.searchPill, { top: insets.top + (showConnBanner ? 108 : 60) }]}
+          style={[styles.searchPill, { top: insets.top + (showConnBanner ? 108 : 60) + (showSos ? 44 : 0) }]}
           accessibilityRole="button"
           accessibilityLabel={destRoom ? `Change destination, currently ${destRoom.label}` : "Search for a destination"}
           testID="room-dest-search"
@@ -632,7 +701,7 @@ export default function RoomScreen() {
           </Text>
         </Pressable>
       ) : (
-        <View style={[styles.adjustCard, { top: insets.top + (showConnBanner ? 108 : 60) }]}>
+        <View style={[styles.adjustCard, { top: insets.top + (showConnBanner ? 108 : 60) + (showSos ? 44 : 0) }]}>
           <Text style={styles.adjustLabel} numberOfLines={1}>
             {adjust.label}
           </Text>
@@ -669,8 +738,8 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Toasts sit below the connection banner when it's visible. */}
-      <Toasts topOffset={insets.top + (showConnBanner ? 104 : 64)} />
+      {/* Toasts sit below the connection/SOS banners when visible. */}
+      <Toasts topOffset={insets.top + (showConnBanner ? 104 : 64) + (showSos ? 44 : 0)} />
 
       {/* Floating actions */}
       <View style={[styles.fabColumn, { bottom: insets.bottom + 160 }]}>
@@ -722,6 +791,25 @@ export default function RoomScreen() {
             tintColor={cameraMode === "auto" ? colors.accent : colors.text}
           />
         </Pressable>
+        {/* Explicit panic action (#45): travelers only, confirm-gated send,
+        frictionless cancel. Warning glyph + danger border earn the weight;
+        the confirm sheet stops pocket-SOS. */}
+        {isTraveler && (
+          <Pressable
+            style={[styles.fab, mySosActive && styles.fabSosActive]}
+            accessibilityRole="button"
+            accessibilityLabel={mySosActive ? "Cancel your SOS alert" : "Send SOS alert to the room"}
+            testID="room-sos"
+            onPress={mySosActive ? cancelSos : sendSos}
+          >
+            <AppSymbol
+              name={icons.warning}
+              fallback={icons.warning.fallback}
+              size={22}
+              tintColor={mySosActive ? colors.text : colors.danger}
+            />
+          </Pressable>
+        )}
       </View>
 
       {/* Maps-style non-modal sheet: peek (headline) / half (trip panel) /
@@ -950,5 +1038,6 @@ const styles = StyleSheet.create({
   },
   fabWide: { paddingHorizontal: 16 },
   fabActive: { borderColor: colors.text },
+  fabSosActive: { borderColor: colors.danger, backgroundColor: colors.danger },
   fabText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
 });

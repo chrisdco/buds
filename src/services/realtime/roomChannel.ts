@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 
 import { supabase } from "@/lib/supabaseClient";
 import { serverNowMs, setServerNowMs } from "@/lib/time";
+import { notifyAlert } from "@/services/notifications";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -88,7 +89,14 @@ function handleRoomEvt(evt: RoomEvt): void {
   // (member_change path) — only transient, non-DB events surface here.
   // Shape-guard: a malformed/malicious peer broadcast must not crash us.
   if (!evt || typeof evt.u !== "string") return;
-  if (evt.k !== "deviated" && evt.k !== "rejoined" && evt.k !== "arrived") return;
+  if (
+    evt.k !== "deviated" &&
+    evt.k !== "rejoined" &&
+    evt.k !== "arrived" &&
+    evt.k !== "sos" &&
+    evt.k !== "sos_clear"
+  )
+    return;
   const myId = useSessionStore.getState().userId;
   if (evt.u === myId) return;
   const name = useMembersStore.getState().members[evt.u]?.name ?? "A bud";
@@ -105,6 +113,24 @@ function handleRoomEvt(evt: RoomEvt): void {
     useUiStore.getState().pushAlerts([
       { id: `evt-rejoin-${evt.u}-${evt.t}`, severity: "info", title: `${name} reconnected` },
     ]);
+  } else if (evt.k === "sos") {
+    // SOS needs no payload beyond sender + time (the banner navigates to
+    // their live marker), but a garbage timestamp must not pin the banner.
+    if (!Number.isFinite(evt.t)) return;
+    useMembersStore.getState().setSos(evt.u, evt.t);
+    // Safety overrides preference gating: a backgrounded member must get
+    // the OS notification, like "other" (internal errors) in the engine
+    // path. Foreground members see the persistent banner instead.
+    if (AppState.currentState !== "active") {
+      void notifyAlert({
+        id: `evt-sos-${evt.u}-${evt.t}`,
+        severity: "warn",
+        title: `SOS — ${name} needs help`,
+        body: "Tap to open Buds and see their live location.",
+      });
+    }
+  } else if (evt.k === "sos_clear") {
+    useMembersStore.getState().clearSos(evt.u);
   }
 }
 

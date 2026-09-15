@@ -10,6 +10,10 @@ import type {
 
 const TICK_FRESH_MS = 45_000;
 const RECONNECTING_WINDOW_MS = 2 * 60_000;
+// An uncancelled SOS goes stale rather than haunting the map forever. Long
+// enough for a real emergency, short enough that a forgotten one clears
+// itself. The sender re-sends to extend.
+export const SOS_TTL_MS = 30 * 60_000;
 
 function fromRow(row: MemberRow, prev?: MemberLive): MemberLive {
   const dbPos =
@@ -46,15 +50,22 @@ function fromRow(row: MemberRow, prev?: MemberLive): MemberLive {
 
 interface MembersState {
   members: Record<string, MemberLive>;
+  /** Active SOS alerts by sender: userId -> sender timestamp. Ephemeral
+  event state (not DB rows) — pruned on leave/snapshot/reset, expired by TTL
+  at read time. Every viewer derives the banner locally. */
+  sosByUser: Record<string, number>;
   applySnapshot: (rows: MemberRow[]) => void;
   applyMemberRow: (row: MemberRow) => void;
   applyTick: (tick: LocTick) => void;
   syncPresence: (state: Record<string, PresenceMeta[]>) => void;
+  setSos: (userId: string, atMs: number) => void;
+  clearSos: (userId: string) => void;
   reset: () => void;
 }
 
 export const useMembersStore = create<MembersState>()((set, get) => ({
   members: {},
+  sosByUser: {},
 
   applySnapshot: (rows) => {
     const prev = get().members;
@@ -63,17 +74,26 @@ export const useMembersStore = create<MembersState>()((set, get) => ({
       if (row.left_at) continue;
       next[row.user_id] = fromRow(row, prev[row.user_id]);
     }
-    set({ members: next });
+    // A snapshot is the membership truth: drop SOS entries for anyone gone.
+    const sos = get().sosByUser;
+    const pruned: Record<string, number> = {};
+    for (const [userId, atMs] of Object.entries(sos)) {
+      if (next[userId]) pruned[userId] = atMs;
+    }
+    set({ members: next, sosByUser: pruned });
   },
 
   applyMemberRow: (row) => {
     const members = { ...get().members };
     if (row.left_at) {
       delete members[row.user_id];
+      const sos = { ...get().sosByUser };
+      delete sos[row.user_id];
+      set({ members, sosByUser: sos });
     } else {
       members[row.user_id] = fromRow(row, members[row.user_id]);
+      set({ members });
     }
-    set({ members });
   },
 
   applyTick: (tick) => {
@@ -118,8 +138,28 @@ export const useMembersStore = create<MembersState>()((set, get) => ({
     set({ members });
   },
 
-  reset: () => set({ members: {} }),
+  reset: () => set({ members: {}, sosByUser: {} }),
+
+  setSos: (userId, atMs) => set({ sosByUser: { ...get().sosByUser, [userId]: atMs } }),
+
+  clearSos: (userId) => {
+    const sos = { ...get().sosByUser };
+    if (!(userId in sos)) return;
+    delete sos[userId];
+    set({ sosByUser: sos });
+  },
 }));
+
+/** Fresh, unexpired SOS alerts for the banner; pure so every viewer derives it locally. */
+export function activeSos(
+  sosByUser: Record<string, number>,
+  nowMs: number,
+): { userId: string; atMs: number }[] {
+  return Object.entries(sosByUser)
+    .filter(([, atMs]) => Number.isFinite(atMs) && nowMs - atMs < SOS_TTL_MS)
+    .map(([userId, atMs]) => ({ userId, atMs }))
+    .sort((a, b) => b.atMs - a.atMs);
+}
 
 /** Derives the display presence state; pure so every viewer computes it locally. */
 export function presenceOf(m: MemberLive, nowMs: number): PresenceState {
