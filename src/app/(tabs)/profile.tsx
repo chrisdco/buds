@@ -15,12 +15,14 @@ export default function ProfileScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const units = useSessionStore((s) => s.units);
+  // The tab already says Profile — the heading carries the identity.
+  const heading = displayName.trim() || "Profile";
 
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Title>Profile</Title>
+          <Title>{heading}</Title>
         </View>
 
         <Label>Profile</Label>
