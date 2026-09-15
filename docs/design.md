@@ -97,6 +97,17 @@ White space, Unity).
   has no layout to skeletonize — shimmer is reserved for list rows like
   dest-search results), and press feedback is a 3% / 120ms scale on buttons
   and chips only (list rows highlight instead of scaling).
+- Design tokens live in `constants/theme.ts` (`colors` + `space` + `radius`,
+  law 9) — not the skill's `src/theme/` layout, and deliberately dark-only
+  fixed hex rather than semantic `Color` APIs: the product is ink-black on
+  every device (manifest pins `userInterfaceStyle: dark`), there is no light
+  mode to adapt to, and iOS is deferred (#10) so dynamic/adaptive color
+  buys nothing today. Revisit with the iOS lane. Same lane owns the keeps
+  below: `elevation` stays over `boxShadow` (Android renders it; the
+  translation is unverifiable without a device), `borderCurve` is skipped
+  (iOS-only prop), filenames stay camelCase (established convention —
+  renaming is churn, not drift), and QR black-on-white stays literal
+  (scanner contrast requirement, not a theme decision).
 - Expiry extend actions stay as chips (compact map-adjacent language),
   not full buttons — they are low-frequency host tools, not conversion CTAs.
 

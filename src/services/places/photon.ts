@@ -75,7 +75,8 @@ export function isAbortError(e: unknown): boolean {
   );
 }
 
-const SEARCH_TIMEOUT_MS = 8_000;
+/** Photon request budget, shared with tests. Matches the routing chain's 8s. */
+export const SEARCH_TIMEOUT_MS = 8_000;
 
 /**
  * Thin fetch wrapper: bias + limit, parser does the rest. Throws on HTTP
@@ -97,8 +98,16 @@ export async function searchPlaces(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
   const onCallerAbort = () => controller.abort();
+  // Note: a listener added to an already-aborted signal never fires, so the
+  // explicit aborted check below is required — it is not redundant.
   signal?.addEventListener("abort", onCallerAbort);
+  if (signal?.aborted) controller.abort();
   try {
+    // A pre-aborted caller signal must not still dispatch the request:
+    // without this the fetch below runs to completion on an answer nobody
+    // wants. signal.reason is the platform's own AbortError — no
+    // hand-rolled error shapes.
+    if (controller.signal.aborted) throw controller.signal.reason;
     const res = await fetch(`${PHOTON_URL}?${params.toString()}`, { signal: controller.signal });
     if (!res.ok) throw new Error(`photon:${res.status}`);
     return parsePhoton((await res.json()) as { features?: PhotonFeature[] }, origin);

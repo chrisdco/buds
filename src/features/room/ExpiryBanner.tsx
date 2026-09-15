@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { expiryInfo } from "@/lib/expiry";
 
@@ -25,10 +25,16 @@ const styles = StyleSheet.create({
   banner: {
     alignSelf: "center",
     backgroundColor: colors.warning,
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 5,
     marginBottom: 8,
   },
-  text: { color: "#1A1300", fontFamily: fontFamily.bold, fontSize: 12 },
+  // Ticking mm:ss countdown: tabular numerals stop the width jitter.
+  text: {
+    color: colors.onWarning,
+    fontFamily: fontFamily.bold,
+    fontSize: 12,
+    fontVariant: ["tabular-nums"],
+  },
 });

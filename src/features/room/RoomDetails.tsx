@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.extraBold,
     fontSize: 20,
     letterSpacing: 4,
+    fontVariant: ["tabular-nums"],
   },
   fact: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular },
   actions: { gap: 0 },

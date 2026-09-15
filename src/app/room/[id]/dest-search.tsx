@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ErrorText, Screen, TextField, Title } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
 import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
@@ -32,6 +32,10 @@ export default function DestSearchScreen() {
   const [retryNonce, setRetryNonce] = useState(0);
   const requestId = useRef(0);
   const inFlight = useRef<AbortController | null>(null);
+  // True when the latest abort came from us (retype / retry / unmount) as
+  // opposed to searchPlaces' own transport timeout: only our cancels are
+  // silent — a timeout is a real failure and must reach the error state.
+  const userCancelled = useRef(false);
 
   const myUserId = useSessionStore((s) => s.userId);
   const units = useSessionStore((s) => s.units);
@@ -47,10 +51,12 @@ export default function DestSearchScreen() {
     const timer = setTimeout(() => {
       // Retype/unmount cancels the previous request (expo-data-fetching
       // skill): the requestId guard alone would leave it burning data and
-      // battery to discard the answer. Aborts never surface as errors.
+      // battery to discard the answer.
       inFlight.current?.abort();
+      userCancelled.current = true;
       const controller = new AbortController();
       inFlight.current = controller;
+      userCancelled.current = false;
       setSearching(true);
       void searchPlaces(
         q,
@@ -65,7 +71,11 @@ export default function DestSearchScreen() {
           setError(null);
         })
         .catch((e: unknown) => {
-          if (requestId.current !== id || isAbortError(e)) return;
+          // Stale responses die here. Our own cancels die here too — but a
+          // transport-timeout abort is a failure like any other: it falls
+          // through to the error state with its retry.
+          if (requestId.current !== id) return;
+          if (isAbortError(e) && userCancelled.current) return;
           setResults([]);
           setSearched(true);
           setError("Couldn't search — check your connection, or set the pin on the map.");
@@ -76,6 +86,7 @@ export default function DestSearchScreen() {
     }, DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
+      userCancelled.current = true;
       inFlight.current?.abort();
     };
     // Origin fixed per mount: re-biasing mid-typing reshuffles the list.
@@ -118,11 +129,16 @@ export default function DestSearchScreen() {
         />
 
         {searching && (
-          <>
+          <View
+            accessible
+            accessibilityLabel="Searching places"
+            accessibilityState={{ busy: true }}
+            accessibilityLiveRegion="polite"
+          >
             <SearchResultSkeleton />
             <SearchResultSkeleton />
             <SearchResultSkeleton />
-          </>
+          </View>
         )}
 
         {!searching && !searched && (
@@ -222,7 +238,7 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, flexShrink: 1 },
   retry: {
     marginTop: 12,
-    borderRadius: 999,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 16,

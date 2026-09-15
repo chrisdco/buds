@@ -1,11 +1,11 @@
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Share, StyleSheet, Text, View } from "react-native";
+import { Share, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
-import { Button, Screen, Title } from "@/components/ui";
-import { colors } from "@/constants/theme";
+import { Button, LoadingView, Screen, Title } from "@/components/ui";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useRoomStore } from "@/stores/roomStore";
 
@@ -18,10 +18,7 @@ export default function InviteScreen() {
   if (!room) {
     return (
       <Screen>
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading invite…</Text>
-        </View>
+        <LoadingView label="Loading invite…" />
       </Screen>
     );
   }
@@ -42,6 +39,8 @@ export default function InviteScreen() {
       </View>
 
       <View style={styles.qrBox}>
+        {/* QR stays pure black-on-white regardless of theme: scanners need
+        the contrast, so these two literals are intentionally not tokens. */}
         <QRCode value={link} size={210} backgroundColor="#FFFFFF" color="#0F1115" />
       </View>
 
@@ -70,18 +69,11 @@ export default function InviteScreen() {
 
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 18 },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: {
-    color: colors.textDim,
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
-    marginTop: 12,
-  },
   sub: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular, marginTop: 4 },
   qrBox: {
     alignSelf: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: 14,
   },
   code: {
@@ -89,6 +81,7 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontFamily: fontFamily.extraBold,
     letterSpacing: 10,
+    fontVariant: ["tabular-nums"],
     textAlign: "center",
     marginTop: 18,
   },

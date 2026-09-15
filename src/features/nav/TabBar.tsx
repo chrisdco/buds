@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 
 // Custom bottom tabs, Android-targeted (expo-router native tabs deferred
@@ -80,11 +80,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 4,
     // Elevated above content like Uber's floating bar (Android shadow).
+    // elevation is the whole shadow on Android: the legacy shadow* props
+    // are iOS-only no-ops here, so they stay out (native-ui skill).
     elevation: 8,
-    shadowColor: "#000000",
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
   },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 56 },
   pill: {
@@ -93,7 +91,7 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingHorizontal: 24,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: radius.full,
     backgroundColor: "transparent",
   },
   pillSelected: { backgroundColor: colors.surfaceAlt },

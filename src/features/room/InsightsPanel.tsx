@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 
 export interface TripProgress {
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginBottom: 8,

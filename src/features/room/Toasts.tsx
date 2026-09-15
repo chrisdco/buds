@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import Animated, { Easing, FadeInDown, FadeOutDown } from "react-native-reanimated";
 
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -38,9 +38,19 @@ export function Toasts({ topOffset }: { topOffset: number }) {
           key={t.key}
           entering={TOAST_ENTER}
           exiting={TOAST_EXIT}
+          // Toasts announce themselves (native-ui Behavior): the container
+          // is the live region, the nested Pressable stays the dismissal
+          // control. Note: no `accessible` here — grouping would fold the
+          // dismiss button into one element and hide it from screen readers.
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
           style={[styles.toast, t.severity === "warn" && styles.warn, { top: topOffset + i * 54 }]}
         >
-          <Pressable onPress={() => dismissToast(t.key)}>
+          <Pressable
+            onPress={() => dismissToast(t.key)}
+            accessibilityRole="button"
+            accessibilityHint="Dismisses this notification"
+          >
             <Text style={styles.title} numberOfLines={1}>
               {t.title}
             </Text>
@@ -64,7 +74,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrim,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 8,
     alignItems: "center",

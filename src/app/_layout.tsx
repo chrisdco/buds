@@ -4,7 +4,7 @@ import Stack from "expo-router/stack";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -14,6 +14,7 @@ import "@/services/location/backgroundTask";
 
 import { appFonts } from "@/constants/fonts";
 import { colors } from "@/constants/theme";
+import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import { setupNotifications } from "@/services/notifications";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -38,7 +39,7 @@ export default function RootLayout() {
   if (!ready || !fontsLoaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <LoadingView />
       </View>
     );
   }
@@ -46,7 +47,7 @@ export default function RootLayout() {
   if (!ready) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <LoadingView />
       </View>
     );
   }

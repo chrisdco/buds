@@ -153,10 +153,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "#FFFFFF",
+    borderColor: colors.text,
     marginBottom: 8,
   },
-  initial: { color: "#FFFFFF", fontFamily: fontFamily.bold, fontSize: 26 },
+  initial: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 26 },
   sub: {
     color: colors.textDim,
     fontSize: 14,

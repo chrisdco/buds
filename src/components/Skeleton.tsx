@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { colors } from "@/constants/theme";
+import { colors, radius } from "@/constants/theme";
 
 // Honest loading shapes (expo-animation skill): a looping opacity pulse on
 // the UI thread — opacity is a free property, so the shimmer never costs a
@@ -33,10 +33,12 @@ export function Skeleton({ style, testID }: { style?: ViewStyle; testID?: string
 }
 
 // Destination-search-shaped placeholder: mirrors the bold-name / dim-address
-// row layout so content swaps in without reflow when results land.
+// row layout so content swaps in without reflow when results land. The
+// loading announcement lives on the parent container (busy + live region) —
+// rows stay silent so screen readers don't repeat it three times.
 export function SearchResultSkeleton() {
   return (
-    <View style={styles.row} testID="dest-search-skeleton" accessibilityLabel="Searching places">
+    <View style={styles.row} testID="dest-search-skeleton">
       <Skeleton style={styles.icon} />
       <View style={styles.body}>
         <Skeleton style={styles.name} />
@@ -47,7 +49,7 @@ export function SearchResultSkeleton() {
 }
 
 const styles = StyleSheet.create({
-  block: { backgroundColor: colors.surface, borderRadius: 6 },
+  block: { backgroundColor: colors.surface, borderRadius: radius.sm },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -58,6 +60,6 @@ const styles = StyleSheet.create({
   },
   icon: { width: 20, height: 20, borderRadius: 10 },
   body: { flex: 1, flexShrink: 1, gap: 6 },
-  name: { height: 16, width: "62%", borderRadius: 6 },
-  sub: { height: 13, width: "88%", borderRadius: 6 },
+  name: { height: 16, width: "62%", borderRadius: radius.sm },
+  sub: { height: 13, width: "88%", borderRadius: radius.sm },
 });

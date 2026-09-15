@@ -15,6 +15,8 @@ export const colors = {
   danger: "#E5484D",
   success: "#46A758",
   warning: "#F5A623",
+  /** Dark text on the amber warning surface (banners, countdowns). */
+  onWarning: "#1A1300",
   /** Map chrome pills/labels floating over tiles. */
   scrim: "rgba(0,0,0,0.85)",
 };
@@ -48,4 +50,16 @@ export const space = {
   md: 16,
   lg: 24,
   xl: 32,
+};
+
+/**
+ * Radius scale — pills are always full, cards lg, banners/inputs md, small
+ * bits sm. Circle radii (half of an avatar size) stay inline: they derive
+ * from the size, they aren't design decisions.
+ */
+export const radius = {
+  sm: 6,
+  md: 12,
+  lg: 16,
+  full: 999,
 };
