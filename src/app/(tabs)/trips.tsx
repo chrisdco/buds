@@ -78,17 +78,25 @@ export default function TripsScreen() {
           {TRIP_PRESETS.map((preset) => (
             <Pressable
               key={preset.id}
-              style={styles.template}
+              style={({ pressed }) => [styles.template, pressed && styles.templatePressed]}
               accessibilityRole="button"
               accessibilityLabel={`Start a ${preset.title} trip`}
               testID={`trips-template-${preset.id}`}
               onPress={() => startFromTemplate(preset.id)}
             >
+              {/* Badge overlaps the tile like Uber's Promo pill (functional
+              color only: danger = promo/popular). Image slot renders here
+              when preset.image lands (Phase B illustrations). */}
+              {preset.badge && (
+                <View style={styles.templateBadge}>
+                  <Text style={styles.templateBadgeText}>{preset.badge}</Text>
+                </View>
+              )}
               <View style={styles.templateIcon}>
                 <AppSymbol
                   name={icons[preset.icon]}
                   fallback={icons[preset.icon].fallback}
-                  size={22}
+                  size={28}
                   tintColor={colors.text}
                 />
               </View>
@@ -117,10 +125,21 @@ export default function TripsScreen() {
                 testID={`trips-rejoin-${r.code}`}
                 onPress={() => openTrip(r)}
               >
-                <Text style={styles.tripName} numberOfLines={1}>
-                  {r.name}
-                </Text>
-                <Text style={styles.tripCode}>{r.code}</Text>
+                <View style={styles.tripIcon}>
+                  <AppSymbol
+                    name={icons.history}
+                    fallback={icons.history.fallback}
+                    size={18}
+                    tintColor={colors.textDim}
+                  />
+                </View>
+                <View style={styles.tripBody}>
+                  <Text style={styles.tripName} numberOfLines={1}>
+                    {r.name}
+                  </Text>
+                  <Text style={styles.tripCode}>{r.code}</Text>
+                </View>
+                <Text style={styles.tripChev}>›</Text>
               </Pressable>
               {/* Local forget only (× is text-by-default, law 1): the room
               is untouched, rejoin-by-code keeps working. */}
@@ -148,7 +167,7 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 4 },
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  templates: { flexDirection: "row", gap: 8 },
+  templates: { flexDirection: "row", gap: 10 },
   template: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -156,14 +175,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
     paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingTop: 16,
     alignItems: "center",
-    minHeight: 132,
+    minHeight: 156,
+  },
+  templatePressed: { borderColor: colors.text },
+  templateBadge: {
+    position: "absolute",
+    top: -9,
+    backgroundColor: colors.danger,
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  templateBadgeText: {
+    color: colors.text,
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 0.3,
   },
   templateIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
     borderColor: colors.border,
@@ -172,9 +207,9 @@ const styles = StyleSheet.create({
   },
   templateTitle: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: fontFamily.semiBold,
-    marginTop: 8,
+    marginTop: 10,
     textAlign: "center",
   },
   templateBlurb: {
@@ -196,17 +231,29 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    gap: 12,
   },
-  tripName: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold, flexShrink: 1 },
+  tripIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tripBody: { flex: 1, flexShrink: 1 },
+  tripName: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold, flexShrink: 1 },
   tripCode: {
     color: colors.accent,
     fontSize: 13,
     fontFamily: fontFamily.bold,
     letterSpacing: 1,
     fontVariant: ["tabular-nums"],
+    marginTop: 1,
   },
+  tripChev: { color: colors.textDim, fontSize: 20, fontFamily: fontFamily.regular },
   tripForget: { padding: 4 },
   tripForgetGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
 });

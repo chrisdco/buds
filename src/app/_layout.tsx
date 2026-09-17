@@ -31,10 +31,25 @@ export default function RootLayout() {
   }, []);
 
   // Hold the splash until fonts AND session are ready: first paint must
-  // already be Inter, never a system-font flash.
+  // already be Inter, never a system-font flash. hideAsync is fire-and-log:
+  // a rejected hide must never wedge the app on the splash, and a watchdog
+  // guarantees the overlay lifts even if a readiness gate stalls.
   useEffect(() => {
-    if (fontsLoaded && ready) void SplashScreen.hideAsync();
+    if (fontsLoaded && ready) {
+      SplashScreen.hideAsync().catch((e) => {
+        console.warn("splash hide failed", e);
+      });
+    }
   }, [fontsLoaded, ready]);
+
+  useEffect(() => {
+    const watchdog = setTimeout(() => {
+      SplashScreen.hideAsync().catch((e) => {
+        console.warn("splash watchdog hide failed", e);
+      });
+    }, 10000);
+    return () => clearTimeout(watchdog);
+  }, []);
 
   if (!ready || !fontsLoaded) {
     return (
