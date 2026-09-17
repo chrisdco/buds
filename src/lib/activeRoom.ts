@@ -72,3 +72,14 @@ export async function pruneRecentRoom(id: string): Promise<void> {
     // Best-effort.
   }
 }
+
+/**
+ * Explicit local forget (Trips row delete). Recents are device-local refs,
+ * so forgetting is local only: the room itself is untouched and
+ * rejoin-by-code keeps working. Server-side end/kick/leave already
+ * self-prunes on the next rejoin attempt; no admin propagation exists or is
+ * needed (nobody can reach into another device's storage).
+ */
+export function removeRecentRoom(id: string): Promise<void> {
+  return pruneRecentRoom(id);
+}

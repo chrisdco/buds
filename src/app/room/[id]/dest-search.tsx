@@ -149,6 +149,7 @@ export default function DestSearchScreen() {
           const sub = [r.address, r.distanceM != null ? formatDistanceM(r.distanceM, units) : null]
             .filter(Boolean)
             .join(" · ");
+          const distLabel = r.distanceM != null ? formatDistanceM(r.distanceM, units) : null;
           return (
             <Pressable
               key={r.id}
@@ -158,12 +159,18 @@ export default function DestSearchScreen() {
               testID="dest-search-result"
               onPress={() => pick(r)}
             >
-              <AppSymbol
-                name={icons.history}
-                fallback={icons.history.fallback}
-                size={20}
-                tintColor={colors.textDim}
-              />
+              {/* Uber Plan-trip grammar: distance leads left when known,
+              clock glyph otherwise. Keeps rows scannable at a glance. */}
+              {distLabel ? (
+                <Text style={styles.dist}>{distLabel}</Text>
+              ) : (
+                <AppSymbol
+                  name={icons.history}
+                  fallback={icons.history.fallback}
+                  size={20}
+                  tintColor={colors.textDim}
+                />
+              )}
               <View style={styles.rowBody}>
                 <Text style={styles.rowName} numberOfLines={1}>
                   {r.name}
@@ -234,6 +241,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomColor: colors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dist: {
+    color: colors.textDim,
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    minWidth: 48,
+    fontVariant: ["tabular-nums"],
   },
   rowBody: { flex: 1, flexShrink: 1 },
   retry: {

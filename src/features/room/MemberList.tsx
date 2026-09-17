@@ -84,19 +84,27 @@ export function MemberList({
             onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
           >
             <View style={styles.cardHeader}>
-              <View style={[styles.dot, { backgroundColor: colorForUser(m.userId) }]} />
-              <Text style={styles.name} numberOfLines={1}>
-                {m.name}
-              </Text>
-              {m.userId === leaderId && (
-                <AppSymbol
-                  name={icons.star}
-                  fallback={icons.star.fallback}
-                  size={12}
-                  tintColor={colors.warning}
-                />
-              )}
-              {m.userId === hostId && <Text style={styles.hostBadge}>HOST</Text>}
+              <View style={[styles.avatar, { backgroundColor: colorForUser(m.userId) }]}>
+                <Text style={styles.avatarInitial}>
+                  {m.name.slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.cardTitle}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {m.name}
+                  </Text>
+                  {m.userId === leaderId && (
+                    <AppSymbol
+                      name={icons.star}
+                      fallback={icons.star.fallback}
+                      size={12}
+                      tintColor={colors.warning}
+                    />
+                  )}
+                </View>
+                {m.userId === hostId && <Text style={styles.hostBadge}>HOST</Text>}
+              </View>
             </View>
             <Text style={styles.status} numberOfLines={1}>
               {m.role === "spectator" ? "Spectator" : presenceLabel(state, m, nowMs)}
@@ -122,15 +130,24 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.lg,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    width: 168,
+    width: 184,
     flexShrink: 0,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   /** Focused card: bright border like Uber's selected ride row. */
-  cardSelected: { borderColor: colors.text },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  cardSelected: { borderColor: colors.text, borderWidth: 2 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 16 },
+  cardTitle: { flex: 1, flexShrink: 1 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   name: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 14, flexShrink: 1 },
   hostBadge: {
     color: colors.warning,

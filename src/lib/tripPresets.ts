@@ -13,6 +13,14 @@ export interface TripPreset {
   title: string;
   blurb: string;
   icon: IconName;
+  /** Short badge over the tile (Uber "Promo"/"Faster" language). */
+  badge?: string;
+  /**
+   * Optional illustration source (Uber-style 3D tile art). When set, tiles
+   * render the image instead of the monochrome symbol — same frame, so the
+   * swap is asset-only. Unset = symbol fallback (current barebones state).
+   */
+  image?: never;
   mode: RoomMode;
   limit: number;
   durationHours: number | null;
@@ -26,6 +34,7 @@ export const TRIP_PRESETS: TripPreset[] = [
     title: "Meet up",
     blurb: "Everyone heads to one spot",
     icon: "flag",
+    badge: "Popular",
     mode: "converge",
     limit: 10,
     durationHours: 12,

@@ -111,6 +111,44 @@ White space, Unity).
 - Expiry extend actions stay as chips (compact map-adjacent language),
   not full buttons — they are low-frequency host tools, not conversion CTAs.
 
+## Future review (optional): screen transitions
+
+Deferred until the app has moved (post-device-verification / weekly tester
+use). Standard cleanup comes first; a shared-element library only if a hero
+moment is wanted.
+
+- **screen-choreography.dev (`react-native-screen-choreography` v0.5.2,
+  pre-1.0):** one retained native subtree moves Source owner → native overlay
+  → Destination `Target` via `react-native-teleport`; React ownership stays
+  at source. Model is `ChoreographyScreen(screenId)` + `groupId` (e.g.
+  `artwork.42`) + `defineTransition({ motion, shared: { hero: { kind:
+  'bounds'|'surface' } }, enter/exit })` on a single 0→1 expansion clock
+  (back is 1→0). Expo entry is
+  `react-native-screen-choreography/expo-router` (`ChoreographyProvider` in
+  root layout, `animation: 'none'`, detail as `containedTransparentModal` +
+  transparent content, `useChoreographyRouter.push/back`, `groupId` per item,
+  standalone fallback for deep links with no mounted source). Examples:
+  Gallery (photo hero), Wallet (multi-role + reveals), Wallet-setup (panel
+  expands to next step).
+- **Fit vs Buds (checked Sept 2026):** stack matches (SDK 57 / RN 0.86.3 /
+  Reanimated 4.5.1 / Screens 4.26 / Fabric) but costs are real — native
+  rebuild + dev-client (no Expo Go), Stack-only (our tabs are `Slot` +
+  custom `TabBar` with `router.replace`, so not eligible), invasive wrappers,
+  pre-1.0 breaking risk. Only candidate worth piloting: `MemberList`
+  avatar → `room/[id]/member/[uid]` avatar header (`bounds` hero + title/stat
+  reveals). Do NOT shared-element the MapLibre map (trips/home cards →
+  room) — fade/slide only.
+- **What people usually do (do this first):** standardize Stack
+  `animation`/`presentation` per route (`slide_from_right` pushes,
+  `slide_from_bottom`/`fade_from_bottom` modals for create/join/invite,
+  `animationDuration` ~250–350ms); iOS 18+ native zoom via Expo
+  `Link.AppleZoom`/`AppleZoomTarget` for a cheap hero (graceful fallback,
+  Stack-only, avoid with headers); Reanimated `entering`/`exiting`/`Layout`
+  on lists + tab pill with reduced-motion respect; keep current press
+  3%/120ms + sheet springs. Alt lib with presets (Instagram/AppleMusic):
+  `react-native-screen-transitions` via `withLayoutContext` — same
+  dev-client cost. Revisit when motion, not stability, is the constraint.
+
 ## Reference patterns adopted (Uber / Google Maps / Life360)
 
 Shared grammar, Buds brand. Learn the pattern, not the pixels.
