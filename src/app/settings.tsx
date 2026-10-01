@@ -157,7 +157,7 @@ export default function SettingsScreen() {
 
         <Label>Support</Label>
         <Button label="Send feedback" variant="ghost" onPress={sendFeedback} />
-        <Text style={styles.caption}>Buds {version} · MIT open source</Text>
+        <Text style={styles.caption}>Buds {version}</Text>
         <Pressable onPress={() => void Linking.openURL("https://github.com/chrisdco/buds").catch(() => {})}>
           <Text style={styles.link}>github.com/chrisdco/buds</Text>
         </Pressable>
