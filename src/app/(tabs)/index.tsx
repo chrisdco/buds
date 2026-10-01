@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { PresetCircles } from "@/features/trips/PresetCircles";
@@ -110,9 +110,10 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.hero}>
         <View style={styles.heroArt} accessible={false}>
-          <ShareLocationArt width={220} />
+          <ShareLocationArt width={150} />
         </View>
         <Title>Buds</Title>
         <Text style={styles.tagline}>
@@ -234,13 +235,14 @@ export default function HomeScreen() {
       </View>
       {/* Clearance above the floating tab pill. */}
       <View style={{ height: 110 }} />
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: 24, marginBottom: 12, flexShrink: 1 },
-  heroArt: { alignItems: "center", marginBottom: 8 },
+  hero: { marginTop: 24, marginBottom: 12 },
+  heroArt: { height: 180, overflow: "hidden", alignItems: "center", justifyContent: "center", marginBottom: 8 },
   tagline: {
     color: colors.textDim,
     fontSize: 15,
