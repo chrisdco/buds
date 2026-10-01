@@ -19,6 +19,7 @@ import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import { setupNotifications } from "@/services/notifications";
 import { useRecentsStore } from "@/stores/recentsStore";
+import { usePlacesStore } from "@/stores/placesStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
 void SplashScreen.preventAutoHideAsync();
@@ -33,6 +34,7 @@ export default function RootLayout() {
     // Resident recents: load once so tab screens paint rows on first commit
     // instead of empty-then-populated on every focus.
     void useRecentsStore.getState().refresh();
+    void usePlacesStore.getState().refresh();
     // Decode every bundled illustration bitmap now (fire-and-forget, off the
     // splash path): by the time any tab mounts its art, the pixels are
     // cached and each screen paints complete in a single commit — no

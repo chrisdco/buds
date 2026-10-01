@@ -10,6 +10,7 @@ import { setActiveRoom } from "@/lib/activeRoom";
 import { TRIP_PRESETS, parseCreateParams } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUiStore } from "@/stores/uiStore";
 import type { RoomMode, RpcError } from "@/types/contracts";
 
 const MODES: { id: RoomMode; label: string; blurb: string; tag?: string }[] = [
@@ -61,6 +62,7 @@ export default function CreateRoomScreen() {
   const [mode, setMode] = useState<RoomMode>(preset.mode);
   const [limit, setLimit] = useState(preset.limit);
   const [durationHours, setDurationHours] = useState<number | null>(preset.durationHours);
+  const [dest, setDest] = useState(preset.dest);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Double-submit guard: a second tap before the first RPC round-trips
@@ -94,6 +96,11 @@ export default function CreateRoomScreen() {
         name: result.room.name,
         role: "traveler",
       });
+      // Home-search pick: seed the room's adjust-pin flow (camera flies,
+      // same policy gates + confirm) instead of setting silently.
+      if (dest) {
+        useUiStore.getState().setDestDraft({ ...dest });
+      }
       router.replace(`/room/${result.room.id}`);
     } finally {
       busyRef.current = false;
@@ -136,6 +143,30 @@ export default function CreateRoomScreen() {
         onSubmitEditing={() => void create()}
         testID="create-name"
       />
+
+      {dest && (
+        <>
+          <Label>Destination</Label>
+          <View style={styles.destRow}>
+            <View style={styles.destBody}>
+              <Text style={styles.destName} numberOfLines={1}>
+                {dest.label}
+              </Text>
+              <Text style={styles.blurb}>Fine-tune the pin after creating</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.destClear, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove destination ${dest.label}`}
+              testID="create-dest-clear"
+              hitSlop={8}
+              onPress={() => setDest(undefined)}
+            >
+              <Text style={styles.destClearGlyph}>×</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
 
       <Label>Mode</Label>
       <View style={styles.modeList}>
@@ -290,6 +321,21 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   modeTagText: { color: colors.textDim, fontSize: 10, fontFamily: fontFamily.semiBold },
+  destRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  destBody: { flex: 1, flexShrink: 1 },
+  destName: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
+  destClear: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  destClearGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
   radio: {
     width: 22,
     height: 22,

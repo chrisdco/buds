@@ -36,6 +36,30 @@ Main-page ref (shared in chat, Sept 18 — save a copy next to this file as
 
 Adopted Sept 18 (verified on emulator): home "Join with code" is a
 search-styled entry (same name/prime rules; focuses the name field when
-empty); Trips presets are the "For you" circle grid; tab pill compacted.
-Skipped: "Later" scheduling (no product analogue — durations, not times).
-Skipped: "Later" scheduling (no product analogue — durations, not times).
+empty); Trips presets are the "For you" circle grid; tab pill compacted. Skipped: "Later" scheduling (no product analogue —
+durations, not times).
+
+## Round 2 (Oct 2026): real search + plan-your-trip
+
+"Where to?" is now real place search (`/search`, Photon — same
+debounce/abort/skeleton/retry grammar as room dest-search), not the code
+gate. Join-with-code is its own ghost button. Picks route to `/create`
+with validated dest params; the room's adjust-pin confirm applies
+post-create via the existing `destDraft` flow (same policy gates, zero new
+backend). Recent places (cap 8, `lib/places.ts`) + saved Home/Work feed
+both the search screen and Home's 2-row recents. For-you header gains the
+Uber arrow → Trips. "Search in a different city" toggles the nearby bias
+off; "Set location on map" routes to create (pin-placing needs a live
+room map — stated inline, not a dead end). Pickup selector
+("Pick-up now / For me") has no analogue (no scheduling, no multi-user
+booking) and stays skipped.
+
+## Sparse-grid plan (when 3 presets feel thin)
+
+For-you candidates, in order: (1) Join tile (code entry — highest
+intent after search), (2) Saved-place shortcut (Home/Work one-tap plan),
+(3) Scan QR tile (camera intent, currently one level deep in Join),
+(4) Demo/sandbox room (self-room with a simulated bud — needs a bot
+tick source, heaviest). Wide getaway-style cards stay deferred: no
+content earns them until popular meetup spots or trip templates exist —
+one row, no scroll, circles until then.

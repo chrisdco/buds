@@ -8,16 +8,21 @@ import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
-import { TRIP_PRESETS, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
+import { TRIP_PRESETS, destCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
+import { usePlacesStore } from "@/stores/placesStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 
+// Uber home grammar: search box as primary entry (real place search here,
+// not the code gate), one rejoin card max, "For you" grid, name + join as
+// the secondary row. Join-with-code is a button, not a search impersonator.
 export default function HomeScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const setDisplayName = useSessionStore((s) => s.setDisplayName);
   const sessionError = useSessionStore((s) => s.error);
+  const recentPlaces = usePlacesStore((s) => s.recents);
   const [activeRoom, setActiveRoom] = useState<ActiveRoomRef | null>(null);
   const [rejoinBusy, setRejoinBusy] = useState(false);
   const [rejoinError, setRejoinError] = useState<string | null>(null);
@@ -30,6 +35,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void getActiveRoom().then(setActiveRoom);
+      void usePlacesStore.getState().refresh();
     }, []),
   );
 
@@ -83,6 +89,19 @@ export default function HomeScreen() {
     router.push({ pathname: "/create", params: presetCreateParams(preset, displayName) });
   };
 
+  const planToPlace = (place: { lat: number; lng: number; name: string }) => {
+    router.push({
+      pathname: "/create",
+      params: {
+        mode: "converge",
+        limit: "10",
+        duration: "12",
+        name: place.name.slice(0, 60),
+        ...destCreateParams({ lat: place.lat, lng: place.lng, label: place.name }),
+      },
+    });
+  };
+
   const rejoin = async () => {
     if (!activeRoom) return;
     setRejoinBusy(true);
@@ -117,24 +136,15 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Uber "Where to?" entry: the streamlined way in. Same rules as the
-      old join button — needs a name first (focuses it), otherwise runs the
-      normal join flow. */}
+      {/* Real search: places (Photon), not the code gate. Needs no name —
+      identity is asked at create/join time, never blocks exploring. */}
       <Pressable
         style={({ pressed }) => [styles.searchEntry, pressed && styles.pressed]}
         accessibilityRole="search"
-        accessibilityLabel="Join with code"
-        accessibilityHint={nameValid ? "Opens the join screen" : "Enter your name first"}
-        testID="home-join"
-        onPress={() => {
-          if (!nameValid) {
-            setNameNudge(true);
-            nameRef.current?.focus();
-            return;
-          }
-          setNameNudge(false);
-          pressJoin();
-        }}
+        accessibilityLabel="Search for a destination"
+        accessibilityHint="Searches places, then creates a room around the pick"
+        testID="home-search"
+        onPress={() => router.push("/search")}
       >
         <AppSymbol
           name={icons.search}
@@ -142,7 +152,7 @@ export default function HomeScreen() {
           size={20}
           tintColor={colors.textDim}
         />
-        <Text style={styles.searchPlaceholder}>Join with code</Text>
+        <Text style={styles.searchPlaceholder}>Where to?</Text>
         <Text style={styles.searchChev}>›</Text>
       </Pressable>
 
@@ -161,7 +171,7 @@ export default function HomeScreen() {
         testID="home-name"
       />
       {nameNudge && !nameValid && (
-        <Text style={styles.hint}>Enter your name first, then join.</Text>
+        <Text style={styles.hint}>Enter your name first.</Text>
       )}
 
       {activeRoom && (
@@ -201,7 +211,55 @@ export default function HomeScreen() {
         </>
       )}
 
-      <Label>For you</Label>
+      {(recentPlaces ?? []).length > 0 && (
+        <>
+          <Label>Recent places</Label>
+          {(recentPlaces ?? []).slice(0, 2).map((p, i) => (
+            <Pressable
+              key={`${p.lat}-${p.lng}-${i}`}
+              style={({ pressed }) => [styles.placeRow, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Plan a trip to ${p.name}`}
+              testID={`home-recent-place-${i}`}
+              onPress={() => planToPlace(p)}
+            >
+              <View style={styles.rejoinIcon}>
+                <AppSymbol
+                  name={icons.history}
+                  fallback={icons.history.fallback}
+                  size={20}
+                  tintColor={colors.textDim}
+                />
+              </View>
+              <View style={styles.rejoinBody}>
+                <Text style={styles.rejoinName} numberOfLines={1}>
+                  {p.name}
+                </Text>
+                {p.address !== "" && (
+                  <Text style={styles.placeSub} numberOfLines={1}>
+                    {p.address}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.rejoinChev}>›</Text>
+            </Pressable>
+          ))}
+        </>
+      )}
+
+      <View style={styles.forYouHeader}>
+        <Label>For you</Label>
+        <Pressable
+          style={({ pressed }) => [styles.forYouArrow, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="See all trip options"
+          testID="home-foryou-all"
+          hitSlop={8}
+          onPress={() => router.push("/trips")}
+        >
+          <Text style={styles.forYouArrowGlyph}>›</Text>
+        </Pressable>
+      </View>
       <PresetCircles onSelect={startFromPreset} />
 
       <View style={styles.actions}>
@@ -215,6 +273,20 @@ export default function HomeScreen() {
               return;
             }
             pressCreate();
+          }}
+        />
+        <Button
+          label="Join with code"
+          variant="ghost"
+          testID="home-join"
+          onPress={() => {
+            if (!nameValid) {
+              setNameNudge(true);
+              nameRef.current?.focus();
+              return;
+            }
+            setNameNudge(false);
+            pressJoin();
           }}
         />
         {!nameValid && (
@@ -265,6 +337,18 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   searchChev: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
+  placeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  placeSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
+  forYouHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  forYouArrow: { padding: 8 },
+  forYouArrowGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
   rejoinCard: {
     flexDirection: "row",
     alignItems: "center",

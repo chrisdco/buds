@@ -87,6 +87,51 @@ export interface CreateParams {
   limit: number;
   durationHours: number | null;
   name?: string;
+  /** Place picked on Home search: seeded into adjust-pin flow post-create. */
+  dest?: { lat: number; lng: number; label: string };
+}
+
+/** Serialize a picked place for router params (everything travels as strings). */
+export function destCreateParams(dest: { lat: number; lng: number; label: string }): Record<string, string> {
+  return {
+    destLat: String(dest.lat),
+    destLng: String(dest.lng),
+    destLabel: dest.label.slice(0, 80),
+  };
+}
+
+/** Validate/coerce /create params; anything unknown falls back to defaults. */
+export function parseCreateParams(params: {
+  mode?: string | string[];
+  limit?: string | string[];
+  duration?: string | string[];
+  name?: string | string[];
+  destLat?: string | string[];
+  destLng?: string | string[];
+  destLabel?: string | string[];
+}): CreateParams {
+  const one = (v: string | string[] | undefined): string | undefined =>
+    Array.isArray(v) ? v[0] : v;
+  const mode = one(params.mode);
+  const limit = Number.parseInt(one(params.limit) ?? "", 10);
+  const duration = one(params.duration);
+  const name = one(params.name)?.trim().slice(0, 60);
+  const destLat = Number(one(params.destLat) ?? "");
+  const destLng = Number(one(params.destLng) ?? "");
+  const destLabel = one(params.destLabel)?.trim().slice(0, 80);
+  return {
+    mode: MODES.includes(mode as RoomMode) ? (mode as RoomMode) : "converge",
+    limit: Number.isInteger(limit) && limit >= 1 && limit <= 10 ? limit : 10,
+    durationHours:
+      duration === "none" ? null : duration === "4" || duration === "12" || duration === "24"
+        ? Number(duration)
+        : 12,
+    name: name && name.length > 0 ? name : undefined,
+    dest:
+      Number.isFinite(destLat) && Number.isFinite(destLng) && destLabel
+        ? { lat: destLat, lng: destLng, label: destLabel }
+        : undefined,
+  };
 }
 
 /** Serialize a preset for router params (everything travels as strings). */
@@ -97,29 +142,5 @@ export function presetCreateParams(preset: TripPreset, displayName: string): Rec
     limit: String(preset.limit),
     duration: preset.durationHours == null ? "none" : String(preset.durationHours),
     name: preset.nameFor(displayName.trim()).slice(0, 60),
-  };
-}
-
-/** Validate/coerce /create params; anything unknown falls back to defaults. */
-export function parseCreateParams(params: {
-  mode?: string | string[];
-  limit?: string | string[];
-  duration?: string | string[];
-  name?: string | string[];
-}): CreateParams {
-  const one = (v: string | string[] | undefined): string | undefined =>
-    Array.isArray(v) ? v[0] : v;
-  const mode = one(params.mode);
-  const limit = Number.parseInt(one(params.limit) ?? "", 10);
-  const duration = one(params.duration);
-  const name = one(params.name)?.trim().slice(0, 60);
-  return {
-    mode: MODES.includes(mode as RoomMode) ? (mode as RoomMode) : "converge",
-    limit: Number.isInteger(limit) && limit >= 1 && limit <= 10 ? limit : 10,
-    durationHours:
-      duration === "none" ? null : duration === "4" || duration === "12" || duration === "24"
-        ? Number(duration)
-        : 12,
-    name: name && name.length > 0 ? name : undefined,
   };
 }

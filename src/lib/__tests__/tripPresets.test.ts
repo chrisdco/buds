@@ -39,4 +39,22 @@ describe("parseCreateParams", () => {
     expect(parseCreateParams({ duration: "none", name: "x".repeat(100) }).durationHours).toBeNull();
     expect(parseCreateParams({ name: "x".repeat(100) }).name).toHaveLength(60);
   });
+
+  it("accepts a valid destination pick and caps its label", () => {
+    expect(
+      parseCreateParams({ destLat: "12.97", destLng: "77.59", destLabel: "MG Road" }).dest,
+    ).toEqual({ lat: 12.97, lng: 77.59, label: "MG Road" });
+    expect(
+      parseCreateParams({ destLat: "12.97", destLng: "77.59", destLabel: "x".repeat(100) }).dest
+        ?.label,
+    ).toHaveLength(80);
+  });
+
+  it("drops partial or garbage destinations", () => {
+    expect(parseCreateParams({ destLat: "12.97" }).dest).toBeUndefined();
+    expect(
+      parseCreateParams({ destLat: "nowhere", destLng: "77.59", destLabel: "X" }).dest,
+    ).toBeUndefined();
+    expect(parseCreateParams({}).dest).toBeUndefined();
+  });
 });
