@@ -4,7 +4,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { PresetCircles } from "@/features/trips/PresetCircles";
-import { ShareLocationArt } from "@/components/illustrations/ShareLocationArt";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
@@ -112,9 +111,6 @@ export default function HomeScreen() {
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.hero}>
-        <View style={styles.heroArt} accessible={false}>
-          <ShareLocationArt width={150} />
-        </View>
         <Title>Buds</Title>
         <Text style={styles.tagline}>
           Live maps for small groups — see your buds, converge, convoy.
@@ -242,7 +238,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: { marginTop: 24, marginBottom: 12 },
-  heroArt: { height: 180, overflow: "hidden", alignItems: "center", justifyContent: "center", marginBottom: 8 },
   tagline: {
     color: colors.textDim,
     fontSize: 15,
