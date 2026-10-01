@@ -91,3 +91,40 @@ export async function notifyAlert(alert: LocalAlert): Promise<void> {
     // notifications are non-critical
   }
 }
+
+/**
+ * Planned-trip reminder ("Later"): fires once at `atMs`, tapping it deep
+ * into create-with-destination via `plannedId`. Returns the notification
+ * identifier for later cancellation, or null when unscheduled.
+ */
+export async function schedulePlannedReminder(args: {
+  plannedId: string;
+  title: string;
+  body: string;
+  atMs: number;
+}): Promise<string | null> {
+  if (args.atMs <= Date.now()) return null;
+  try {
+    return await Notifications.scheduleNotificationAsync({
+      content: {
+        title: args.title,
+        body: args.body,
+        data: { plannedId: args.plannedId },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: new Date(args.atMs),
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function cancelPlannedReminder(notifId: string): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(notifId);
+  } catch {
+    // Already fired or gone — the prune pass covers it.
+  }
+}

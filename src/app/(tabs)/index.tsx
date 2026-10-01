@@ -9,8 +9,10 @@ import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { TRIP_PRESETS, destCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
+import { countdownLabel } from "@/lib/planned";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { usePlacesStore } from "@/stores/placesStore";
+import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -23,10 +25,12 @@ export default function HomeScreen() {
   const setDisplayName = useSessionStore((s) => s.setDisplayName);
   const sessionError = useSessionStore((s) => s.error);
   const recentPlaces = usePlacesStore((s) => s.recents);
+  const planned = usePlannedStore((s) => s.planned);
   const [activeRoom, setActiveRoom] = useState<ActiveRoomRef | null>(null);
   const [rejoinBusy, setRejoinBusy] = useState(false);
   const [rejoinError, setRejoinError] = useState<string | null>(null);
   const [nameNudge, setNameNudge] = useState(false);
+  const [nowMs, setNowMs] = useState(0);
   const nameRef = useRef<TextInput>(null);
   // Double-tap guard: priming awaits a sheet + user decision, so two rapid
   // taps would otherwise push duplicate routes.
@@ -36,6 +40,8 @@ export default function HomeScreen() {
     useCallback(() => {
       void getActiveRoom().then(setActiveRoom);
       void usePlacesStore.getState().refresh();
+      void usePlannedStore.getState().refresh();
+      setNowMs(Date.now());
     }, []),
   );
 
@@ -138,23 +144,37 @@ export default function HomeScreen() {
 
       {/* Real search: places (Photon), not the code gate. Needs no name —
       identity is asked at create/join time, never blocks exploring. */}
-      <Pressable
-        style={({ pressed }) => [styles.searchEntry, pressed && styles.pressed]}
-        accessibilityRole="search"
-        accessibilityLabel="Search for a destination"
-        accessibilityHint="Searches places, then creates a room around the pick"
-        testID="home-search"
-        onPress={() => router.push("/search")}
-      >
-        <AppSymbol
-          name={icons.search}
-          fallback={icons.search.fallback}
-          size={20}
-          tintColor={colors.textDim}
-        />
-        <Text style={styles.searchPlaceholder}>Where to?</Text>
-        <Text style={styles.searchChev}>›</Text>
-      </Pressable>
+      {/* Uber split: the box searches now, the Later pill schedules —
+      one row, two intents, no nested pressables (both taps stay isolated). */}
+      <View style={styles.searchRow}>
+        <Pressable
+          style={({ pressed }) => [styles.searchEntry, pressed && styles.pressed]}
+          accessibilityRole="search"
+          accessibilityLabel="Search for a destination"
+          accessibilityHint="Searches places, then creates a room around the pick"
+          testID="home-search"
+          onPress={() => router.push("/search")}
+        >
+          <AppSymbol
+            name={icons.search}
+            fallback={icons.search.fallback}
+            size={20}
+            tintColor={colors.textDim}
+          />
+          <Text style={styles.searchPlaceholder}>Where to?</Text>
+          <Text style={styles.searchChev}>›</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.laterPill, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Schedule for later"
+          accessibilityHint="Pick a place and a reminder time"
+          testID="home-later"
+          onPress={() => router.push({ pathname: "/search", params: { when: "later" } })}
+        >
+          <Text style={styles.laterText}>Later</Text>
+        </Pressable>
+      </View>
 
       <Label>Your name</Label>
       <TextField
@@ -247,6 +267,44 @@ export default function HomeScreen() {
         </>
       )}
 
+      {(planned ?? []).length > 0 && (
+        <>
+          <Label>Planned</Label>
+          {(planned ?? []).map((t) => (
+            <View key={t.id} style={styles.plannedRow}>
+              <Pressable
+                style={({ pressed }) => [styles.plannedMain, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`Start trip to ${t.place.name} now`}
+                testID={`home-planned-start-${t.id}`}
+                onPress={() => planToPlace({ lat: t.place.lat, lng: t.place.lng, name: t.place.name })}
+              >
+                <View style={styles.rejoinBody}>
+                  <Text style={styles.rejoinName} numberOfLines={1}>
+                    {t.place.name}
+                  </Text>
+                  <Text style={styles.placeSub} numberOfLines={1}>
+                    {nowMs === 0 ? "Scheduled" : countdownLabel(t.atMs, nowMs)}
+                    {t.notifId ? "" : " · no reminder"}
+                  </Text>
+                </View>
+                <Text style={styles.rejoinChev}>›</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.plannedCancel, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`Cancel planned trip to ${t.place.name}`}
+                testID={`home-planned-cancel-${t.id}`}
+                hitSlop={12}
+                onPress={() => void usePlannedStore.getState().cancel(t.id)}
+              >
+                <Text style={styles.plannedCancelGlyph}>×</Text>
+              </Pressable>
+            </View>
+          ))}
+        </>
+      )}
+
       <View style={styles.forYouHeader}>
         <Label>For you</Label>
         <Pressable
@@ -317,7 +375,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   actions: { marginTop: 28 },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
   searchEntry: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -327,8 +387,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: 18,
     paddingVertical: 14,
-    marginTop: 12,
   },
+  laterPill: {
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  laterText: { color: colors.text, fontSize: 14, fontFamily: fontFamily.semiBold },
   searchPlaceholder: {
     color: colors.textDim,
     fontSize: 16,
@@ -346,6 +414,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   placeSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
+  plannedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  plannedMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  plannedCancel: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  plannedCancelGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
   forYouHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   forYouArrow: { padding: 8 },
   forYouArrowGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },

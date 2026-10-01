@@ -1,19 +1,22 @@
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
+import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
 import { destCreateParams } from "@/lib/tripPresets";
+import { timeSlots, type TimeSlot } from "@/lib/planned";
 import type { PlaceRef } from "@/lib/places";
 import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
 import { usePlacesStore } from "@/stores/placesStore";
+import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUiStore } from "@/stores/uiStore";
 
 const MIN_QUERY = 3;
 const DEBOUNCE_MS = 400;
@@ -25,6 +28,8 @@ const DEBOUNCE_MS = 400;
 // and the room's adjust-pin confirm applies unchanged post-create.
 export default function PlanTripScreen() {
   const router = useRouter();
+  const rawParams = useLocalSearchParams();
+  const whenParam = Array.isArray(rawParams.when) ? rawParams.when[0] : rawParams.when;
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -34,6 +39,16 @@ export default function PlanTripScreen() {
   const [unbiased, setUnbiased] = useState(false);
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [saveSlot, setSaveSlot] = useState<"home" | "work" | null>(null);
+  const [later, setLater] = useState(whenParam === "later");
+  const [slotId, setSlotId] = useState<string>("1h");
+  // Slots snapshot when Later arms, deferred to a microtask: consuming
+  // the clock synchronously in an effect is a cascading-render hazard
+  // (same rule as the room screen's destDraft handoff).
+  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  useEffect(() => {
+    if (!later) return;
+    queueMicrotask(() => setSlots(timeSlots(Date.now())));
+  }, [later]);
   const requestId = useRef(0);
   const inFlight = useRef<AbortController | null>(null);
   const userCancelled = useRef(false);
@@ -106,6 +121,30 @@ export default function PlanTripScreen() {
       return;
     }
     void usePlacesStore.getState().addRecent(ref);
+    if (later) {
+      // Later: save a planned trip + reminder, back to Home's countdown.
+      const slot = slots.find((s) => s.id === slotId) ?? slots[0];
+      if (!slot) return;
+      void (async () => {
+        const trip = await usePlannedStore.getState().plan(
+          { name: place.name, address: place.address, lat: place.lat, lng: place.lng },
+          slot.atMs,
+        );
+        if (trip) {
+          useUiStore.getState().pushAlerts([
+            {
+              id: `planned-${trip.id}`,
+              severity: "info",
+              title: trip.notifId
+                ? `Reminder set — ${slot.label}`
+                : "Saved — reminders are off, enable them in Settings",
+            },
+          ]);
+        }
+        router.back();
+      })();
+      return;
+    }
     router.push({
       pathname: "/create",
       params: {
@@ -129,6 +168,38 @@ export default function PlanTripScreen() {
             <Text style={styles.arming}>Pick a place to save as {saveSlot === "home" ? "Home" : "Work"}</Text>
           )}
         </View>
+
+        {/* Uber "Later": same search, deferred start. Preset slots only —
+        no custom picker (one fewer native dependency). */}
+        <View style={styles.whenRow}>
+          <Chip
+            label="Now"
+            selected={!later}
+            testID="plan-when-now"
+            a11yLabel="Plan for now"
+            onPress={() => setLater(false)}
+          />
+          <Chip
+            label="Later"
+            selected={later}
+            testID="plan-when-later"
+            a11yLabel="Schedule for later"
+            onPress={() => setLater(true)}
+          />
+        </View>
+        {later && (
+          <View style={styles.whenRow}>
+            {slots.map((s) => (
+              <Chip
+                key={s.id}
+                label={s.label}
+                selected={s.id === slotId}
+                testID={`plan-slot-${s.id}`}
+                onPress={() => setSlotId(s.id)}
+              />
+            ))}
+          </View>
+        )}
 
         <TextField
           value={query}
@@ -349,6 +420,7 @@ export default function PlanTripScreen() {
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 4 },
   arming: { color: colors.accent, fontSize: 13, fontFamily: fontFamily.semiBold, marginTop: 4 },
+  whenRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 12 },
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 12 },
   pressed: { opacity: 0.75 },
   savedRow: { flexDirection: "row", gap: 8, marginTop: 12 },
