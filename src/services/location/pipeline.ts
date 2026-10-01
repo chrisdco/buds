@@ -14,16 +14,21 @@ import { useSessionStore } from "@/stores/sessionStore";
 // into two live publishers with divergent throttle state.
 
 let subscription: Location.LocationSubscription | null = null;
+// Start/stop generation: startForegroundPipeline awaits (watcher + cached
+// fix), so overlapping starts (connection flap, fast room switch) would
+// otherwise orphan the loser's watcher — a silent duplicate GPS drain.
+let generation = 0;
 
 export async function startForegroundPipeline(roomId: string): Promise<void> {
   stopForegroundPipeline();
+  const gen = ++generation;
 
   const publisher = getPublisher(roomId, {
     isBackground: () => AppState.currentState !== "active",
   });
   if (!publisher) return; // no session yet
 
-  subscription = await Location.watchPositionAsync(
+  const sub = await Location.watchPositionAsync(
     {
       accuracy: Location.Accuracy.High,
       timeInterval: 2_000,
@@ -34,6 +39,13 @@ export async function startForegroundPipeline(roomId: string): Promise<void> {
       publisher.publish(toFix(location));
     },
   );
+  if (gen !== generation) {
+    // Superseded while awaiting: drop this watcher instead of leaking it
+    // beside the live one.
+    sub.remove();
+    return;
+  }
+  subscription = sub;
 
   // Instant first marker: the watcher only fires on new fixes, which can take
   // seconds indoors. The last known position (if any) paints immediately and
@@ -49,6 +61,7 @@ export async function startForegroundPipeline(roomId: string): Promise<void> {
 }
 
 export function stopForegroundPipeline(): void {
+  generation++;
   subscription?.remove();
   subscription = null;
 }

@@ -223,7 +223,9 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
 }
 
 export function sendLoc(tick: LocTick): void {
-  void channel?.send({ type: "broadcast", event: "loc", payload: tick });
+  // Hot path (every GPS fix): a flapping socket rejects sends — swallow it
+  // the same way SUBSCRIBED handlers do, never redbox per tick.
+  ignoreRejection(channel?.send({ type: "broadcast", event: "loc", payload: tick }));
 }
 
 /**
@@ -237,7 +239,7 @@ export function isRoomChannelLive(): boolean {
 }
 
 export function sendEvt(evt: RoomEvt): void {
-  void channel?.send({ type: "broadcast", event: "evt", payload: evt });
+  ignoreRejection(channel?.send({ type: "broadcast", event: "evt", payload: evt }));
 }
 
 export function activeRoomId(): string | null {
@@ -248,13 +250,21 @@ export async function disconnectRoomChannel(): Promise<void> {
   appStateSub?.remove();
   appStateSub = null;
   currentRoomId = null;
-  if (channel) {
-    const ch = channel;
-    channel = null;
-    await supabase.removeChannel(ch);
-  }
+  const ch = channel;
+  channel = null;
+  // Reset first: if removal throws (dead socket), stale room state must
+  // still not leak into the next room, and a following connect must not
+  // abort on the teardown failure.
   useRoomStore.getState().reset();
   useMembersStore.getState().reset();
   useRouteStore.getState().reset();
   useUiStore.getState().reset();
+  if (ch) {
+    try {
+      await supabase.removeChannel(ch);
+    } catch {
+      // Server-side unsubscribe failed; local state is already clean and
+      // the socket drops it on reconnect. Never fail teardown.
+    }
+  }
 }

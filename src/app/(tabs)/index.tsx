@@ -1,21 +1,17 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
+import { PresetCircles } from "@/features/trips/PresetCircles";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
+import { TRIP_PRESETS, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
-
-const HOW_IT_WORKS = [
-  "Name yourself",
-  "Create or join with a code",
-  "See each other live",
-] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -25,6 +21,11 @@ export default function HomeScreen() {
   const [activeRoom, setActiveRoom] = useState<ActiveRoomRef | null>(null);
   const [rejoinBusy, setRejoinBusy] = useState(false);
   const [rejoinError, setRejoinError] = useState<string | null>(null);
+  const [nameNudge, setNameNudge] = useState(false);
+  const nameRef = useRef<TextInput>(null);
+  // Double-tap guard: priming awaits a sheet + user decision, so two rapid
+  // taps would otherwise push duplicate routes.
+  const navBusy = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,17 +52,35 @@ export default function HomeScreen() {
   };
 
   const pressCreate = () => {
+    if (navBusy.current) return;
+    navBusy.current = true;
     void (async () => {
-      await primeLocation();
-      router.push("/create");
+      try {
+        await primeLocation();
+        router.push("/create");
+      } finally {
+        navBusy.current = false;
+      }
     })();
   };
 
   const pressJoin = () => {
+    if (navBusy.current) return;
+    navBusy.current = true;
     void (async () => {
-      await primeLocation();
-      router.push("/join");
+      try {
+        await primeLocation();
+        router.push("/join");
+      } finally {
+        navBusy.current = false;
+      }
     })();
+  };
+
+  const startFromPreset = (presetId: TripPresetId) => {
+    const preset = TRIP_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    router.push({ pathname: "/create", params: presetCreateParams(preset, displayName) });
   };
 
   const rejoin = async () => {
@@ -97,32 +116,61 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      <View style={styles.strip} accessibilityLabel="How it works">
-        {HOW_IT_WORKS.map((step, i) => (
-          <View key={step} style={styles.step}>
-            <Text style={styles.stepNum}>{i + 1}</Text>
-            <Text style={styles.stepText}>{step}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Uber "Where to?" entry: the streamlined way in. Same rules as the
+      old join button — needs a name first (focuses it), otherwise runs the
+      normal join flow. */}
+      <Pressable
+        style={({ pressed }) => [styles.searchEntry, pressed && styles.pressed]}
+        accessibilityRole="search"
+        accessibilityLabel="Join with code"
+        accessibilityHint={nameValid ? "Opens the join screen" : "Enter your name first"}
+        testID="home-join"
+        onPress={() => {
+          if (!nameValid) {
+            setNameNudge(true);
+            nameRef.current?.focus();
+            return;
+          }
+          setNameNudge(false);
+          pressJoin();
+        }}
+      >
+        <AppSymbol
+          name={icons.search}
+          fallback={icons.search.fallback}
+          size={20}
+          tintColor={colors.textDim}
+        />
+        <Text style={styles.searchPlaceholder}>Join with code</Text>
+        <Text style={styles.searchChev}>›</Text>
+      </Pressable>
 
       <Label>Your name</Label>
       <TextField
+        inputRef={nameRef}
         value={displayName}
-        onChangeText={setDisplayName}
+        onChangeText={(t) => {
+          setDisplayName(t);
+          if (t.trim().length > 0) setNameNudge(false);
+        }}
         placeholder="e.g. Chris"
         maxLength={24}
         autoCapitalize="words"
+        returnKeyType="done"
         testID="home-name"
       />
+      {nameNudge && !nameValid && (
+        <Text style={styles.hint}>Enter your name first, then join.</Text>
+      )}
 
       {activeRoom && (
         <>
           <Label>Pick up where you left off</Label>
           <Pressable
-            style={styles.rejoinCard}
+            style={({ pressed }) => [styles.rejoinCard, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={`Rejoin ${activeRoom.name}`}
+            accessibilityHint={`Code ${activeRoom.code}, joined as ${activeRoom.role}`}
             testID="home-rejoin"
             onPress={() => void rejoin()}
           >
@@ -143,7 +191,7 @@ export default function HomeScreen() {
                 {activeRoom.name}
               </Text>
               <Text style={styles.rejoinSub} numberOfLines={1}>
-                {activeRoom.code}
+                {activeRoom.code} · {activeRoom.role === "traveler" ? "Traveler" : "Spectator"}
               </Text>
             </View>
             <Text style={styles.rejoinChev}>›</Text>
@@ -152,19 +200,15 @@ export default function HomeScreen() {
         </>
       )}
 
+      <Label>For you</Label>
+      <PresetCircles onSelect={startFromPreset} />
+
       <View style={styles.actions}>
         <Button
           label="Create a room"
           disabled={!nameValid}
           testID="home-create"
           onPress={pressCreate}
-        />
-        <Button
-          label="Join with code"
-          variant="ghost"
-          disabled={!nameValid}
-          testID="home-join"
-          onPress={pressJoin}
         />
         {!nameValid && (
           <Text style={styles.hint}>Enter your name to create or join a room.</Text>
@@ -186,21 +230,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: { marginTop: 24, marginBottom: 12, flexShrink: 1 },
-  strip: { flexDirection: "row", gap: 8, marginTop: 12, marginBottom: 8 },
-  step: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  stepNum: {
-    color: colors.onPrimary,
-    backgroundColor: colors.primary,
-    fontSize: 11,
-    fontFamily: fontFamily.bold,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    textAlign: "center",
-    lineHeight: 18,
-    overflow: "hidden",
-  },
-  stepText: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, flexShrink: 1 },
   tagline: {
     color: colors.textDim,
     fontSize: 15,
@@ -208,6 +237,26 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   actions: { marginTop: 28 },
+  searchEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  searchPlaceholder: {
+    color: colors.textDim,
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    flex: 1,
+    flexShrink: 1,
+  },
+  searchChev: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
   rejoinCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -230,8 +279,16 @@ const styles = StyleSheet.create({
   },
   rejoinBody: { flex: 1, flexShrink: 1 },
   rejoinName: { color: colors.text, fontSize: 17, fontFamily: fontFamily.semiBold },
-  rejoinSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
+  rejoinSub: {
+    color: colors.accent,
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 1,
+    fontVariant: ["tabular-nums"],
+    marginTop: 2,
+  },
   rejoinChev: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
+  pressed: { opacity: 0.75 },
   hint: {
     color: colors.textDim,
     fontSize: 13,

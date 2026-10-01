@@ -40,9 +40,10 @@ export function TabBar() {
           return (
             <Pressable
               key={tab.key}
-              style={styles.tab}
+              style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
               accessibilityRole="button"
               accessibilityLabel={tab.label}
+              accessibilityHint={selected ? `${tab.label}, current tab` : `Go to ${tab.label}`}
               accessibilityState={{ selected }}
               testID={tab.testID}
               hitSlop={4}
@@ -50,11 +51,16 @@ export function TabBar() {
                 if (!selected) router.replace(tab.href);
               }}
             >
-            <View style={[styles.pill, selected && styles.pillSelected]}>
+            <View style={styles.pill}>
+              {/* Selected fill mounts/unmounts with its final paint instead of
+              mutating backgroundColor on the pill: on Fabric/Android a bg-only
+              update can drop the view's borderRadius, turning the capsule
+              into a box after navigating away and back. */}
+              {selected ? <View style={styles.pillFill} pointerEvents="none" /> : null}
               <AppSymbol
                 name={{ ios: tab.icon.ios, android: tab.icon.android }}
                 fallback={tab.icon.fallback}
-                size={24}
+                size={26}
                 tintColor={selected ? colors.text : colors.textDim}
               />
               <Text style={[styles.label, selected && styles.labelSelected]}>{tab.label}</Text>
@@ -74,27 +80,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 32,
-    marginHorizontal: 12,
+    borderRadius: 30,
+    marginHorizontal: 16,
     marginBottom: 8,
     paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     // Elevated above content like Uber's floating bar (Android shadow).
     // elevation is the whole shadow on Android: the legacy shadow* props
     // are iOS-only no-ops here, so they stay out (native-ui skill).
     elevation: 8,
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 56 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 58 },
+  tabPressed: { opacity: 0.7 },
   pill: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
-    paddingHorizontal: 24,
-    paddingVertical: 5,
+    gap: 4,
+    paddingHorizontal: 26,
+    paddingVertical: 7,
     borderRadius: radius.full,
     backgroundColor: "transparent",
   },
-  pillSelected: { backgroundColor: colors.surfaceAlt },
-  label: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.medium },
+  pillFill: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: colors.raised,
+    borderRadius: radius.full,
+  },
+  label: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.medium },
   labelSelected: { color: colors.text, fontFamily: fontFamily.semiBold },
 });

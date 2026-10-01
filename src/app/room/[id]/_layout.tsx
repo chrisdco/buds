@@ -138,17 +138,22 @@ export default function RoomLayout() {
       if (state === "active") {
         void stopBackgroundUpdates();
       } else {
-        void startBackgroundUpdates().then((started) => {
-          // started === false => the OS "Always" permission lapsed; warn once
-          // rather than silently failing to share with the screen off.
-          if (!started && !warnedNoPermission) {
-            warnedNoPermission = true;
-            Alert.alert(
-              "Background sharing is off",
-              "Android revoked the always-on location permission, so your buds won't see you with the screen off. Re-enable it from the room's privacy settings.",
-            );
-          }
-        });
+        void startBackgroundUpdates()
+          .then((started) => {
+            // started === false => the OS "Always" permission lapsed; warn once
+            // rather than silently failing to share with the screen off.
+            if (!started && !warnedNoPermission) {
+              warnedNoPermission = true;
+              Alert.alert(
+                "Background sharing is off",
+                "Android revoked the always-on location permission, so your buds won't see you with the screen off. Re-enable it from the room's privacy settings.",
+              );
+            }
+          })
+          .catch(() => {
+            // startLocationUpdates can reject (revoked permission, OEM
+            // skins) — never redbox on the background transition for it.
+          });
       }
     });
     return () => {

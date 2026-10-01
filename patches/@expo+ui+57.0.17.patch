@@ -1,0 +1,26 @@
+diff --git a/node_modules/@expo/ui/src/universal/BottomSheet/index.android.tsx b/node_modules/@expo/ui/src/universal/BottomSheet/index.android.tsx
+index 98b853b..3eec147 100644
+--- a/node_modules/@expo/ui/src/universal/BottomSheet/index.android.tsx
++++ b/node_modules/@expo/ui/src/universal/BottomSheet/index.android.tsx
+@@ -55,9 +55,18 @@ export function BottomSheet({
+       return;
+     }
+     let cancelled = false;
+-    sheetRef.current?.hide().then(() => {
+-      if (!cancelled) setMount(false);
+-    });
++    sheetRef.current
++      ?.hide()
++      .then(() => {
++        if (!cancelled) setMount(false);
++      })
++      .catch(() => {
++        // Native hide() rejects when the sheet is already gone
++        // (gesture/scrim/back-press dismiss, or activity teardown under it,
++        // e.g. backgrounding to Maps). Unmount anyway instead of redboxing
++        // an unhandled promise rejection.
++        if (!cancelled) setMount(false);
++      });
+     return () => {
+       cancelled = true;
+     };

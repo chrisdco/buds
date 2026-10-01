@@ -15,6 +15,7 @@ const PRIMED_NOTIFICATIONS_KEY = "buds.primedNotifications";
 const PRIMED_BACKGROUND_KEY = "buds.primedBackground";
 const UNITS_KEY = "buds.units";
 const NOTIFY_PREFS_KEY = "buds.notifyPrefs";
+const AVATAR_KEY = "buds.avatar";
 
 export const ALL_NOTIFY_CATEGORIES: Exclude<NotifyCategory, "other">[] = [
   "arrivals",
@@ -36,10 +37,17 @@ interface SessionState {
   units: DistanceUnit;
   /** Background OS notifications per alert category (foreground toasts always show). */
   notifyPrefs: Record<Exclude<NotifyCategory, "other">, boolean>;
+  /**
+   * Self avatar choice (profile only — member cards stay hash-deterministic
+   * so every viewer sees the same face without backend support): a peep face
+   * index, "initial" for the name letter, null = auto (deviceId hash).
+   */
+  avatar: number | "initial" | null;
   ready: boolean;
   error: string | null;
   init: () => Promise<void>;
   setDisplayName: (name: string) => void;
+  setAvatar: (avatar: number | "initial" | null) => void;
   setBackgroundSharing: (enabled: boolean) => void;
   setPrimed: (key: "location" | "notifications" | "background") => void;
   setUnits: (units: DistanceUnit) => void;
@@ -49,6 +57,10 @@ interface SessionState {
   /** Leave all known rooms, wipe local data, fresh identity. */
   wipeAllData: (leaveRooms: (roomId: string) => Promise<unknown>) => Promise<void>;
 }
+
+// Single-flight init: concurrent callers (StrictMode/remount double-invoke)
+// share one run instead of racing duplicate anonymous sign-ins.
+let initPromise: Promise<void> | null = null;
 
 // Zero-friction identity: anonymous Supabase session + a display name typed
 // at join time. No accounts, no passwords.
@@ -62,14 +74,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   primedBackground: false,
   units: "km",
   notifyPrefs: { arrivals: true, separation: true, detours: true, reconnections: true },
+  avatar: null,
   ready: false,
   error: null,
 
-  init: async () => {
-    if (get().ready && get().userId) return;
-    set({ error: null });
-    try {
-      const [storedName, storedDevice, storedBg, primedLoc, primedNotif, primedBg, units, prefs] =
+  init: () => {
+    if (get().ready && get().userId) return Promise.resolve();
+    initPromise ??= (async () => {
+      set({ error: null });
+      try {
+      const [storedName, storedDevice, storedBg, primedLoc, primedNotif, primedBg, units, prefs, storedAvatar] =
         await Promise.all([
           AsyncStorage.getItem(NAME_KEY),
           AsyncStorage.getItem(DEVICE_KEY),
@@ -79,6 +93,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           AsyncStorage.getItem(PRIMED_BACKGROUND_KEY),
           AsyncStorage.getItem(UNITS_KEY),
           AsyncStorage.getItem(NOTIFY_PREFS_KEY),
+          AsyncStorage.getItem(AVATAR_KEY),
         ]);
 
       let deviceId = storedDevice;
@@ -111,6 +126,17 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         // Corrupt prefs fall back to all-on.
       }
 
+      // Avatar: "initial" or a peep face index; anything else = auto hash.
+      // Clamp out-of-range indices (older builds could persist any number):
+      // without this the picker would show no selection.
+      let avatar: number | "initial" | null = null;
+      if (storedAvatar === "initial") {
+        avatar = "initial";
+      } else if (storedAvatar != null && /^\d+$/.test(storedAvatar)) {
+        const n = Number(storedAvatar);
+        avatar = Number.isInteger(n) && n >= 0 && n < 7 ? n : null;
+      }
+
       set({
         userId: session?.user.id ?? null,
         displayName: storedName ?? "",
@@ -121,6 +147,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         primedBackground: primedBg === "1",
         units: units === "mi" ? "mi" : "km",
         notifyPrefs,
+        avatar,
         ready: true,
         error: session ? null : "Could not start a session.",
       });
@@ -132,12 +159,25 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             ? e.message
             : "Could not reach the server. Check your connection and retry.",
       });
+    } finally {
+      initPromise = null;
     }
+    })();
+    return initPromise;
   },
 
   setDisplayName: (name) => {
     set({ displayName: name });
     void AsyncStorage.setItem(NAME_KEY, name);
+  },
+
+  setAvatar: (avatar) => {
+    set({ avatar });
+    if (avatar === null) {
+      void AsyncStorage.removeItem(AVATAR_KEY);
+    } else {
+      void AsyncStorage.setItem(AVATAR_KEY, String(avatar));
+    }
   },
 
   setBackgroundSharing: (enabled) => {
@@ -193,7 +233,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       PRIMED_LOCATION_KEY,
       PRIMED_NOTIFICATIONS_KEY,
       PRIMED_BACKGROUND_KEY,
+      UNITS_KEY,
       NOTIFY_PREFS_KEY,
+      AVATAR_KEY,
       ACTIVE_ROOM_KEY,
       RECENTS_KEY,
     ]);
@@ -209,6 +251,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       primedBackground: false,
       units: "km",
       notifyPrefs: { arrivals: true, separation: true, detours: true, reconnections: true },
+      avatar: null,
     });
     await AsyncStorage.setItem(DEVICE_KEY, get().deviceId);
   },

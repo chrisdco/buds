@@ -26,24 +26,38 @@ export const RouteLines = memo(function RouteLines({ routes, myUserId }: RouteLi
       {Object.entries(routes).map(([userId, route]) => {
         if (route.coords.length < 2) return null;
         const self = userId === myUserId;
+        const coreWidth = self ? 5 : 3;
+        const dashed =
+          route.source === "straightline" ? { "line-dasharray": [1.5, 2] } : {};
         return (
           <GeoJSONSource
             key={userId}
             id={`route-${userId}`}
             data={lineFeature(route.coords)}
           >
+            {/* Uber-style casing: a soft light halo under the route so it
+            reads on the dark tiles at a glance. Same dash as the core. */}
+            <Layer
+              type="line"
+              id={`route-casing-${userId}`}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#FFFFFF",
+                "line-width": coreWidth + 4.5,
+                "line-opacity": self ? 0.32 : 0.18,
+                ...dashed,
+              }}
+            />
             <Layer
               type="line"
               id={`route-line-${userId}`}
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-color": colorForUser(userId),
-                "line-width": self ? 5 : 3,
+                "line-width": coreWidth,
                 "line-opacity": self ? 0.9 : 0.55,
                 // dashed = straight-line estimate, not a road route
-                ...(route.source === "straightline"
-                  ? { "line-dasharray": [1.5, 2] }
-                  : {}),
+                ...dashed,
               }}
             />
           </GeoJSONSource>

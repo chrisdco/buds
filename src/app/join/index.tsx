@@ -1,9 +1,11 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
+import { LocationSearchArt } from "@/components/illustrations/LocationSearchArt";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
@@ -40,28 +42,52 @@ export default function JoinRoomScreen() {
   const [error, setError] = useState<RpcError | null>(null);
   const [scanning, setScanning] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const [clipboardCode, setClipboardCode] = useState<string | null>(null);
   const scanHandled = useRef(false);
+  // Double-submit guard (same race as create: the `busy` state lags a render).
+  const busyRef = useRef(false);
+
+  // Micro-convenience: if the clipboard already holds a room code (shared
+  // from Messages/WhatsApp), offer it as a one-tap paste — no retyping.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const text = await Clipboard.getStringAsync();
+        const parsed = text ? parseInviteCode(text) : null;
+        if (parsed && parsed !== code) setClipboardCode(parsed);
+      } catch {
+        // Clipboard is best-effort only.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const join = async (joinCode: string, joinRole: MemberRole) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
-    const result = await roomsRpc.joinRoom({
-      code: joinCode,
-      displayName: displayName.trim() || "Anonymous",
-      role: joinRole,
-    });
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await roomsRpc.joinRoom({
+        code: joinCode,
+        displayName: displayName.trim() || "Anonymous",
+        role: joinRole,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setActiveRoom({
+        id: result.room.id,
+        code: result.room.code,
+        name: result.room.name,
+        role: result.member.role,
+      });
+      router.replace(`/room/${result.room.id}`);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
-    setActiveRoom({
-      id: result.room.id,
-      code: result.room.code,
-      name: result.room.name,
-      role: result.member.role,
-    });
-    router.replace(`/room/${result.room.id}`);
   };
 
   const startScan = async () => {
@@ -89,6 +115,12 @@ export default function JoinRoomScreen() {
         <Title>Join a room</Title>
       </View>
 
+      {/* Finding-a-room scene (unDraw, brand recolor). Compact: this form
+      has no scroll, so the art stays small. */}
+      <View style={styles.art} accessible={false}>
+        <LocationSearchArt width={150} />
+      </View>
+
       {scanning ? (
         <>
           <View style={styles.scannerBox}>
@@ -107,25 +139,53 @@ export default function JoinRoomScreen() {
           <Label>Room code</Label>
           <TextField
             value={code}
-            onChangeText={(text) => setCode(normalizeCode(text))}
+            onChangeText={(text) => {
+              const next = normalizeCode(text);
+              setCode(next);
+              if (next === clipboardCode) setClipboardCode(null);
+            }}
             placeholder="ABC123"
             autoCapitalize="characters"
             autoCorrect={false}
+            autoFocus
             maxLength={CODE_LENGTH}
+            returnKeyType="go"
+            onSubmitEditing={() => {
+              if (code.length === CODE_LENGTH) void join(code, role);
+            }}
             style={styles.codeInput}
             testID="join-code"
           />
+          {clipboardCode && code.length === 0 && (
+            <Button
+              label={`Paste ${clipboardCode}`}
+              variant="ghost"
+              size="compact"
+              testID="join-paste"
+              onPress={() => {
+                setCode(clipboardCode);
+                setClipboardCode(null);
+              }}
+            />
+          )}
 
           <Label>Join as</Label>
+          <Text style={styles.caption}>
+            Travelers share location (max 10). Spectators just watch.
+          </Text>
           <View style={styles.chips}>
             <Chip
               label="Traveler"
               selected={role === "traveler"}
+              testID="join-role-traveler"
+              a11yLabel="Join as traveler"
               onPress={() => setRole("traveler")}
             />
             <Chip
               label="Spectator"
               selected={role === "spectator"}
+              testID="join-role-spectator"
+              a11yLabel="Join as spectator"
               onPress={() => setRole("spectator")}
             />
           </View>
@@ -161,6 +221,8 @@ export default function JoinRoomScreen() {
 
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 4 },
+  art: { alignItems: "center", marginVertical: 4 },
+  caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
   codeInput: {
     fontSize: 24,

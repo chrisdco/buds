@@ -3,6 +3,7 @@ import { DarkTheme, ThemeProvider } from "expo-router";
 import Stack from "expo-router/stack";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { Asset } from "expo-asset";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -17,6 +18,7 @@ import { colors } from "@/constants/theme";
 import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import { setupNotifications } from "@/services/notifications";
+import { useRecentsStore } from "@/stores/recentsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
 void SplashScreen.preventAutoHideAsync();
@@ -28,6 +30,20 @@ export default function RootLayout() {
   useEffect(() => {
     void useSessionStore.getState().init();
     void setupNotifications();
+    // Resident recents: load once so tab screens paint rows on first commit
+    // instead of empty-then-populated on every focus.
+    void useRecentsStore.getState().refresh();
+    // Decode every bundled illustration bitmap now (fire-and-forget, off the
+    // splash path): by the time any tab mounts its art, the pixels are
+    // cached and each screen paints complete in a single commit — no
+    // placeholder-then-pop like deferred mounting would cause.
+    void Asset.loadAsync([
+      require("../../assets/illustrations/destination.png"),
+      require("../../assets/illustrations/order-ride.png"),
+      require("../../assets/illustrations/travel-together.png"),
+      require("../../assets/illustrations/share-location.png"),
+      require("../../assets/illustrations/location-search.png"),
+    ]).catch(() => {});
   }, []);
 
   // Hold the splash until fonts AND session are ready: first paint must

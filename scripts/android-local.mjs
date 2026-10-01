@@ -54,7 +54,6 @@ function isPortFree(port) {
 
 async function pickPort() {
   for (let port = 8081; port <= 8090; port++) {
-    // eslint-disable-next-line no-await-in-loop
     if (await isPortFree(port)) return port;
   }
   throw new Error("no free Metro port in 8081..8090");
@@ -71,7 +70,6 @@ async function waitForStatus(port, tries = 40) {
     } catch {
       // not up yet
     }
-    // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => setTimeout(r, 3000));
   }
   throw new Error(`Metro on :${port} never became ready`);

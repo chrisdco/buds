@@ -1,12 +1,15 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ErrorText, Label, Screen, Title } from "@/components/ui";
+import { PresetCircles } from "@/features/trips/PresetCircles";
+import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors, radius } from "@/constants/theme";
+import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { getRecentRooms, pruneRecentRoom, removeRecentRoom, setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
+import { setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
+import { useRecentsStore } from "@/stores/recentsStore";
 import { TRIP_PRESETS, presetCreateParams } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -16,8 +19,13 @@ import { useSessionStore } from "@/stores/sessionStore";
 // dead rooms inline — the list never shows a room you can't enter.
 export default function TripsScreen() {
   const router = useRouter();
-  const [recents, setRecents] = useState<ActiveRoomRef[]>([]);
+  // Resident recents (loaded once at startup): rows paint on first commit,
+  // and focus refetches that change nothing don't re-render at all.
+  const recents = useRecentsStore((s) => s.recents);
   const [error, setError] = useState<string | null>(null);
+  // Double-tap guard: joinRoom awaits the network, so two rapid taps would
+  // otherwise fire duplicate joins and competing replaces.
+  const openBusy = useRef(false);
 
   const startFromTemplate = (presetId: (typeof TRIP_PRESETS)[number]["id"]) => {
     const preset = TRIP_PRESETS.find((p) => p.id === presetId);
@@ -28,39 +36,42 @@ export default function TripsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void getRecentRooms().then(setRecents);
+      void useRecentsStore.getState().refresh();
     }, []),
   );
 
   const forgetTrip = (ref: ActiveRoomRef) => {
-    void (async () => {
-      await removeRecentRoom(ref.id);
-      setRecents(await getRecentRooms());
-    })();
+    void useRecentsStore.getState().remove(ref.id);
   };
 
-  const openTrip = (ref: ActiveRoomRef) => {    void (async () => {
-      setError(null);
-      const name = useSessionStore.getState().displayName.trim() || "Anonymous";
-      const result = await roomsRpc.joinRoom({ code: ref.code, displayName: name, role: ref.role });
-      if (result.ok) {
-        setActiveRoom({
-          id: result.room.id,
-          code: result.room.code,
-          name: result.room.name,
-          role: result.member.role,
-        });
-        router.replace(`/room/${result.room.id}`);
-      } else {
-        if (result.error === "room_ended" || result.error === "bad_code" || result.error === "kicked") {
-          await pruneRecentRoom(ref.id);
-          setRecents(await getRecentRooms());
+  const openTrip = (ref: ActiveRoomRef) => {
+    void (async () => {
+      if (openBusy.current) return;
+      openBusy.current = true;
+      try {
+        setError(null);
+        const name = useSessionStore.getState().displayName.trim() || "Anonymous";
+        const result = await roomsRpc.joinRoom({ code: ref.code, displayName: name, role: ref.role });
+        if (result.ok) {
+          setActiveRoom({
+            id: result.room.id,
+            code: result.room.code,
+            name: result.room.name,
+            role: result.member.role,
+          });
+          router.replace(`/room/${result.room.id}`);
+        } else {
+          if (result.error === "room_ended" || result.error === "bad_code" || result.error === "kicked") {
+            void useRecentsStore.getState().remove(ref.id);
+          }
+          setError(
+            result.error === "room_ended" || result.error === "bad_code"
+              ? "That room has ended."
+              : "Couldn't rejoin the room.",
+          );
         }
-        setError(
-          result.error === "room_ended" || result.error === "bad_code"
-            ? "That room has ended."
-            : "Couldn't rejoin the room.",
-        );
+      } finally {
+        openBusy.current = false;
       }
     })();
   };
@@ -74,54 +85,27 @@ export default function TripsScreen() {
         <Text style={styles.caption}>Start from a template, or pick up where you left off.</Text>
 
         <Label>Start a trip</Label>
-        <View style={styles.templates}>
-          {TRIP_PRESETS.map((preset) => (
-            <Pressable
-              key={preset.id}
-              style={({ pressed }) => [styles.template, pressed && styles.templatePressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`Start a ${preset.title} trip`}
-              testID={`trips-template-${preset.id}`}
-              onPress={() => startFromTemplate(preset.id)}
-            >
-              {/* Badge overlaps the tile like Uber's Promo pill (functional
-              color only: danger = promo/popular). Image slot renders here
-              when preset.image lands (Phase B illustrations). */}
-              {preset.badge && (
-                <View style={styles.templateBadge}>
-                  <Text style={styles.templateBadgeText}>{preset.badge}</Text>
-                </View>
-              )}
-              <View style={styles.templateIcon}>
-                <AppSymbol
-                  name={icons[preset.icon]}
-                  fallback={icons[preset.icon].fallback}
-                  size={28}
-                  tintColor={colors.text}
-                />
-              </View>
-              <Text style={styles.templateTitle} numberOfLines={1}>
-                {preset.title}
-              </Text>
-              <Text style={styles.templateBlurb} numberOfLines={2}>
-                {preset.blurb}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <PresetCircles onSelect={startFromTemplate} />
 
         <Label>Recent trips</Label>
-        {recents.length === 0 ? (
-          <Text style={styles.caption} testID="trips-empty">
-            No trips yet — create or join a room first.
-          </Text>
+        {/* recents === null only before the startup preload resolves: render
+        nothing (same black) rather than flashing the empty state. */}
+        {recents === null ? null : recents.length === 0 ? (
+          <View style={styles.empty} testID="trips-empty">
+            {/* Waiting traveler (Open Peeps, CC0, dark-theme remap). */}
+            <WaitingPeepArt width={120} />
+            <Text style={[styles.caption, styles.emptyCaption]}>
+              No trips yet — create or join a room first.
+            </Text>
+          </View>
         ) : (
           recents.map((r) => (
             <View key={r.id} style={styles.tripRow}>
               <Pressable
-                style={styles.tripMain}
+                style={({ pressed }) => [styles.tripMain, pressed && styles.pressed]}
                 accessibilityRole="button"
                 accessibilityLabel={`Rejoin ${r.name}`}
+                accessibilityHint={`Code ${r.code}, joined as ${r.role}`}
                 testID={`trips-rejoin-${r.code}`}
                 onPress={() => openTrip(r)}
               >
@@ -137,16 +121,19 @@ export default function TripsScreen() {
                   <Text style={styles.tripName} numberOfLines={1}>
                     {r.name}
                   </Text>
-                  <Text style={styles.tripCode}>{r.code}</Text>
+                  <Text style={styles.tripCode}>
+                    {r.code} · {r.role === "traveler" ? "Traveler" : "Spectator"}
+                  </Text>
                 </View>
                 <Text style={styles.tripChev}>›</Text>
               </Pressable>
               {/* Local forget only (× is text-by-default, law 1): the room
               is untouched, rejoin-by-code keeps working. */}
               <Pressable
-                style={styles.tripForget}
+                style={({ pressed }) => [styles.tripForget, pressed && styles.pressed]}
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${r.name} from recents`}
+                accessibilityHint="Removes from this list only, the room stays"
                 testID={`trips-forget-${r.code}`}
                 hitSlop={12}
                 onPress={() => forgetTrip(r)}
@@ -167,58 +154,9 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   header: { marginTop: 24, marginBottom: 4 },
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  templates: { flexDirection: "row", gap: 10 },
-  template: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingHorizontal: 10,
-    paddingVertical: 14,
-    paddingTop: 16,
-    alignItems: "center",
-    minHeight: 156,
-  },
-  templatePressed: { borderColor: colors.text },
-  templateBadge: {
-    position: "absolute",
-    top: -9,
-    backgroundColor: colors.danger,
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  templateBadgeText: {
-    color: colors.text,
-    fontSize: 10,
-    fontFamily: fontFamily.bold,
-    letterSpacing: 0.3,
-  },
-  templateIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  templateTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
-    marginTop: 10,
-    textAlign: "center",
-  },
-  templateBlurb: {
-    color: colors.textDim,
-    fontSize: 11,
-    fontFamily: fontFamily.regular,
-    marginTop: 2,
-    textAlign: "center",
-  },
+  empty: { alignItems: "center", marginTop: 12, gap: 8 },
+  emptyCaption: { textAlign: "center" },
+  pressed: { opacity: 0.75 },
   tripRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -254,6 +192,11 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   tripChev: { color: colors.textDim, fontSize: 20, fontFamily: fontFamily.regular },
-  tripForget: { padding: 4 },
+  tripForget: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   tripForgetGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
 });

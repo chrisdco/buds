@@ -111,6 +111,76 @@ White space, Unity).
 - Expiry extend actions stay as chips (compact map-adjacent language),
   not full buttons — they are low-frequency host tools, not conversion CTAs.
 
+## Illustrations (Phase B, Sept 2026)
+
+Prod pattern (Uber/Notion rule): **raster for scenes, vector for simple.**
+Complex scenes ship as build-time PNGs (`npm run art` → `assets/illustrations/`,
+`@1x/@2x/@3x` via `scripts/rasterize-art.mjs` + `@resvg/resvg-js`) and render
+as one native `<Image>` — a thousand-node SVG tree costs a thousand native
+views on mount, a PNG costs one. Vectors (`react-native-svg`) stay for icons,
+peep avatars, and small spots (<100 nodes). Node budget for any future scene:
+~150 nodes or it gets rasterized, no exceptions.
+- **unDraw scenes** (no attribution, commercial OK, decorative use): home hero
+  (`share-location`), join (`location-search`), preset cards (`destination`,
+  `order-ride`, `travel-together`), all with primary `#6c63ff` → `colors.accent`
+  `#4F8EF7` baked at raster time. Sources live in
+  `assets/illustrations/src/` so swaps stay reproducible. Dark-theme note:
+  near-black shapes (`#2f2e41`) read as night shading on ink — verified
+  on-device, not assumed. Dead slugs are common (CDN 404s); old art lives
+  under `/illustrations/`, new under `/illustration/`.
+
+- **unDraw scenes** (no attribution, commercial OK, decorative use):
+  home hero (`ShareLocationArt`, primary `#6c63ff` → `colors.accent`
+  `#4F8EF7`) and join art (`LocationSearchArt`, same recolor). Dark-theme
+  note: near-black shapes (`#2f2e41`) read as night shading on ink —
+  verified on-device, not assumed.
+- **Open Peeps figure** (CC0, zero restrictions): empty-recents
+  (`WaitingPeepArt`, sitting traveler; black↔white remap for ink theme).
+- **Perf rule for art (Sept 2026, Trips lag + pop-in fixes):** `Slot` +
+  `router.replace` remounts the whole tab on every visit, so tab art must be
+  mount-cheap AND single-commit. Scenes ship rasterized (one native view);
+  `PresetArt` is memoized; all bundled bitmaps decode up front
+  (`Asset.loadAsync` in root layout, off the splash path) so screens paint
+  complete — never placeholder-then-pop (a rAF-defer tried that; it read as
+  a visible flash and was removed). Node count, not pixels, is what drops
+  frames on mount: halftone dot fields get thinned at conversion
+  (`--thin=FILL:N`, e.g. the travel-together globe went 1375 → 490 nodes).
+- **Skipped deliberately:** Storyset (free tier demands visible
+  attribution + link — hostile to a native app with no credits surface;
+  revisit only with Premium) and ManyPixels (license is fine but no direct
+  file access, and its flat style overlaps unDraw — one scene language wins).
+- Preset tiles were monochrome symbols until the rail redesign below (a 64px
+  medallion can't host a scene without turning to mud).
+- **Round 2 (same session): Uber-style preset rail** — horizontal snapping
+  cards (232px) with full-bleed cover-cropped scenes, then reworked to the
+  Uber main-page "For you" circle grid (92px circles, badge on top edge,
+  label below) once reference shots arrived. Meet up =
+  `destination_fkst`, Follow leader = `order-ride_4gaq` (landscape, very
+  Uber), Stay together = `travel-together_uhlf`. `TripPreset.image` is now
+  `{ Art, vbW, vbH, fx, fy, window }`: circles show a zoomed focal window,
+  focals picked against laptop renders (`scripts/preview-crop.mjs`) so no
+  blind emulator rounds — resvg preview framing provably equals on-device
+  framing (same bytes, same viewBox math). testIDs unchanged (Maestro taps
+  them). 4th tab deferred to a design discussion, not this pass.
+- **Open Peeps people system (CC0):** `PeepAvatar` (7 faces A–H, deterministic
+  hash by id) drives member cards, the profile identity medallion, and the
+  create-screen "gather your buds" trio. White-on-ink remap baked at
+  conversion. Paint never mutates post-mount (same Fabric rule as the tab
+  pill fix).
+- **Uber path language:** route lines get a soft white casing underlay on the
+  dark tiles (`RouteLines` casing layer, same dash as the core).
+- **Skipped with reason:** Storyset (attribution), ManyPixels (no direct
+  files + style overlap), invite-screen art (QR is the hero; clutter risk),
+  preset-tile medallions (64px mud rule above).
+- **Library patch (patch-package, JS-only, no rebuild):**
+  `patches/@expo+ui+57.0.17.patch` adds the missing `.catch()` to the
+  `hide()` call in `@expo/ui`'s Android `BottomSheet` — without it, any
+  native-side dismissal race (gesture/scrim/back-press, or activity teardown
+  when backgrounding to Maps) surfaced as `Uncaught (in promise) Error:
+  Call to function 'ModalBottomSheetView.hide' has been rejected`, and the
+  stuck mount then wedged every later confirm invisible. Verified on-device:
+  open → swipe-dismiss → silent logcat, room intact, reopen works.
+
 ## Future review (optional): screen transitions
 
 Deferred until the app has moved (post-device-verification / weekly tester

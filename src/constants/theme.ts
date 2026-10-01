@@ -5,6 +5,9 @@ export const colors = {
   bg: "#000000",
   surface: "#111111",
   surfaceAlt: "#1A1A1A",
+  /** Raised selected surfaces (tab pill) — one step above surfaceAlt so the
+  focused tab reads instantly, Uber's lighter-pill language. */
+  raised: "#262626",
   border: "#2A2A2A",
   text: "#FFFFFF",
   textDim: "#A8A8A8",

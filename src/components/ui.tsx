@@ -47,12 +47,25 @@ export function ErrorText({ children }: { children: ReactNode }) {
   return <Text style={styles.error}>{children}</Text>;
 }
 
-export function TextField(props: TextInputProps) {
+export function TextField({
+  inputRef,
+  ...props
+}: TextInputProps & { inputRef?: React.Ref<TextInput> }) {
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
+      ref={inputRef}
       placeholderTextColor={colors.textDim}
+      onFocus={(e) => {
+        setFocused(true);
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        props.onBlur?.(e);
+      }}
       {...props}
-      style={[styles.input, props.style]}
+      style={[styles.input, focused && styles.inputFocused, props.style]}
     />
   );
 }
@@ -229,6 +242,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontFamily: fontFamily.regular,
+  },
+  inputFocused: {
+    borderColor: colors.accent,
   },
   btn: {
     borderRadius: radius.full,
