@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Button, Label, Screen, Title } from "@/components/ui";
-import { colorForUser, colors, space } from "@/constants/theme";
+import { PeepAvatar } from "@/components/PeepAvatar";
+import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { formatDistanceM } from "@/lib/geo";
+import { formatDistanceM, haversineMeters } from "@/lib/geo";
 import { openExternalNavigation } from "@/lib/nav";
 import { formatDurationS } from "@/lib/time";
 import { presenceLabel, presenceOf, useMembersStore } from "@/stores/membersStore";
@@ -28,6 +29,8 @@ export default function MemberDetailScreen() {
   const route = useRouteStore((s) => (uid ? s.routes[uid] : undefined));
   const focusUserIds = useUiStore((s) => s.focusUserIds);
   const units = useSessionStore((s) => s.units);
+  const myUserId = useSessionStore((s) => s.userId);
+  const myPos = useMembersStore((s) => (myUserId ? s.members[myUserId]?.pos : undefined));
   // Slow clock for presence/updated labels (matches the room screen tick).
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -51,6 +54,10 @@ export default function MemberDetailScreen() {
   const isFocused = focusUserIds.includes(member.userId);
   const isHost = room?.host_id === member.userId;
   const isLeader = room?.mode === "leader" && room?.leader_id === member.userId;
+  const distanceToMe =
+    myPos && member.pos && myUserId !== member.userId
+      ? haversineMeters(myPos.lat, myPos.lng, member.pos.lat, member.pos.lng)
+      : null;
 
   const toggleFollow = () => {
     if (isFocused) {
@@ -67,15 +74,14 @@ export default function MemberDetailScreen() {
       <View style={styles.body}>
         <View>
           <View style={styles.header}>
-            <View style={[styles.avatar, { backgroundColor: colorForUser(member.userId) }]}>
-              <Text style={styles.initial}>{member.name.slice(0, 1).toUpperCase()}</Text>
-            </View>
+            <PeepAvatar seed={member.userId} size={64} />
             <Title>{member.name}</Title>
             <Text style={styles.sub}>
               {[
                 member.role === "spectator" ? "Spectator" : presenceLabel(state, member, nowMs),
                 isHost ? "host" : null,
                 isLeader ? "leader" : null,
+                distanceToMe != null ? `${formatDistanceM(distanceToMe, units)} from you` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -145,18 +151,7 @@ export default function MemberDetailScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center" },
   body: { flex: 1 },
-  header: { marginTop: space.lg, alignItems: "center" },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: colors.text,
-    marginBottom: 8,
-  },
-  initial: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 26 },
+  header: { marginTop: space.lg, alignItems: "center", gap: 8 },
   sub: {
     color: colors.textDim,
     fontSize: 14,

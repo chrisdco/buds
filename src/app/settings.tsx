@@ -75,7 +75,7 @@ export default function SettingsScreen() {
   };
 
   const sendFeedback = () => {
-    void Share.share({ message: "Buds feedback:\n" });
+    void Share.share({ message: `Buds feedback (v${version}):\n` });
   };
 
   const version = Constants.expoConfig?.version ?? "dev";

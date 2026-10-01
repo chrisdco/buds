@@ -130,6 +130,7 @@ export default function JoinRoomScreen() {
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
               onBarcodeScanned={({ data }) => onScanned(data)}
             />
+            <View style={styles.scanFrame} pointerEvents="none" />
           </View>
           <Text style={styles.scanHint}>Point at a Buds invite QR code</Text>
           <Button label="Cancel scan" variant="ghost" onPress={() => setScanning(false)} />
@@ -238,6 +239,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginTop: 12,
     backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scanFrame: {
+    width: 200,
+    height: 200,
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: colors.text,
   },
   scanHint: {
     color: colors.textDim,

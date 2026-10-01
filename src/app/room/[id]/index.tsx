@@ -1,5 +1,6 @@
 import type { CameraRef, LngLat, MapRef } from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -166,6 +167,7 @@ export default function RoomScreen() {
       const t = serverNowMs();
       sendEvt({ k: "sos", u: myUserId, t });
       useMembersStore.getState().setSos(myUserId, t);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       useUiStore.getState().pushAlerts([
         { id: "sos-sent", severity: "warn", title: "SOS sent — your room can see you" },
       ]);
@@ -176,6 +178,7 @@ export default function RoomScreen() {
     if (!myUserId) return;
     sendEvt({ k: "sos_clear", u: myUserId, t: serverNowMs() });
     useMembersStore.getState().clearSos(myUserId);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     useUiStore.getState().pushAlerts([
       { id: "sos-cleared", severity: "info", title: "SOS cleared" },
     ]);
@@ -591,9 +594,10 @@ export default function RoomScreen() {
       {/* Top bar */}
       <View style={[styles.topBar, { top: insets.top + 8 }]}>
         <Pressable
-          style={styles.pillButton}
+          style={({ pressed }) => [styles.pillButton, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Leave room"
+          accessibilityHint="Leaves this room and returns home"
           testID="room-leave"
           onPress={leave}
         >
@@ -605,9 +609,10 @@ export default function RoomScreen() {
           />
         </Pressable>
         <Pressable
-          style={styles.titlePill}
+          style={({ pressed }) => [styles.titlePill, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Copy room code"
+          accessibilityHint="Copies the 6-letter code for sharing"
           testID="room-copy-code"
           onPress={() => void copyCode()}
         >
@@ -619,9 +624,10 @@ export default function RoomScreen() {
           </Text>
         </Pressable>
         <Pressable
-          style={styles.pillButton}
+          style={({ pressed }) => [styles.pillButton, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Invite buds"
+          accessibilityHint="Shows the QR code and share sheet"
           testID="room-invite"
           onPress={() => room && router.push(`/room/${room.id}/invite`)}
         >
@@ -636,9 +642,10 @@ export default function RoomScreen() {
           </View>
         </Pressable>
         <Pressable
-          style={styles.pillButton}
+          style={({ pressed }) => [styles.pillButton, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Room settings"
+          accessibilityHint="Mode, members, expiry and privacy"
           testID="room-settings"
           onPress={() => room && router.push(`/room/${room.id}/settings`)}
         >
@@ -674,9 +681,15 @@ export default function RoomScreen() {
       Sits below the top bar (under the conn/SOS banners when visible). */}
       {!adjust ? (
         <Pressable
-          style={[styles.searchPill, { top: insets.top + (showConnBanner ? 108 : 60) + (showSos ? 44 : 0) }]}
+          style={({ pressed }) => [
+            styles.searchPill,
+            { top: insets.top + (showConnBanner ? 108 : 60) + (showSos ? 44 : 0) },
+            pressed && styles.pressed,
+            !isTraveler && styles.searchPillDisabled,
+          ]}
           accessibilityRole="button"
           accessibilityLabel={destRoom ? `Change destination, currently ${destRoom.label}` : "Search for a destination"}
+          accessibilityHint={isTraveler ? "Searches places, then fine-tune the pin" : "Spectators watch only"}
           testID="room-dest-search"
           onPress={() => {
             if (!room || !myUserId) return;
@@ -745,7 +758,7 @@ export default function RoomScreen() {
       <View style={[styles.fabColumn, { bottom: insets.bottom + 160 }]}>
         {(focusedName || focusUserIds.length > 1) && cameraMode === "auto" && (
           <Pressable
-            style={[styles.fab, styles.fabWide]}
+            style={({ pressed }) => [styles.fab, styles.fabWide, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={
               focusUserIds.length > 1 ? `Clear focus on ${focusUserIds.length} members` : `Unfollow ${focusedName}`
@@ -760,7 +773,7 @@ export default function RoomScreen() {
         )}
         {myDest && (
           <Pressable
-            style={[styles.fab, styles.fabWide]}
+            style={({ pressed }) => [styles.fab, styles.fabWide, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel="Navigate to destination in external maps"
             testID="room-navigate"
@@ -778,7 +791,7 @@ export default function RoomScreen() {
           </Pressable>
         )}
         <Pressable
-          style={[styles.fab, cameraMode === "auto" && styles.fabActive]}
+          style={({ pressed }) => [styles.fab, cameraMode === "auto" && styles.fabActive, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Re-center map on the group"
           testID="room-recenter"
@@ -796,9 +809,10 @@ export default function RoomScreen() {
         the confirm sheet stops pocket-SOS. */}
         {isTraveler && (
           <Pressable
-            style={[styles.fab, mySosActive && styles.fabSosActive]}
+            style={({ pressed }) => [styles.fab, mySosActive && styles.fabSosActive, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={mySosActive ? "Cancel your SOS alert" : "Send SOS alert to the room"}
+            accessibilityHint={mySosActive ? "Clears the alert for everyone" : "Asks for confirm first"}
             testID="room-sos"
             onPress={mySosActive ? cancelSos : sendSos}
           >
@@ -826,11 +840,11 @@ export default function RoomScreen() {
                 <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
                 {/* Non-hosts otherwise never see the expiry until T-10min. */}
                 {!isHost && expiryLabel && !expiryWarning && (
-                  <Text style={styles.expiryNote}>{expiryLabel}</Text>
+                  <Text style={styles.expiryNote}>{expiryLabel} · ask the host to extend</Text>
                 )}
                 {canCheckIn && (
                   <Pressable
-                    style={styles.checkin}
+                    style={({ pressed }) => [styles.checkin, pressed && styles.pressed]}
                     accessibilityRole="button"
                     accessibilityLabel="Mark yourself arrived"
                     testID="room-checkin"
@@ -941,6 +955,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   searchText: { color: colors.textDim, fontSize: 15, fontFamily: fontFamily.regular, flexShrink: 1 },
+  searchPillDisabled: { opacity: 0.6 },
   adjustCard: {
     position: "absolute",
     left: 12,
@@ -1040,4 +1055,5 @@ const styles = StyleSheet.create({
   fabActive: { borderColor: colors.text },
   fabSosActive: { borderColor: colors.danger, backgroundColor: colors.danger },
   fabText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
+  pressed: { opacity: 0.75 },
 });

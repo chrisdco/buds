@@ -145,7 +145,7 @@ export default function DestSearchScreen() {
           <Text style={styles.caption}>Search places above — or set the pin directly on the map.</Text>
         )}
 
-        {results.map((r) => {
+        {results.map((r, i) => {
           const sub = [r.address, r.distanceM != null ? formatDistanceM(r.distanceM, units) : null]
             .filter(Boolean)
             .join(" · ");
@@ -156,7 +156,7 @@ export default function DestSearchScreen() {
               style={styles.row}
               accessibilityRole="button"
               accessibilityLabel={`Set destination to ${r.name}`}
-              testID="dest-search-result"
+              testID={`dest-search-result-${i}`}
               onPress={() => pick(r)}
             >
               {/* Uber Plan-trip grammar: distance leads left when known,

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
-import { colorForUser, colors, space } from "@/constants/theme";
+import { colorForUser, colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { extendedExpiryIso } from "@/lib/expiry";
 import { modeRegistry } from "@/modes/registry";
@@ -137,17 +137,37 @@ export default function RoomSettingsScreen() {
           </Text>
         </View>
 
-        <Label>Mode</Label>
-        <View style={styles.chips}>
-          {MODES.map((m) => (
-            <Chip
-              key={m.id}
-              label={m.label}
-              selected={m.id === room.mode}
-              testID={`settings-mode-${m.id}`}
-              onPress={() => setMode(m.id)}
-            />
-          ))}
+        <Label>Mode{isHost ? "" : " (host only)"}</Label>
+        <View style={styles.modeList}>
+          {MODES.map((m) => {
+            const selected = m.id === room.mode;
+            return (
+              <Pressable
+                key={m.id}
+                style={({ pressed }) => [
+                  styles.modeRow,
+                  selected && styles.modeRowSelected,
+                  pressed && isHost && styles.pressed,
+                ]}
+                accessibilityRole="radio"
+                accessibilityLabel={`${m.label} mode`}
+                accessibilityState={{ selected, disabled: !isHost }}
+                testID={`settings-mode-${m.id}`}
+                disabled={!isHost}
+                onPress={() => setMode(m.id as RoomMode)}
+              >
+                <View style={styles.modeBody}>
+                  <Text style={styles.modeTitle}>{m.label}</Text>
+                </View>
+                <View
+                  style={[styles.radio, selected && styles.radioSelected]}
+                  accessibilityElementsHidden
+                >
+                  {selected && <View style={styles.radioDot} />}
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
 
         {room.mode === "leader" && (
@@ -260,6 +280,7 @@ export default function RoomSettingsScreen() {
               <Chip
                 label="Remove limit"
                 selected={false}
+                testID="settings-expiry-none"
                 onPress={() => void guard(() => roomsRpc.setExpiry(room.id, null))}
               />
             )}
@@ -325,6 +346,33 @@ const styles = StyleSheet.create({
   header: { marginTop: 16, marginBottom: 4 },
   sub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
+  pressed: { opacity: 0.75 },
+  modeList: { gap: 8, marginTop: 4 },
+  modeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modeRowSelected: { borderColor: colors.text },
+  modeBody: { flex: 1, flexShrink: 1 },
+  modeTitle: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioSelected: { borderColor: colors.text },
+  radioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.text },
   lockText: {
     color: colors.text,
     fontSize: 14,

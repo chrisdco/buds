@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { ErrorText, Label, Screen, Title } from "@/components/ui";
+import { ErrorText, Label, Screen, Title, Button } from "@/components/ui";
 import { PresetCircles } from "@/features/trips/PresetCircles";
 import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
 import { AppSymbol, icons } from "@/components/Symbol";
@@ -97,6 +97,21 @@ export default function TripsScreen() {
             <Text style={[styles.caption, styles.emptyCaption]}>
               No trips yet — create or join a room first.
             </Text>
+            <View style={styles.emptyActions}>
+              <Button
+                label="Create a room"
+                size="compact"
+                testID="trips-empty-create"
+                onPress={() => router.push("/create")}
+              />
+              <Button
+                label="Join with code"
+                size="compact"
+                variant="ghost"
+                testID="trips-empty-join"
+                onPress={() => router.push("/join")}
+              />
+            </View>
           </View>
         ) : (
           recents.map((r) => (
@@ -156,6 +171,7 @@ const styles = StyleSheet.create({
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   empty: { alignItems: "center", marginTop: 12, gap: 8 },
   emptyCaption: { textAlign: "center" },
+  emptyActions: { flexDirection: "row", gap: 8, marginTop: 8 },
   pressed: { opacity: 0.75 },
   tripRow: {
     flexDirection: "row",

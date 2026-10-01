@@ -12,10 +12,10 @@ import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { RoomMode, RpcError } from "@/types/contracts";
 
-const MODES: { id: RoomMode; label: string; blurb: string }[] = [
-  { id: "solo", label: "Solo", blurb: "Just share where you are. Others can watch." },
-  { id: "converge", label: "Converge", blurb: "Everyone heads to one shared destination." },
-  { id: "multitrack", label: "Multi-track", blurb: "Each traveler has their own destination." },
+const MODES: { id: RoomMode; label: string; blurb: string; tag?: string }[] = [
+  { id: "solo", label: "Solo", blurb: "Just share where you are. Others can watch.", tag: "Experimental" },
+  { id: "converge", label: "Converge", blurb: "Everyone heads to one shared destination.", tag: "Popular" },
+  { id: "multitrack", label: "Multi-track", blurb: "Each traveler has their own destination.", tag: "Experimental" },
   { id: "leader", label: "Follow leader", blurb: "One leader, everyone keeps up." },
   { id: "formation", label: "Formation", blurb: "Stay within a set radius of the group." },
 ];
@@ -47,6 +47,8 @@ function createErrorMessage(error: RpcError): string {
 export default function CreateRoomScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
+  const deviceId = useSessionStore((s) => s.deviceId);
+  const avatar = useSessionStore((s) => s.avatar);
   // Trip templates arrive as validated params (Trips tab cards); direct
   // entry falls back to the standard defaults. Prefilled values stay fully
   // editable — presets suggest, never lock.
@@ -110,7 +112,11 @@ export default function CreateRoomScreen() {
       starts with you, and every seat after that is a bud with a code. */}
       <View style={styles.crew} accessibilityLabel="Gather your buds">
         <View style={styles.crewStack}>
-          <PeepAvatar seed="buds-crew-a" size={44} />
+          <PeepAvatar
+            seed={deviceId || "you"}
+            face={typeof avatar === "number" ? avatar : undefined}
+            size={44}
+          />
           <View style={styles.crewOverlap}>
             <PeepAvatar seed="buds-crew-b" size={44} />
           </View>
@@ -151,9 +157,16 @@ export default function CreateRoomScreen() {
               onPress={() => setMode(m.id)}
             >
               <View style={styles.modeBody}>
-                <Text style={[styles.modeTitle, selected && styles.modeTitleSelected]}>
-                  {m.label}
-                </Text>
+                <View style={styles.modeTitleRow}>
+                  <Text style={[styles.modeTitle, selected && styles.modeTitleSelected]}>
+                    {m.label}
+                  </Text>
+                  {m.tag && (
+                    <View style={styles.modeTag}>
+                      <Text style={styles.modeTagText}>{m.tag}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.blurb}>{m.blurb}</Text>
               </View>
               <View
@@ -216,6 +229,10 @@ export default function CreateRoomScreen() {
       </View>
 
       <ErrorText>{error}</ErrorText>
+      <Text style={styles.summary}>
+        {limit} traveler{limit === 1 ? "" : "s"} · {MODES.find((m) => m.id === mode)?.label} ·{" "}
+        {durationHours == null ? "no expiry" : `${durationHours}h`}
+      </Text>
       <Button label="Create room" busy={busy} testID="create-submit" onPress={() => void create()} />
       <Button label="Back" variant="ghost" onPress={() => router.back()} />
     </Screen>
@@ -236,6 +253,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
+  summary: {
+    color: colors.textDim,
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
+    textAlign: "center",
+    marginTop: 12,
+  },
   pressed: { opacity: 0.75 },
   presetHint: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap" },
@@ -254,8 +278,18 @@ const styles = StyleSheet.create({
   },
   modeRowSelected: { borderColor: colors.text },
   modeBody: { flex: 1, flexShrink: 1 },
+  modeTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   modeTitle: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   modeTitleSelected: { fontFamily: fontFamily.bold },
+  modeTag: {
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  modeTagText: { color: colors.textDim, fontSize: 10, fontFamily: fontFamily.semiBold },
   radio: {
     width: 22,
     height: 22,

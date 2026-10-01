@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
@@ -13,6 +13,20 @@ export default function InviteScreen() {
   const router = useRouter();
   const room = useRoomStore((s) => s.room);
   const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    };
+  }, []);
+
+  const copyCode = (code: string) => {
+    void Clipboard.setStringAsync(code);
+    setCopied(true);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(false), 1500);
+  };
 
   // Deep-linked before the snapshot arrived: honest loading, not a white screen.
   if (!room) {
@@ -45,16 +59,17 @@ export default function InviteScreen() {
       </View>
 
       <Text style={styles.code}>{room.code}</Text>
+      <Text style={styles.expiry}>
+        {room.expires_at
+          ? `Works until ${new Date(room.expires_at).toLocaleString()}`
+          : "No expiry — works until the host ends the room"}
+      </Text>
 
       <Button
         label={copied ? "Copied!" : "Copy code"}
         variant="ghost"
         testID="invite-copy"
-        onPress={() => {
-          void Clipboard.setStringAsync(room.code);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }}
+        onPress={() => copyCode(room.code)}
       />
       <Button label="Share invite" testID="invite-share" onPress={share} />
       <Button
@@ -84,5 +99,13 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     textAlign: "center",
     marginTop: 18,
+  },
+  expiry: {
+    color: colors.textDim,
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 6,
   },
 });

@@ -67,6 +67,9 @@ export function PresetCircles({ onSelect }: { onSelect: (id: TripPresetId) => vo
           <Text style={styles.circleLabel} numberOfLines={1}>
             {preset.title}
           </Text>
+          <Text style={styles.circleBlurb} numberOfLines={2}>
+            {preset.blurb}
+          </Text>
         </Pressable>
       ))}
     </View>
@@ -109,6 +112,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.semiBold,
     marginTop: 8,
+    textAlign: "center",
+  },
+  circleBlurb: {
+    color: colors.textDim,
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginTop: 2,
     textAlign: "center",
   },
 });

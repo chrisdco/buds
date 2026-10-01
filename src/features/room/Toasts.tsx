@@ -31,9 +31,12 @@ export function Toasts({ topOffset }: { topOffset: number }) {
   }, [toasts.length, dismissToast]);
 
   if (toasts.length === 0) return null;
+  // Cap the stack so rapid event bursts can't cover the search pill / SOS
+  // banner: newest three win, older ones are dropped (store keeps TTL).
+  const visible = toasts.slice(-3);
   return (
     <>
-      {toasts.map((t, i) => (
+      {visible.map((t, i) => (
         <Animated.View
           key={t.key}
           entering={TOAST_ENTER}

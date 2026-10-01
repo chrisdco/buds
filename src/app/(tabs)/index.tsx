@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 
 import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
 import { PresetCircles } from "@/features/trips/PresetCircles";
+import { ShareLocationArt } from "@/components/illustrations/ShareLocationArt";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
@@ -110,6 +111,9 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View style={styles.hero}>
+        <View style={styles.heroArt} accessible={false}>
+          <ShareLocationArt width={220} />
+        </View>
         <Title>Buds</Title>
         <Text style={styles.tagline}>
           Live maps for small groups — see your buds, converge, convoy.
@@ -206,9 +210,15 @@ export default function HomeScreen() {
       <View style={styles.actions}>
         <Button
           label="Create a room"
-          disabled={!nameValid}
           testID="home-create"
-          onPress={pressCreate}
+          onPress={() => {
+            if (!nameValid) {
+              setNameNudge(true);
+              nameRef.current?.focus();
+              return;
+            }
+            pressCreate();
+          }}
         />
         {!nameValid && (
           <Text style={styles.hint}>Enter your name to create or join a room.</Text>
@@ -230,6 +240,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: { marginTop: 24, marginBottom: 12, flexShrink: 1 },
+  heroArt: { alignItems: "center", marginBottom: 8 },
   tagline: {
     color: colors.textDim,
     fontSize: 15,
