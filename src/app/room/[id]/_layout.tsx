@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { Alert, AppState } from "react-native";
 
 import { colors } from "@/constants/theme";
+import { startRoomSession } from "@/features/room/session/roomSession";
 import { clearActiveRoom } from "@/lib/activeRoom";
 import {
   startBackgroundUpdates,
@@ -55,7 +56,11 @@ export default function RoomLayout() {
       // connectRoomChannel maps its own failures to connection state; this
       // guards against any unexpected throw leaving an unhandled rejection.
     });
+    // Alerts, routes and arrival run for the whole room stack (map, settings,
+    // member detail), not just while the map screen is mounted.
+    const stopSession = startRoomSession();
     return () => {
+      stopSession();
       stopForegroundPipeline();
       void stopBackgroundUpdates().catch(() => {});
       pipelineRunning.current = false;
