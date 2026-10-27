@@ -10,28 +10,10 @@ import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode, parseInviteCode } from "@/lib/ids";
+import { joinErrorMessage } from "@/lib/joinErrors";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { MemberRole, RpcError } from "@/types/contracts";
-
-export function joinErrorMessage(error: RpcError): string {
-  switch (error) {
-    case "bad_code":
-      return "Room not found — double-check the code.";
-    case "room_full":
-      return "All traveler spots are taken.";
-    case "room_locked":
-      return "The host has locked this room.";
-    case "room_ended":
-      return "That room has ended.";
-    case "kicked":
-      return "You were removed from this room.";
-    case "bad_display_name":
-      return "Please enter a valid name (1–24 characters).";
-    default:
-      return "Couldn't join — check your connection and try again.";
-  }
-}
 
 export default function JoinRoomScreen() {
   const router = useRouter();

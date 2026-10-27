@@ -5,7 +5,7 @@ import Stack from "expo-router/stack";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { Asset } from "expo-asset";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -77,8 +77,16 @@ export default function RootLayout() {
 
   // Planned-trip reminder taps ("Later"): cold or warm, they land on
   // create with the destination prefilled — the room flow takes it over.
-  useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+  // Gated on readiness: the Stack (and so the router) only mounts once
+  // fonts + session are ready, and pushing before that is dropped. The
+  // live listener misses the tap that cold-launched the app, so the last
+  // response is replayed once; the identifier ref dedupes the two paths.
+  const handledResponse = useRef<string | null>(null);
+  const openPlannedFromResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      const responseId = response.notification.request.identifier;
+      if (handledResponse.current === responseId) return;
+      handledResponse.current = responseId;
       const plannedId = response.notification.request.content.data?.plannedId;
       if (typeof plannedId !== "string") return;
       void (async () => {
@@ -100,19 +108,22 @@ export default function RootLayout() {
           },
         });
       })();
-    });
+    },
+    [router],
+  );
+  const appReady = ready && fontsLoaded;
+  useEffect(() => {
+    if (!appReady) return;
+    const last = Notifications.getLastNotificationResponse();
+    if (last) {
+      openPlannedFromResponse(last);
+      Notifications.clearLastNotificationResponse();
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(openPlannedFromResponse);
     return () => sub.remove();
-  }, [router]);
+  }, [appReady, openPlannedFromResponse]);
 
-  if (!ready || !fontsLoaded) {
-    return (
-      <View style={styles.loading}>
-        <LoadingView />
-      </View>
-    );
-  }
-
-  if (!ready) {
+  if (!appReady) {
     return (
       <View style={styles.loading}>
         <LoadingView />

@@ -393,3 +393,41 @@ describe("reconnect + teardown", () => {
     expect(useMembersStore.getState().members).toEqual({});
   });
 });
+
+describe("stale-channel races", () => {
+  it("leaving during setAuth never creates a channel for the left room", async () => {
+    let releaseAuth: () => void = () => {};
+    mocked.realtime.setAuth.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseAuth = resolve)),
+    );
+    const pending = connectRoomChannel(ROOM_ID);
+    await Promise.resolve();
+    await disconnectRoomChannel();
+    releaseAuth();
+    await pending;
+    expect(mocked.channel).not.toHaveBeenCalled();
+    expect(activeRoomId()).toBeNull();
+    expect(useRoomStore.getState().connection).toBe("idle");
+  });
+
+  it("a removed channel's late CLOSED does not flip the reset store", async () => {
+    await connectSubscribed();
+    const staleCb = fake.subscribeCb;
+    await disconnectRoomChannel();
+    staleCb?.("CLOSED");
+    expect(useRoomStore.getState().connection).toBe("idle");
+  });
+
+  it("a snapshot landing after leave does not repopulate the stores", async () => {
+    let resolveSnap: (v: unknown) => void = () => {};
+    snapshotMock.mockImplementationOnce(() => new Promise((r) => (resolveSnap = r)));
+    await connectRoomChannel(ROOM_ID);
+    fake.emitSubscribe("SUBSCRIBED");
+    await disconnectRoomChannel();
+    resolveSnap(snapshotOk());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(useRoomStore.getState().room).toBeNull();
+    expect(useMembersStore.getState().members).toEqual({});
+  });
+});

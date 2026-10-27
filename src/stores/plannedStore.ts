@@ -65,7 +65,11 @@ export const usePlannedStore = create<PlannedState>()((set) => ({
       });
     }
     const trip: PlannedTrip = { id, place, atMs, notifId };
-    set({ planned: await addPlannedTrip(trip) });
+    const { trips, evicted } = await addPlannedTrip(trip);
+    for (const t of evicted) {
+      if (t.notifId) await cancelPlannedReminder(t.notifId);
+    }
+    set({ planned: trips });
     return trip;
   },
 

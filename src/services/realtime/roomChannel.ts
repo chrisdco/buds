@@ -30,6 +30,12 @@ import type {
 let channel: RealtimeChannel | null = null;
 let currentRoomId: string | null = null;
 let appStateSub: { remove: () => void } | null = null;
+// Bumped on every connect/disconnect. Async steps (setAuth, snapshot fetch)
+// and status callbacks from a channel that was since torn down compare their
+// captured generation against this and bail: leaving a room mid-connect must
+// not resurrect a channel for it, and a removed channel's CLOSED callback
+// must not flip the next room's connection state.
+let generation = 0;
 
 /** Fire-and-forget a promise without tripping unhandled-rejection warnings. */
 function ignoreRejection(p: Promise<unknown> | null | undefined): void {
@@ -52,8 +58,9 @@ function presenceMeta(): PresenceMeta {
   };
 }
 
-async function refreshSnapshot(roomId: string): Promise<void> {
+async function refreshSnapshot(roomId: string, gen: number): Promise<void> {
   const result = await roomsRpc.getRoomSnapshot(roomId);
+  if (gen !== generation) return; // left (or switched rooms) mid-fetch
   if (!result.ok) {
     if (result.error === "not_member") {
       useRoomStore.getState().setExitReason("not_member");
@@ -136,6 +143,7 @@ function handleRoomEvt(evt: RoomEvt): void {
 
 export async function connectRoomChannel(roomId: string): Promise<void> {
   await disconnectRoomChannel();
+  const gen = ++generation;
   currentRoomId = roomId;
   // disconnectRoomChannel() resets the stores, but clear explicitly so a
   // stale exit reason can never eject the new room if reset semantics change.
@@ -150,20 +158,22 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
   try {
     await supabase.realtime.setAuth();
   } catch {
-    useRoomStore.getState().setConnection("reconnecting");
+    if (gen === generation) useRoomStore.getState().setConnection("reconnecting");
     return;
   }
+  if (gen !== generation) return; // disconnected (or reconnected) during setAuth
 
   const userId = useSessionStore.getState().userId;
-  channel = supabase.channel(`room:${roomId}`, {
+  const ch = supabase.channel(`room:${roomId}`, {
     config: {
       private: true,
       broadcast: { self: false, ack: false },
       presence: { key: userId ?? "anonymous" },
     },
   });
+  channel = ch;
 
-  channel
+  ch
     .on("broadcast", { event: "loc" }, ({ payload }) => {
       const tick = payload as LocTick;
       // Shape-guard: a malformed peer broadcast must not crash the map.
@@ -192,18 +202,19 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
       useRoomStore.getState().applyDestChange(p.operation, p.record, p.old_record);
     })
     .on("presence", { event: "sync" }, () => {
-      if (!channel) return;
-      useMembersStore
-        .getState()
-        .syncPresence(channel.presenceState<PresenceMeta>());
+      if (gen !== generation) return;
+      useMembersStore.getState().syncPresence(ch.presenceState<PresenceMeta>());
     })
     .subscribe((status) => {
+      // Stale channel (torn down by leave/switch): its late SUBSCRIBED or
+      // CLOSED must not touch the stores, which now belong to another room.
+      if (gen !== generation) return;
       if (status === "SUBSCRIBED") {
         const wasReconnecting =
           useRoomStore.getState().connection === "reconnecting";
         useRoomStore.getState().setConnection("connected");
-        ignoreRejection(channel?.track(presenceMeta()));
-        ignoreRejection(refreshSnapshot(roomId));
+        ignoreRejection(ch.track(presenceMeta()));
+        ignoreRejection(refreshSnapshot(roomId, gen));
         if (wasReconnecting && userId) {
           sendEvt({ k: "rejoined", u: userId, t: serverNowMs() });
         }
@@ -218,7 +229,7 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
 
   // Presence meta changes on app-state transitions only (not per tick).
   appStateSub = AppState.addEventListener("change", () => {
-    if (channel) ignoreRejection(channel.track(presenceMeta()));
+    if (gen === generation) ignoreRejection(ch.track(presenceMeta()));
   });
 }
 
@@ -247,6 +258,7 @@ export function activeRoomId(): string | null {
 }
 
 export async function disconnectRoomChannel(): Promise<void> {
+  generation++;
   appStateSub?.remove();
   appStateSub = null;
   currentRoomId = null;

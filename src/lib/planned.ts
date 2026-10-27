@@ -35,6 +35,18 @@ function fmtTime(atMs: number): string {
   return new Date(atMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+/** "Today" / "Tomorrow" by calendar day (local time), never by elapsed hours. */
+function dayWord(atMs: number, nowMs: number): "Today" | "Tomorrow" | null {
+  const day = (ms: number) => {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  // Round: DST days are 23/25h long.
+  const diffDays = Math.round((day(atMs) - day(nowMs)) / 86_400_000);
+  return diffDays === 0 ? "Today" : diffDays === 1 ? "Tomorrow" : null;
+}
+
 /**
  * Fixed reminder slots (no custom picker — one fewer native dependency,
  * and four presets cover the real intents). All strictly future; a slot
@@ -51,20 +63,14 @@ export function timeSlots(nowMs: number): TimeSlot[] {
   return [
     { id: "1h", label: `In 1 hour · ${fmtTime(in1h)}`, atMs: in1h },
     { id: "3h", label: `In 3 hours · ${fmtTime(in3h)}`, atMs: in3h },
-    {
-      id: "tomorrow-am",
-      label: am - nowMs > 20 * 3_600_000 ? `Tomorrow 8 AM` : `Today 8 AM`,
-      atMs: am,
-    },
-    {
-      id: "tomorrow-pm",
-      label: pm - nowMs > 20 * 3_600_000 ? `Tomorrow 6 PM` : `Today 6 PM`,
-      atMs: pm,
-    },
+    // Labels come from the calendar day: at 9 PM the 8 AM slot is
+    // tomorrow's even though it is only 11 hours away.
+    { id: "tomorrow-am", label: `${dayWord(am, nowMs)} 8 AM`, atMs: am },
+    { id: "tomorrow-pm", label: `${dayWord(pm, nowMs)} 6 PM`, atMs: pm },
   ];
 }
 
-/** "In 45m" / "In 3h" / "Tomorrow 8 AM" countdown for rows. */
+/** "In 45m" / "In 3h" / "Tomorrow 8:00 AM" countdown for rows. */
 export function countdownLabel(atMs: number, nowMs: number): string {
   const diff = atMs - nowMs;
   if (diff <= 0) return "Due now";
@@ -72,7 +78,8 @@ export function countdownLabel(atMs: number, nowMs: number): string {
   if (mins < 60) return `In ${mins}m`;
   const hours = Math.floor(mins / 60);
   if (hours < 20) return `In ${hours}h`;
-  return fmtTime(atMs);
+  const day = dayWord(atMs, nowMs);
+  return day ? `${day} ${fmtTime(atMs)}` : fmtTime(atMs);
 }
 
 function isPlannedTrip(t: unknown): t is PlannedTrip {
@@ -109,11 +116,20 @@ async function writePlanned(trips: PlannedTrip[]): Promise<void> {
   }
 }
 
-export async function addPlannedTrip(trip: PlannedTrip): Promise<PlannedTrip[]> {
+/**
+ * Saves a trip (newest first, capped). Returns the kept list plus any trips
+ * the cap evicted, so the caller can cancel their scheduled reminders —
+ * otherwise an evicted trip's notification still fires and its tap finds
+ * nothing to open.
+ */
+export async function addPlannedTrip(
+  trip: PlannedTrip,
+): Promise<{ trips: PlannedTrip[]; evicted: PlannedTrip[] }> {
   const trips = await getPlannedTrips();
-  const next = [trip, ...trips.filter((t) => t.id !== trip.id)].slice(0, MAX_PLANNED);
+  const all = [trip, ...trips.filter((t) => t.id !== trip.id)];
+  const next = all.slice(0, MAX_PLANNED);
   await writePlanned(next);
-  return next;
+  return { trips: next, evicted: all.slice(MAX_PLANNED) };
 }
 
 export async function removePlannedTrip(id: string): Promise<PlannedTrip[]> {
