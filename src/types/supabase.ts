@@ -98,6 +98,7 @@ export type Database = {
           role: string
           room_id: string
           sharing: boolean
+          sos_at: string | null
           user_id: string
         }
         Insert: {
@@ -115,6 +116,7 @@ export type Database = {
           role?: string
           room_id: string
           sharing?: boolean
+          sos_at?: string | null
           user_id: string
         }
         Update: {
@@ -132,6 +134,7 @@ export type Database = {
           role?: string
           room_id?: string
           sharing?: boolean
+          sos_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -255,6 +258,10 @@ export type Database = {
       }
       set_sharing: {
         Args: { p_room_id: string; p_sharing: boolean }
+        Returns: Json
+      }
+      set_sos: {
+        Args: { p_active: boolean; p_room_id: string }
         Returns: Json
       }
       update_last_seen: {

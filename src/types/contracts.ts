@@ -45,6 +45,9 @@ export interface MemberRow {
   joined_at: string;
   left_at: string | null;
   kicked: boolean;
+  // Server-stamped by set_sos() as auth.uid(): the only source of SOS truth.
+  // Optional so payloads from before migration 0009 still parse.
+  sos_at?: string | null;
 }
 
 export interface DestRow {
@@ -89,12 +92,9 @@ export type RoomEvt = { v?: number } & (
   | { k: "arrived"; u: string; t: number }
   | { k: "deviated"; u: string; t: number; offM: number }
   | { k: "rejoined"; u: string; t: number }
-  // Explicit panic action (#45): receivers show a persistent banner + an OS
-  // notification when backgrounded. No location in the payload — peers
-  // already hold live ticks; the banner navigates to the sender's marker.
-  // Ephemeral like every broadcast: late-joiners miss it by design.
-  | { k: "sos"; u: string; t: number }
-  | { k: "sos_clear"; u: string; t: number }
+  // SOS is NOT an evt: a peer-written sender id is forgeable. It travels as
+  // room_members.sos_at via set_sos() + the member_change broadcast. Any
+  // legacy { k: "sos" } broadcast is dropped as an unknown kind.
 );
 
 /** Presence meta — tracked once per connection, updated only on state transitions. */
