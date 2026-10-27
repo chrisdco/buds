@@ -110,7 +110,8 @@ Split into a separate repo/service only when the backend becomes independently
 deployable runtime, i.e.:
 - always-on workers / queues outgrow Edge Functions + pg_cron/pgmq,
 - a self-hosted engine with SLAs (e.g. routing if #9 outgrows ORS/OSRM-demo),
-- custom realtime (nowhere close: ~5 msg/s vs 2M free/mo),
+- custom realtime (closer than it looked: recipients are billed — a 5-car
+  convoy is ~36k msgs/h vs 2M free/mo; see `docs/architecture-review.md`),
 - logic that needs libraries SQL can't express, or a workload Postgres can't shape,
 - a second human working the backend full-time.
 Long-running jobs, fan-out, webhooks, Redis-style caching, and observability
@@ -129,7 +130,9 @@ add a staging project at P3 and promote staging → prod.
   equirectangular math (`lib/geo.distToPolylineM`, sub-percent error at city
   scale); the 3 direct turf deps are removed (MapLibre keeps its own subset).
 - **Payloads:** location tick ~121 B, presence ~83 B. Worst case 10 travelers
-  × ~0.4 msg/s ≈ 4–5 realtime msg/s — a tiny fraction of the free quota.
+  × ~0.4 msg/s ≈ 4 msg/s sent, but Supabase bills each recipient too:
+  ~40 counted msg/s (~144k/h) — the free 2M/month is ~14 such hours.
+  Budget + mitigations in `docs/architecture-review.md`.
   Ticks stay broadcast-only (never DB writes) by design.
 - **DB:** EXPLAIN-verified index usage on join lookup, capacity count,
   snapshot aggregation, and `last_seen` point updates — all index scans at
