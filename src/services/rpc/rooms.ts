@@ -34,7 +34,7 @@ function settingsJson(s: RoomSettings | undefined | null): Json | undefined {
 }
 
 // All server mutations go through SECURITY DEFINER RPCs that return
-// { ok: true, ... } | { ok: false, error } â€” see supabase/migrations/0002_rpcs.sql.
+// { ok: true, ... } | { ok: false, error } — see supabase/migrations/0002_rpcs.sql.
 // Function names AND args are checked against the generated schema, so a
 // migration that renames/reshapes an RPC breaks the build here, not on-device.
 async function call<Fn extends RpcName>(

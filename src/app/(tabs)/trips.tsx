@@ -9,6 +9,7 @@ import { AppSymbol, icons } from "@/components/Symbol";
 import { colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
+import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { TRIP_PRESETS, presetCreateParams } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -61,14 +62,10 @@ export default function TripsScreen() {
           });
           router.replace(`/room/${result.room.id}`);
         } else {
-          if (result.error === "room_ended" || result.error === "bad_code" || result.error === "kicked") {
+          if (isTerminalJoinError(result.error)) {
             void useRecentsStore.getState().remove(ref.id);
           }
-          setError(
-            result.error === "room_ended" || result.error === "bad_code"
-              ? "That room has ended."
-              : "Couldn't rejoin the room.",
-          );
+          setError(rejoinErrorMessage(result.error));
         }
       } finally {
         openBusy.current = false;

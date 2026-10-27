@@ -11,8 +11,11 @@ import type { LocalAlert } from "@/events/alertEngine";
 const CHANNEL_ID = "buds-alerts";
 const DEDUP_WINDOW_MS = 30_000;
 
-// Module-scope handler: keep OS banners suppressed while foregrounded (we show
-// in-app toasts there) but allow them otherwise.
+// Module-scope handler: present every notification that reaches the OS.
+// Foreground suppression happens upstream — alert/SOS paths only call
+// notifyAlert() while backgrounded (toasts/banners cover the foreground) —
+// so the only foreground arrivals are planned-trip reminders, which should
+// show.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -22,7 +25,20 @@ Notifications.setNotificationHandler({
   }),
 });
 
-let permissionReady = false;
+// Tri-state cache: null = not checked yet this process. Lets alerts reach
+// users who never went through a prompt path this session (spectators, a
+// cold headless start) without ever prompting from a background path.
+let permissionReady: boolean | null = null;
+
+async function hasNotificationPermission(): Promise<boolean> {
+  if (permissionReady === true) return true;
+  try {
+    permissionReady = (await Notifications.getPermissionsAsync()).granted;
+  } catch {
+    permissionReady = false;
+  }
+  return permissionReady;
+}
 
 export async function setupNotifications(): Promise<void> {
   if (Platform.OS === "android") {
@@ -78,7 +94,9 @@ let firedAt: Record<string, number> = {};
 
 /** Fires a local notification for an alert, honoring the dedup gate. */
 export async function notifyAlert(alert: LocalAlert): Promise<void> {
-  if (!permissionReady) return;
+  // Re-checked while not granted: the user may have flipped it in OS
+  // settings since; the check is a cheap native read, never a prompt.
+  if (!(await hasNotificationPermission())) return;
   const decision = shouldNotify(firedAt, alert.id, Date.now());
   if (!decision.fire) return;
   firedAt = decision.fired;

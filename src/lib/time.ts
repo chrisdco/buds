@@ -12,6 +12,11 @@ export function serverNowMs(): number {
   return Date.now() + skewMs;
 }
 
+/** Server-minus-local clock offset; maps a local reading onto the server basis. */
+export function serverOffsetMs(): number {
+  return skewMs;
+}
+
 export function formatDurationS(seconds: number): string {
   if (seconds < 60) return "<1 min";
   const minutes = Math.round(seconds / 60);

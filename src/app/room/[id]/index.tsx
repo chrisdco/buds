@@ -24,7 +24,7 @@ import { collectFitPoints } from "@/lib/mapBounds";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button, LoadingView } from "@/components/ui";
 import { openExternalNavigation } from "@/lib/nav";
-import { serverNowMs } from "@/lib/time";
+import { serverNowMs, serverOffsetMs } from "@/lib/time";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
 import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { RoomMap } from "@/features/map/RoomMap";
@@ -82,6 +82,10 @@ export default function RoomScreen() {
   // Adjust-pin draft: picked via search or long-press, awaiting map adjust +
   // confirm. Coords track the live map center while active.
   const [adjust, setAdjust] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  // Detent to restore when adjust-pin mode ends: adjusting drops the sheet to
+  // peek so the screen-centered pin (= the map center) is never covered.
+  const detentBeforeAdjust = useRef<SheetDetent | null>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const members = useMemo(() => Object.values(membersMap), [membersMap]);
   const positioned = useMemo(() => members.filter((m) => m.pos), [members]);
@@ -130,9 +134,13 @@ export default function RoomScreen() {
   // the store joined to membership rows for names + live positions.
   // Recomputed on the 5s tick so expired entries clear without new traffic.
   // Own SOS excluded from the banner — the sender gets FAB state instead.
+  // SOS stamps are sender serverNowMs() values, so TTL + freshness compare
+  // on the same server basis: a receiver whose clock runs fast must not see
+  // a live SOS as already expired.
+  const sosNowMs = nowMs + serverOffsetMs();
   const sosItems: SosBannerItem[] = useMemo(() => {
     const items: SosBannerItem[] = [];
-    for (const { userId, atMs } of activeSos(sosByUser, nowMs)) {
+    for (const { userId, atMs } of activeSos(sosByUser, sosNowMs)) {
       if (userId === myUserId) continue;
       const m = membersMap[userId];
       if (!m) continue;
@@ -144,10 +152,13 @@ export default function RoomScreen() {
       });
     }
     return items;
-  }, [sosByUser, membersMap, nowMs, myUserId]);
+  }, [sosByUser, membersMap, sosNowMs, myUserId]);
   const mySosActive =
-    myUserId != null && activeSos(sosByUser, nowMs).some((i) => i.userId === myUserId);
+    myUserId != null && activeSos(sosByUser, sosNowMs).some((i) => i.userId === myUserId);
   const showSos = sosItems.length > 0;
+  // One banner row (~38px + 6px gap) per sender: overlays below stack past
+  // all of them instead of assuming a single row.
+  const sosStackH = sosItems.length * 44;
 
   // Explicit panic action: confirm-gated send (an SOS alarms the whole
   // room), frictionless cancel (a resolved emergency shouldn't fight UI).
@@ -403,6 +414,23 @@ export default function RoomScreen() {
       });
   };
 
+  // Adjust-pin mode: the pin is drawn at the exact map center, so the camera
+  // flies the pick to the center and every confirm reads getCenter() — what
+  // the pin points at is always what gets saved.
+  const beginAdjust = (lat: number, lng: number, label: string, zoom?: number) => {
+    if (detentBeforeAdjust.current == null) detentBeforeAdjust.current = detent;
+    setDetent("peek");
+    cameraRef.current?.easeTo({ center: [lng, lat], ...(zoom != null ? { zoom } : {}), duration: 600 });
+    setAdjust({ lat, lng, label });
+  };
+  const endAdjust = () => {
+    setAdjust(null);
+    if (detentBeforeAdjust.current != null) {
+      setDetent(detentBeforeAdjust.current);
+      detentBeforeAdjust.current = null;
+    }
+  };
+
   const onLongPress = (lngLat: LngLat) => {
     if (!room || !myUserId) return;
     const [lng, lat] = lngLat;
@@ -430,7 +458,7 @@ export default function RoomScreen() {
       }
       // Long-press seeds adjust-pin mode (drag to fine-tune, then confirm)
       // instead of setting immediately — same confirm copy as before.
-      setAdjust({ lat, lng, label: "Meet point" });
+      beginAdjust(lat, lng, "Meet point");
       return;
     }
 
@@ -444,7 +472,7 @@ export default function RoomScreen() {
       return;
     }
 
-    setAdjust({ lat, lng, label: "Destination" });
+    beginAdjust(lat, lng, "Destination");
   };
 
   // Search picks land here via the store: fly the pin into view, then hand
@@ -456,9 +484,9 @@ export default function RoomScreen() {
     const draft = destDraft;
     queueMicrotask(() => {
       useUiStore.getState().setDestDraft(null);
-      cameraRef.current?.easeTo({ center: [draft.lng, draft.lat], zoom: 15, duration: 700 });
-      setAdjust({ lat: draft.lat, lng: draft.lng, label: draft.label });
+      beginAdjust(draft.lat, draft.lng, draft.label, 15);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destDraft]);
 
   // While adjusting, the pin stays screen-centered: track the live map center
@@ -474,7 +502,7 @@ export default function RoomScreen() {
     if (!room || !myUserId || !adjust) return;
     const { lat, lng, label } = adjust;
     const policy = strategy.destinationPolicy;
-    const finish = () => setAdjust(null);
+    const finish = endAdjust;
     if (policy === "room") {
       void (async () => {
         const ok = await useUiStore.getState().requestConfirm({
@@ -504,8 +532,15 @@ export default function RoomScreen() {
     if (!room) return;
     await Clipboard.setStringAsync(room.code);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 1500);
   }, [room]);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
 
   const leave = () => {
     void (async () => {
@@ -671,7 +706,7 @@ export default function RoomScreen() {
       {showSos && (
         <SosBanner
           items={sosItems}
-          nowMs={nowMs}
+          nowMs={sosNowMs}
           top={insets.top + (showConnBanner ? 108 : 64)}
           onNavigate={(lat, lng) => void openExternalNavigation(lat, lng)}
         />
@@ -683,7 +718,7 @@ export default function RoomScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.searchPill,
-            { top: insets.top + (showConnBanner ? 108 : 60) + (showSos ? 44 : 0) },
+            { top: insets.top + (showConnBanner ? 108 : 60) + sosStackH },
             pressed && styles.pressed,
             !isTraveler && styles.searchPillDisabled,
           ]}
@@ -714,7 +749,7 @@ export default function RoomScreen() {
           </Text>
         </Pressable>
       ) : (
-        <View style={[styles.adjustCard, { top: insets.top + (showConnBanner ? 108 : 60) + (showSos ? 44 : 0) }]}>
+        <View style={[styles.adjustCard, { top: insets.top + (showConnBanner ? 108 : 60) + sosStackH }]}>
           <Text style={styles.adjustLabel} numberOfLines={1}>
             {adjust.label}
           </Text>
@@ -726,7 +761,7 @@ export default function RoomScreen() {
                 variant="ghost"
                 size="compact"
                 testID="adjust-cancel"
-                onPress={() => setAdjust(null)}
+                onPress={endAdjust}
               />
             </View>
             <View style={styles.adjustBtn}>
@@ -741,7 +776,8 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Adjust pin: fixed at the visible map strip while the map moves under it. */}
+      {/* Adjust pin: its tip sits on the exact map center (what getCenter()
+      reports), so the saved coordinate is always the one under the pin. */}
       {adjust && (
         <View style={styles.adjustPin} pointerEvents="none">
           <View style={[styles.pinCircle, { backgroundColor: colors.accent }]}>
@@ -752,7 +788,7 @@ export default function RoomScreen() {
       )}
 
       {/* Toasts sit below the connection/SOS banners when visible. */}
-      <Toasts topOffset={insets.top + (showConnBanner ? 104 : 64) + (showSos ? 44 : 0)} />
+      <Toasts topOffset={insets.top + (showConnBanner ? 104 : 64) + sosStackH} />
 
       {/* Floating actions */}
       <View style={[styles.fabColumn, { bottom: insets.bottom + 160 }]}>
@@ -971,7 +1007,14 @@ const styles = StyleSheet.create({
   adjustHint: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, marginTop: 2 },
   adjustRow: { flexDirection: "row", gap: 8, marginTop: 10 },
   adjustBtn: { flex: 1 },
-  adjustPin: { position: "absolute", top: "24%", alignSelf: "center", alignItems: "center" },
+  // Pin height = circle (30) + tip (7) - overlap (1): tip lands on the center.
+  adjustPin: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -36,
+    alignSelf: "center",
+    alignItems: "center",
+  },
   pinCircle: {
     width: 30,
     height: 30,

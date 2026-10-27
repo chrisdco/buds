@@ -8,7 +8,7 @@ Built for ~2–10 people per room on an entirely free stack:
 
 | Piece | Tech | Cost |
 |---|---|---|
-| App | Expo SDK 56 / React Native (dev builds, not Expo Go) | free |
+| App | Expo SDK 57 / React Native 0.86 (dev builds, not Expo Go) | free |
 | Map | MapLibre React Native + [OpenFreeMap](https://openfreemap.org) tiles | free, no API key |
 | Realtime + DB + auth | Supabase free tier (Broadcast/Presence + Postgres + anonymous auth) | free |
 | Routing (M2+) | OpenRouteService free key → OSRM demo → straight-line fallback | free |
@@ -42,7 +42,7 @@ the Docker stack on this laptop as long as both are on the same Wi-Fi.
 
 ```bash
 npx supabase start          # local stack (ports remapped to 5433x, see config.toml)
-npx supabase db reset       # applies migrations 0001..0007 fresh
+npx supabase db reset       # applies migrations 0001..0008 fresh
 ```
 
 Then point `.env` at this laptop's LAN IP (not `localhost` — that means the
@@ -125,10 +125,11 @@ Control changes (destination, kick, mode) → SECURITY DEFINER RPC → Postgres
 ## Daily development (cont.)
 
 ```bash
-npm test             # 76 unit tests: geo, throttle, jitter filter, alert engine,
+npm test             # 155 unit tests: geo, throttle, jitter filter, alert engine,
                      # arrival detector (incl. retry), routing fallback chain,
                      # mode strategies, expiry countdown, tick codec,
-                     # notification dedup
+                     # notification dedup, realtime channel (incl. stale-
+                     # channel races), planned trips, join-error policy
 ```
 
 Routing uses OSRM's public demo server by default; for better quality and

@@ -9,6 +9,7 @@ import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { TRIP_PRESETS, destCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
+import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { countdownLabel } from "@/lib/planned";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { usePlacesStore } from "@/stores/placesStore";
@@ -109,26 +110,33 @@ export default function HomeScreen() {
   };
 
   const rejoin = async () => {
-    if (!activeRoom) return;
+    // Same double-tap guard as create/join: the RPC round-trip outlives the
+    // busy render, and two taps would push the room twice.
+    if (!activeRoom || navBusy.current) return;
+    navBusy.current = true;
     setRejoinBusy(true);
     setRejoinError(null);
-    // Re-validate membership through join_room (idempotent for active members).
-    const result = await roomsRpc.joinRoom({
-      code: activeRoom.code,
-      displayName: displayName.trim() || "Anonymous",
-      role: activeRoom.role,
-    });
-    setRejoinBusy(false);
-    if (result.ok) {
-      router.push(`/room/${result.room.id}`);
-    } else {
-      clearActiveRoom();
-      setActiveRoom(null);
-      setRejoinError(
-        result.error === "room_ended" || result.error === "bad_code"
-          ? "That room has ended."
-          : "Couldn't rejoin the room.",
-      );
+    try {
+      // Re-validate membership through join_room (idempotent for active members).
+      const result = await roomsRpc.joinRoom({
+        code: activeRoom.code,
+        displayName: displayName.trim() || "Anonymous",
+        role: activeRoom.role,
+      });
+      if (result.ok) {
+        router.push(`/room/${result.room.id}`);
+        return;
+      }
+      // Only forget the room when it can never be rejoined; a network blip
+      // keeps the card so the next tap can retry.
+      if (isTerminalJoinError(result.error)) {
+        clearActiveRoom();
+        setActiveRoom(null);
+      }
+      setRejoinError(rejoinErrorMessage(result.error));
+    } finally {
+      navBusy.current = false;
+      setRejoinBusy(false);
     }
   };
 
