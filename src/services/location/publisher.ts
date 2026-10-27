@@ -4,7 +4,7 @@ import { buildTick } from "@/services/location/tick";
 import { createSendThrottle } from "@/services/location/throttle";
 import { isRoomChannelLive, sendLoc } from "@/services/realtime/roomChannel";
 import { roomsRpc } from "@/services/rpc/rooms";
-import { useMembersStore } from "@/stores/membersStore";
+import { hasWatchers, useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { LocTick } from "@/types/contracts";
@@ -41,6 +41,7 @@ export function createPublisher(ctx: PublishContext): Publisher {
   const throttle = createSendThrottle({
     floorMs: () => useRoomStore.getState().room?.settings.min_send_interval_ms ?? 0,
     isBackground: ctx.isBackground,
+    hasWatchers: () => hasWatchers(useMembersStore.getState().members, ctx.userId),
   });
   let lastSeenSentAt = 0;
 

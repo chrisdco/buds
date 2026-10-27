@@ -161,6 +161,22 @@ export function activeSos(
     .sort((a, b) => b.atMs - a.atMs);
 }
 
+/**
+ * Whether anyone else could be looking at our marker right now: another
+ * online member whose app is foreground. Drives the publisher's idle rate —
+ * phones in pockets don't need 2.5s ticks, and Supabase bills every
+ * recipient. Unknown is treated as watched: an empty roster (cold background
+ * start) or an online peer without presence meta never slows us down.
+ */
+export function hasWatchers(
+  members: Record<string, MemberLive>,
+  selfId: string,
+): boolean {
+  const others = Object.values(members).filter((m) => m.userId !== selfId);
+  if (others.length === 0) return true;
+  return others.some((m) => m.online && m.appState !== "bg");
+}
+
 /** Derives the display presence state; pure so every viewer computes it locally. */
 export function presenceOf(m: MemberLive, nowMs: number): PresenceState {
   if (m.arrivedAt) return "arrived";

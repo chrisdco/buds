@@ -57,6 +57,25 @@ describe("createSendThrottle", () => {
     expect(throttle(fix({ speed: 10, lat: BASE.lat + 2 * MOVED, atMs: 10_100 })).send).toBe(true);
   });
 
+  it("drops to the heartbeat rate when nobody is watching", () => {
+    const throttle = createSendThrottle({ hasWatchers: () => false });
+    throttle(fix({ speed: 10, atMs: 0 }));
+    // Driving + moved would send at 2.6s; unwatched waits for 30s.
+    expect(throttle(fix({ speed: 10, lat: BASE.lat + MOVED, atMs: 2600 })).send).toBe(false);
+    expect(throttle(fix({ speed: 10, lat: BASE.lat + MOVED, atMs: 29_000 })).send).toBe(false);
+    expect(throttle(fix({ speed: 10, lat: BASE.lat + 2 * MOVED, atMs: 30_100 })).send).toBe(true);
+  });
+
+  it("snaps back to the driving rate on the first fix after a watcher appears", () => {
+    let watched = false;
+    const throttle = createSendThrottle({ hasWatchers: () => watched });
+    throttle(fix({ speed: 10, atMs: 0 }));
+    expect(throttle(fix({ speed: 10, lat: BASE.lat + MOVED, atMs: 10_000 })).send).toBe(false);
+    watched = true;
+    expect(throttle(fix({ speed: 10, lat: BASE.lat + MOVED, atMs: 11_000 })).send).toBe(true);
+    expect(throttle(fix({ speed: 10, lat: BASE.lat + 2 * MOVED, atMs: 13_600 })).send).toBe(true);
+  });
+
   it("estimates speed from movement when the GPS gives none", () => {
     const throttle = createSendThrottle();
     throttle(fix({ atMs: 0 }));
