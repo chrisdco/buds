@@ -260,10 +260,7 @@ export type Database = {
         Args: { p_room_id: string; p_sharing: boolean }
         Returns: Json
       }
-      set_sos: {
-        Args: { p_active: boolean; p_room_id: string }
-        Returns: Json
-      }
+      set_sos: { Args: { p_active: boolean; p_room_id: string }; Returns: Json }
       update_last_seen: {
         Args: {
           p_heading?: number
