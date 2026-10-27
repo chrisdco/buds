@@ -19,6 +19,7 @@ import type {
   RoomEvt,
   RoomRow,
 } from "@/types/contracts";
+import { PROTOCOL_VERSION } from "@/types/contracts";
 
 // One private channel per room carries all three planes:
 //   - client broadcast: 'loc' ticks and self-reported 'evt' events
@@ -37,6 +38,17 @@ let appStateSub: { remove: () => void } | null = null;
 // must not flip the next room's connection state.
 let generation = 0;
 
+/**
+ * True when a peer payload speaks a protocol version we can parse. Absent
+ * means a pre-versioning build (= v1); a higher version is a breaking change
+ * we'd misread, so it's dropped. Exported for tests.
+ */
+export function isSupportedVersion(payload: { v?: unknown }): boolean {
+  const v = payload.v;
+  if (v === undefined) return true;
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= PROTOCOL_VERSION;
+}
+
 /** Fire-and-forget a promise without tripping unhandled-rejection warnings. */
 function ignoreRejection(p: Promise<unknown> | null | undefined): void {
   if (p && typeof (p as Promise<unknown>).catch === "function") {
@@ -50,6 +62,7 @@ function presenceMeta(): PresenceMeta {
     ? useMembersStore.getState().members[session.userId]
     : undefined;
   return {
+    v: PROTOCOL_VERSION,
     name: session.displayName || "Anonymous",
     role: me?.role ?? "traveler",
     sharing: me?.sharing ?? true,
@@ -95,7 +108,7 @@ function handleRoomEvt(evt: RoomEvt): void {
   // Arrivals are announced via the alert engine off persisted arrived_at
   // (member_change path) — only transient, non-DB events surface here.
   // Shape-guard: a malformed/malicious peer broadcast must not crash us.
-  if (!evt || typeof evt.u !== "string") return;
+  if (!evt || typeof evt.u !== "string" || !isSupportedVersion(evt)) return;
   if (
     evt.k !== "deviated" &&
     evt.k !== "rejoined" &&
@@ -180,6 +193,7 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
       if (
         !tick ||
         typeof tick.u !== "string" ||
+        !isSupportedVersion(tick) ||
         !Number.isFinite(tick.la) ||
         !Number.isFinite(tick.ln)
       ) {
@@ -236,7 +250,13 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
 export function sendLoc(tick: LocTick): void {
   // Hot path (every GPS fix): a flapping socket rejects sends — swallow it
   // the same way SUBSCRIBED handlers do, never redbox per tick.
-  ignoreRejection(channel?.send({ type: "broadcast", event: "loc", payload: tick }));
+  ignoreRejection(
+    channel?.send({
+      type: "broadcast",
+      event: "loc",
+      payload: { ...tick, v: PROTOCOL_VERSION },
+    }),
+  );
 }
 
 /**
@@ -250,7 +270,13 @@ export function isRoomChannelLive(): boolean {
 }
 
 export function sendEvt(evt: RoomEvt): void {
-  ignoreRejection(channel?.send({ type: "broadcast", event: "evt", payload: evt }));
+  ignoreRejection(
+    channel?.send({
+      type: "broadcast",
+      event: "evt",
+      payload: { ...evt, v: PROTOCOL_VERSION },
+    }),
+  );
 }
 
 export function activeRoomId(): string | null {

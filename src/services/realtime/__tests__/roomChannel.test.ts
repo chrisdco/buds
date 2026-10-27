@@ -14,6 +14,8 @@ import {
   connectRoomChannel,
   disconnectRoomChannel,
   isRoomChannelLive,
+  isSupportedVersion,
+  sendEvt,
   sendLoc,
 } from "@/services/realtime/roomChannel";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -28,6 +30,7 @@ import type {
   PresenceMeta,
   RoomRow,
 } from "@/types/contracts";
+import { PROTOCOL_VERSION } from "@/types/contracts";
 
 interface FakeChannel {
   state: string;
@@ -280,11 +283,54 @@ describe("loc ticks", () => {
     expect(useMembersStore.getState().members["u-ghost"]).toBeUndefined();
   });
 
-  it("sends outbound ticks through the channel", async () => {
+  it("sends outbound ticks through the channel, version-stamped", async () => {
     await connectSubscribed();
     const t = tick(ME);
     sendLoc(t);
-    expect(fake.send).toHaveBeenCalledWith({ type: "broadcast", event: "loc", payload: t });
+    expect(fake.send).toHaveBeenCalledWith({
+      type: "broadcast",
+      event: "loc",
+      payload: { ...t, v: PROTOCOL_VERSION },
+    });
+  });
+});
+
+describe("protocol version", () => {
+  it("accepts unversioned (pre-versioning builds) and current payloads", () => {
+    expect(isSupportedVersion({})).toBe(true);
+    expect(isSupportedVersion({ v: PROTOCOL_VERSION })).toBe(true);
+  });
+
+  it("rejects newer, non-integer and garbage versions", () => {
+    expect(isSupportedVersion({ v: PROTOCOL_VERSION + 1 })).toBe(false);
+    expect(isSupportedVersion({ v: 0 })).toBe(false);
+    expect(isSupportedVersion({ v: 1.5 })).toBe(false);
+    expect(isSupportedVersion({ v: "1" })).toBe(false);
+    expect(isSupportedVersion({ v: null })).toBe(false);
+  });
+
+  it("drops ticks and events from a newer protocol, keeps legacy ones", async () => {
+    await connectSubscribed();
+    const before = useMembersStore.getState().members[PEER]?.pos;
+    fake.emitBroadcast("loc", { ...tick(PEER, { la: 1, ln: 1 }), v: PROTOCOL_VERSION + 1 });
+    fake.emitBroadcast("evt", { k: "sos", u: PEER, t: Date.now(), v: PROTOCOL_VERSION + 1 });
+    expect(useMembersStore.getState().members[PEER]?.pos).toEqual(before);
+    expect(useMembersStore.getState().sosByUser[PEER]).toBeUndefined();
+    fake.emitBroadcast("loc", tick(PEER, { la: 2, ln: 2 })); // no v: legacy build
+    expect(useMembersStore.getState().members[PEER]?.pos).toMatchObject({ lat: 2, lng: 2 });
+  });
+
+  it("stamps outbound events and presence", async () => {
+    await connectSubscribed();
+    sendEvt({ k: "sos", u: ME, t: 1 });
+    expect(fake.send).toHaveBeenCalledWith({
+      type: "broadcast",
+      event: "evt",
+      payload: { k: "sos", u: ME, t: 1, v: PROTOCOL_VERSION },
+    });
+    expect(fake.track).toHaveBeenCalledWith(
+      expect.objectContaining({ v: PROTOCOL_VERSION }),
+    );
   });
 });
 
