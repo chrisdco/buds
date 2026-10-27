@@ -63,7 +63,17 @@ export interface DestRow {
 // --------------------------------------------------------------------------
 
 /** Broadcast event 'loc' — sent by travelers only, never persisted. */
+/**
+ * Peer-to-peer wire version, stamped on every outgoing broadcast and
+ * presence payload. Additive changes (new optional fields, new evt kinds)
+ * keep the version — receivers ignore what they don't know. Bump only for a
+ * breaking change; older receivers then drop the newer payloads instead of
+ * misreading them. Absent = 1 (builds from before versioning).
+ */
+export const PROTOCOL_VERSION = 1;
+
 export interface LocTick {
+  v?: number; // protocol version (see PROTOCOL_VERSION)
   u: string; // user_id
   t: number; // skew-corrected epoch ms
   la: number; // lat, rounded to 5 decimals (~1m)
@@ -75,7 +85,7 @@ export interface LocTick {
 }
 
 /** Broadcast event 'evt' — low-frequency, self-reported room events. */
-export type RoomEvt =
+export type RoomEvt = { v?: number } & (
   | { k: "arrived"; u: string; t: number }
   | { k: "deviated"; u: string; t: number; offM: number }
   | { k: "rejoined"; u: string; t: number }
@@ -84,10 +94,14 @@ export type RoomEvt =
   // already hold live ticks; the banner navigates to the sender's marker.
   // Ephemeral like every broadcast: late-joiners miss it by design.
   | { k: "sos"; u: string; t: number }
-  | { k: "sos_clear"; u: string; t: number };
+  | { k: "sos_clear"; u: string; t: number }
+);
 
 /** Presence meta — tracked once per connection, updated only on state transitions. */
 export interface PresenceMeta {
+  // Stamped but never filtered on: dropping a peer's presence would hide
+  // them entirely, so presence changes must stay additive.
+  v?: number;
   name: string;
   role: MemberRole;
   sharing: boolean;
