@@ -21,6 +21,7 @@ interface RpcResults {
   set_mode: { room: RoomRow };
   set_destination: { destination: DestRow };
   mark_arrived: { member?: MemberRow; already?: boolean };
+  set_sos: { member: MemberRow };
   get_room_snapshot: SnapshotPayload;
 }
 
@@ -155,6 +156,11 @@ export const roomsRpc = {
 
   setSharing(roomId: string, sharing: boolean) {
     return call("set_sharing", { p_room_id: roomId, p_sharing: sharing });
+  },
+
+  /** Raise (re-stamps, extending the TTL) or clear the caller's own SOS. */
+  setSos(roomId: string, active: boolean) {
+    return call("set_sos", { p_room_id: roomId, p_active: active });
   },
 
   updateLastSeen(args: {

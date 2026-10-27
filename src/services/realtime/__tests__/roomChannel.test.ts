@@ -8,7 +8,10 @@
  * touches: channel().on().subscribe(), track/send/presenceState, setAuth,
  * removeChannel. No network, deterministic, runs in the `check` CI job.
  */
+import { AppState } from "react-native";
+
 import { supabase } from "@/lib/supabaseClient";
+import { notifyAlert } from "@/services/notifications";
 import {
   activeRoomId,
   connectRoomChannel,
@@ -98,6 +101,10 @@ jest.mock("@/services/rpc/rooms", () => ({
   roomsRpc: { getRoomSnapshot: jest.fn() },
 }));
 
+jest.mock("@/services/notifications", () => ({
+  notifyAlert: jest.fn(async () => {}),
+}));
+
 // In-memory AsyncStorage (official jest recipe): sessionStore imports the
 // native module, which doesn't exist under jest. No persistence is exercised
 // here — identity is seeded via setState.
@@ -138,6 +145,7 @@ const fake = (
   jest.requireMock("@/lib/supabaseClient") as unknown as { __fakeChannel: FakeChannel }
 ).__fakeChannel;
 const snapshotMock = roomsRpc.getRoomSnapshot as jest.Mock;
+const notifyMock = notifyAlert as jest.Mock;
 
 const ROOM_ID = "room-1";
 const ME = "u-me";
@@ -312,21 +320,22 @@ describe("protocol version", () => {
   it("drops ticks and events from a newer protocol, keeps legacy ones", async () => {
     await connectSubscribed();
     const before = useMembersStore.getState().members[PEER]?.pos;
+    const toasts = useUiStore.getState().toasts.length;
     fake.emitBroadcast("loc", { ...tick(PEER, { la: 1, ln: 1 }), v: PROTOCOL_VERSION + 1 });
-    fake.emitBroadcast("evt", { k: "sos", u: PEER, t: Date.now(), v: PROTOCOL_VERSION + 1 });
+    fake.emitBroadcast("evt", { k: "rejoined", u: PEER, t: 1, v: PROTOCOL_VERSION + 1 });
     expect(useMembersStore.getState().members[PEER]?.pos).toEqual(before);
-    expect(useMembersStore.getState().sosByUser[PEER]).toBeUndefined();
+    expect(useUiStore.getState().toasts.length).toBe(toasts);
     fake.emitBroadcast("loc", tick(PEER, { la: 2, ln: 2 })); // no v: legacy build
     expect(useMembersStore.getState().members[PEER]?.pos).toMatchObject({ lat: 2, lng: 2 });
   });
 
   it("stamps outbound events and presence", async () => {
     await connectSubscribed();
-    sendEvt({ k: "sos", u: ME, t: 1 });
+    sendEvt({ k: "arrived", u: ME, t: 1 });
     expect(fake.send).toHaveBeenCalledWith({
       type: "broadcast",
       event: "evt",
-      payload: { k: "sos", u: ME, t: 1, v: PROTOCOL_VERSION },
+      payload: { k: "arrived", u: ME, t: 1, v: PROTOCOL_VERSION },
     });
     expect(fake.track).toHaveBeenCalledWith(
       expect.objectContaining({ v: PROTOCOL_VERSION }),
@@ -390,19 +399,56 @@ describe("room events", () => {
     expect(useUiStore.getState().toasts.length).toBe(count);
   });
 
-  it("tracks peer SOS in the store, clears it, ignores malformed and own", async () => {
+  it("ignores forgeable peer SOS broadcasts (legacy evt kind)", async () => {
+    await connectSubscribed();
+    fake.emitBroadcast("evt", { k: "sos", u: PEER, t: Date.now() });
+    expect(useMembersStore.getState().sosByUser[PEER]).toBeUndefined();
+  });
+});
+
+describe("server-attested SOS", () => {
+  const appState = AppState as { currentState: string };
+  let realState: string;
+  beforeEach(() => {
+    realState = appState.currentState;
+    notifyMock.mockClear();
+  });
+  afterEach(() => {
+    appState.currentState = realState;
+  });
+
+  function sosRow(userId: string, at: number | null) {
+    return {
+      operation: "UPDATE",
+      record: memberRow(userId, { sos_at: at == null ? null : new Date(at).toISOString() }),
+      old_record: null,
+    };
+  }
+
+  it("raises and clears from member rows (sender = row user_id)", async () => {
     await connectSubscribed();
     const t = Date.now();
-    fake.emitBroadcast("evt", { k: "sos", u: PEER, t });
+    fake.emitBroadcast("member_change", sosRow(PEER, t));
     expect(useMembersStore.getState().sosByUser[PEER]).toBe(t);
-    // Own + malformed SOS never lands.
-    fake.emitBroadcast("evt", { k: "sos", u: ME, t: t + 1 });
-    fake.emitBroadcast("evt", { k: "sos", u: PEER, t: Number.NaN });
-    fake.emitBroadcast("evt", { k: "sos" });
-    expect(useMembersStore.getState().sosByUser[ME]).toBeUndefined();
-    expect(useMembersStore.getState().sosByUser[PEER]).toBe(t);
-    fake.emitBroadcast("evt", { k: "sos_clear", u: PEER, t: t + 2 });
+    fake.emitBroadcast("member_change", sosRow(PEER, null));
     expect(useMembersStore.getState().sosByUser[PEER]).toBeUndefined();
+  });
+
+  it("notifies once per raise while backgrounded, never for own or foreground", async () => {
+    await connectSubscribed();
+    const t = Date.now();
+    appState.currentState = "active";
+    fake.emitBroadcast("member_change", sosRow(PEER, t));
+    expect(notifyMock).not.toHaveBeenCalled();
+
+    appState.currentState = "background";
+    fake.emitBroadcast("member_change", sosRow(PEER, t)); // same stamp: no repeat
+    expect(notifyMock).not.toHaveBeenCalled();
+    fake.emitBroadcast("member_change", sosRow(PEER, t + 1000)); // re-raise
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect(notifyMock.mock.calls[0][0].title).toBe("SOS — Peer needs help");
+    fake.emitBroadcast("member_change", sosRow(ME, t + 2000));
+    expect(notifyMock).toHaveBeenCalledTimes(1);
   });
 });
 

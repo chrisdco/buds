@@ -61,6 +61,7 @@ export default function RoomScreen() {
   const { height: H } = useWindowDimensions();
   const [detent, setDetent] = useState<SheetDetent>("half");
   const room = useRoomStore((s) => s.room);
+  const roomId = room?.id;
   const myMemberId = useRoomStore((s) => s.myMemberId);
   const destRoom = useRoomStore((s) => s.destRoom);
   const destByMember = useRoomStore((s) => s.destByMember);
@@ -134,9 +135,9 @@ export default function RoomScreen() {
   // the store joined to membership rows for names + live positions.
   // Recomputed on the 5s tick so expired entries clear without new traffic.
   // Own SOS excluded from the banner — the sender gets FAB state instead.
-  // SOS stamps are sender serverNowMs() values, so TTL + freshness compare
-  // on the same server basis: a receiver whose clock runs fast must not see
-  // a live SOS as already expired.
+  // SOS stamps are server times (set_sos writes now()), so TTL + freshness
+  // compare on the same server basis: a receiver whose clock runs fast must
+  // not see a live SOS as already expired.
   const sosNowMs = nowMs + serverOffsetMs();
   const sosItems: SosBannerItem[] = useMemo(() => {
     const items: SosBannerItem[] = [];
@@ -172,28 +173,50 @@ export default function RoomScreen() {
         confirmLabel: "Send SOS",
         destructive: true,
       });
-      if (!ok || !myUserId) return;
-      // One clock for the broadcast and the local mirror (skew-corrected;
-      // TTL comparisons below run against the same basis).
-      const t = serverNowMs();
-      sendEvt({ k: "sos", u: myUserId, t });
-      useMembersStore.getState().setSos(myUserId, t);
+      if (!ok || !myUserId || !roomId) return;
+      // Server-attested: set_sos stamps our row as auth.uid(); peers learn
+      // of it through the member_change broadcast, never a forgeable evt.
+      // The returned row mirrors locally right away (broadcast.self is off
+      // for client sends, but this is the DB echo — applying it twice is a
+      // no-op).
+      const res = await roomsRpc.setSos(roomId, true);
+      if (!res.ok) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        useUiStore.getState().pushAlerts([
+          {
+            id: "sos-failed",
+            severity: "warn",
+            title: "SOS didn't send",
+            body: "Check your connection and try again — or call for help directly.",
+          },
+        ]);
+        return;
+      }
+      useMembersStore.getState().applyMemberRow(res.member);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       useUiStore.getState().pushAlerts([
         { id: "sos-sent", severity: "warn", title: "SOS sent — your room can see you" },
       ]);
     })();
-  }, [myUserId, isTraveler]);
+  }, [myUserId, isTraveler, roomId]);
 
   const cancelSos = useCallback(() => {
-    if (!myUserId) return;
-    sendEvt({ k: "sos_clear", u: myUserId, t: serverNowMs() });
-    useMembersStore.getState().clearSos(myUserId);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    useUiStore.getState().pushAlerts([
-      { id: "sos-cleared", severity: "info", title: "SOS cleared" },
-    ]);
-  }, [myUserId]);
+    if (!myUserId || !roomId) return;
+    void (async () => {
+      const res = await roomsRpc.setSos(roomId, false);
+      if (!res.ok) {
+        useUiStore.getState().pushAlerts([
+          { id: "sos-clear-failed", severity: "info", title: "Couldn't clear SOS — try again" },
+        ]);
+        return;
+      }
+      useMembersStore.getState().applyMemberRow(res.member);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      useUiStore.getState().pushAlerts([
+        { id: "sos-cleared", severity: "info", title: "SOS cleared" },
+      ]);
+    })();
+  }, [myUserId, roomId]);
   const canCheckIn =
     room != null &&
     myDest != null &&

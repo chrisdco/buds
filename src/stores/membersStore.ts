@@ -12,7 +12,7 @@ const TICK_FRESH_MS = 45_000;
 const RECONNECTING_WINDOW_MS = 2 * 60_000;
 // An uncancelled SOS goes stale rather than haunting the map forever. Long
 // enough for a real emergency, short enough that a forgotten one clears
-// itself. The sender re-sends to extend.
+// itself. The sender re-raises to extend (set_sos re-stamps sos_at).
 export const SOS_TTL_MS = 30 * 60_000;
 
 function fromRow(row: MemberRow, prev?: MemberLive): MemberLive {
@@ -48,18 +48,24 @@ function fromRow(row: MemberRow, prev?: MemberLive): MemberLive {
   };
 }
 
+/** Server-stamped SOS time from a member row, or null (absent/cleared/garbage). */
+function sosAtMs(row: MemberRow): number | null {
+  if (!row.sos_at) return null;
+  const ms = Date.parse(row.sos_at);
+  return Number.isFinite(ms) ? ms : null;
+}
+
 interface MembersState {
   members: Record<string, MemberLive>;
-  /** Active SOS alerts by sender: userId -> sender timestamp. Ephemeral
-  event state (not DB rows) — pruned on leave/snapshot/reset, expired by TTL
-  at read time. Every viewer derives the banner locally. */
+  /** Active SOS alerts by sender: userId -> server stamp (ms). Mirrors
+  room_members.sos_at, so it only changes via snapshot / member rows —
+  never from a peer broadcast. Expired by TTL at read time; every viewer
+  derives the banner locally. */
   sosByUser: Record<string, number>;
   applySnapshot: (rows: MemberRow[]) => void;
   applyMemberRow: (row: MemberRow) => void;
   applyTick: (tick: LocTick) => void;
   syncPresence: (state: Record<string, PresenceMeta[]>) => void;
-  setSos: (userId: string, atMs: number) => void;
-  clearSos: (userId: string) => void;
   reset: () => void;
 }
 
@@ -70,30 +76,29 @@ export const useMembersStore = create<MembersState>()((set, get) => ({
   applySnapshot: (rows) => {
     const prev = get().members;
     const next: Record<string, MemberLive> = {};
+    // A snapshot is the membership and SOS truth: rebuilt, not merged.
+    const sos: Record<string, number> = {};
     for (const row of rows) {
       if (row.left_at) continue;
       next[row.user_id] = fromRow(row, prev[row.user_id]);
+      const at = sosAtMs(row);
+      if (at != null) sos[row.user_id] = at;
     }
-    // A snapshot is the membership truth: drop SOS entries for anyone gone.
-    const sos = get().sosByUser;
-    const pruned: Record<string, number> = {};
-    for (const [userId, atMs] of Object.entries(sos)) {
-      if (next[userId]) pruned[userId] = atMs;
-    }
-    set({ members: next, sosByUser: pruned });
+    set({ members: next, sosByUser: sos });
   },
 
   applyMemberRow: (row) => {
     const members = { ...get().members };
+    const sos = { ...get().sosByUser };
+    const at = row.left_at ? null : sosAtMs(row);
     if (row.left_at) {
       delete members[row.user_id];
-      const sos = { ...get().sosByUser };
-      delete sos[row.user_id];
-      set({ members, sosByUser: sos });
     } else {
       members[row.user_id] = fromRow(row, members[row.user_id]);
-      set({ members });
     }
+    if (at != null) sos[row.user_id] = at;
+    else delete sos[row.user_id];
+    set({ members, sosByUser: sos });
   },
 
   applyTick: (tick) => {
@@ -139,15 +144,6 @@ export const useMembersStore = create<MembersState>()((set, get) => ({
   },
 
   reset: () => set({ members: {}, sosByUser: {} }),
-
-  setSos: (userId, atMs) => set({ sosByUser: { ...get().sosByUser, [userId]: atMs } }),
-
-  clearSos: (userId) => {
-    const sos = { ...get().sosByUser };
-    if (!(userId in sos)) return;
-    delete sos[userId];
-    set({ sosByUser: sos });
-  },
 }));
 
 /** Fresh, unexpired SOS alerts for the banner; pure so every viewer derives it locally. */

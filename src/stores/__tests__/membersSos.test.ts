@@ -21,46 +21,59 @@ function row(userId: string, overrides: Partial<MemberRow> = {}): MemberRow {
     joined_at: new Date().toISOString(),
     left_at: null,
     kicked: false,
+    sos_at: null,
     ...overrides,
   };
 }
+
+const iso = (ms: number) => new Date(ms).toISOString();
 
 beforeEach(() => {
   useMembersStore.getState().reset();
 });
 
-describe("SOS state", () => {
-  it("sets, reads back fresh, and clears", () => {
+describe("SOS state (mirrors room_members.sos_at)", () => {
+  it("raises from a member row, reads back fresh, clears on a null row", () => {
     const now = Date.now();
-    useMembersStore.getState().setSos(A, now);
+    useMembersStore.getState().applyMemberRow(row(A, { sos_at: iso(now) }));
     expect(useMembersStore.getState().sosByUser[A]).toBe(now);
     expect(activeSos(useMembersStore.getState().sosByUser, now + 1_000)).toEqual([
       { userId: A, atMs: now },
     ]);
-    useMembersStore.getState().clearSos(A);
+    useMembersStore.getState().applyMemberRow(row(A, { sos_at: null }));
     expect(useMembersStore.getState().sosByUser).toEqual({});
+  });
+
+  it("restores active SOS from a snapshot (late joiners see it)", () => {
+    const now = Date.now();
+    useMembersStore.getState().applySnapshot([row(A, { sos_at: iso(now) }), row(B)]);
+    expect(useMembersStore.getState().sosByUser).toEqual({ [A]: now });
   });
 
   it("expires entries past the TTL at read time", () => {
     const now = Date.now();
-    useMembersStore.getState().setSos(A, now - SOS_TTL_MS - 1);
-    useMembersStore.getState().setSos(B, now);
+    useMembersStore
+      .getState()
+      .applySnapshot([
+        row(A, { sos_at: iso(now - SOS_TTL_MS - 1) }),
+        row(B, { sos_at: iso(now) }),
+      ]);
     expect(activeSos(useMembersStore.getState().sosByUser, now)).toEqual([
       { userId: B, atMs: now },
     ]);
   });
 
-  it("prunes leavers on member rows and snapshots, clears on reset", () => {
-    useMembersStore.getState().applySnapshot([row(A), row(B)]);
-    useMembersStore.getState().setSos(A, Date.now());
-    useMembersStore.getState().setSos(B, Date.now());
-    useMembersStore.getState().applyMemberRow(row(A, { left_at: new Date().toISOString() }));
-    expect(useMembersStore.getState().sosByUser[A]).toBeUndefined();
-    expect(useMembersStore.getState().sosByUser[B]).toBeDefined();
-    // Snapshot without B drops B's SOS too.
-    useMembersStore.getState().applySnapshot([row(A)]);
+  it("ignores garbage and pre-0009 rows, prunes leavers, clears on reset", () => {
+    useMembersStore
+      .getState()
+      .applySnapshot([row(A, { sos_at: "not a date" }), row(B, { sos_at: undefined })]);
     expect(useMembersStore.getState().sosByUser).toEqual({});
-    useMembersStore.getState().setSos(A, Date.now());
+    useMembersStore.getState().applyMemberRow(row(A, { sos_at: iso(Date.now()) }));
+    useMembersStore
+      .getState()
+      .applyMemberRow(row(A, { sos_at: iso(Date.now()), left_at: iso(Date.now()) }));
+    expect(useMembersStore.getState().sosByUser[A]).toBeUndefined();
+    useMembersStore.getState().applyMemberRow(row(B, { sos_at: iso(Date.now()) }));
     useMembersStore.getState().reset();
     expect(useMembersStore.getState().sosByUser).toEqual({});
   });

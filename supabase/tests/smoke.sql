@@ -94,6 +94,28 @@ begin
   v := public.mark_arrived(v_room);
   if (v->>'already') is distinct from 'true' then raise exception 'mark_arrived not idempotent: %', v; end if;
 
+  -- SOS is server-attested: set_sos stamps the caller's own row, the
+  -- snapshot carries it (late joiners see it), and clearing nulls it
+  v := public.set_sos(v_room, true);
+  if v->'member'->>'sos_at' is null then raise exception 'set_sos raise failed: %', v; end if;
+  v := public.get_room_snapshot(v_room);
+  if not exists (
+    select 1 from jsonb_array_elements(v->'members') m
+    where m->>'user_id' = '22222222-2222-2222-2222-222222222222' and m->>'sos_at' is not null
+  ) then
+    raise exception 'snapshot missing sos_at: %', v->'members';
+  end if;
+  v := public.set_sos(v_room, false);
+  if not (v->>'ok')::boolean or v->'member'->>'sos_at' is not null then
+    raise exception 'set_sos clear failed: %', v;
+  end if;
+
+  -- spectators can't raise SOS
+  perform set_config('request.jwt.claims', carol, true);
+  v := public.set_sos(v_room, true);
+  if v->>'error' is distinct from 'not_member' then raise exception 'spectator raised SOS: %', v; end if;
+  perform set_config('request.jwt.claims', bob, true);
+
   -- pause sharing
   v := public.set_sharing(v_room, false);
   if not (v->>'ok')::boolean then raise exception 'set_sharing failed: %', v; end if;

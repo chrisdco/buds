@@ -101,7 +101,27 @@ function handleMemberChange(payload: DbChangePayload<MemberRow>): void {
     useRoomStore.getState().setExitReason("kicked");
     return;
   }
+  const prevSos = useMembersStore.getState().sosByUser[record.user_id];
   useMembersStore.getState().applyMemberRow(record);
+  const nextSos = useMembersStore.getState().sosByUser[record.user_id];
+  // A newly raised (or re-raised) SOS from someone else. The sender id is
+  // the row's user_id, written by set_sos() as auth.uid() — not peer-supplied.
+  if (
+    nextSos != null &&
+    nextSos !== prevSos &&
+    record.user_id !== myUserId &&
+    AppState.currentState !== "active"
+  ) {
+    // Safety overrides preference gating: a backgrounded member must get the
+    // OS notification, like "other" (internal errors) in the engine path.
+    // Foreground members see the persistent banner instead.
+    void notifyAlert({
+      id: `sos-${record.user_id}-${nextSos}`,
+      severity: "warn",
+      title: `SOS — ${record.display_name || "A bud"} needs help`,
+      body: "Tap to open Buds and see their live location.",
+    });
+  }
 }
 
 function handleRoomEvt(evt: RoomEvt): void {
@@ -109,14 +129,8 @@ function handleRoomEvt(evt: RoomEvt): void {
   // (member_change path) — only transient, non-DB events surface here.
   // Shape-guard: a malformed/malicious peer broadcast must not crash us.
   if (!evt || typeof evt.u !== "string" || !isSupportedVersion(evt)) return;
-  if (
-    evt.k !== "deviated" &&
-    evt.k !== "rejoined" &&
-    evt.k !== "arrived" &&
-    evt.k !== "sos" &&
-    evt.k !== "sos_clear"
-  )
-    return;
+  // Unknown kinds (incl. legacy forgeable "sos" broadcasts) are dropped.
+  if (evt.k !== "deviated" && evt.k !== "rejoined" && evt.k !== "arrived") return;
   const myId = useSessionStore.getState().userId;
   if (evt.u === myId) return;
   const name = useMembersStore.getState().members[evt.u]?.name ?? "A bud";
@@ -133,24 +147,6 @@ function handleRoomEvt(evt: RoomEvt): void {
     useUiStore.getState().pushAlerts([
       { id: `evt-rejoin-${evt.u}-${evt.t}`, severity: "info", title: `${name} reconnected` },
     ]);
-  } else if (evt.k === "sos") {
-    // SOS needs no payload beyond sender + time (the banner navigates to
-    // their live marker), but a garbage timestamp must not pin the banner.
-    if (!Number.isFinite(evt.t)) return;
-    useMembersStore.getState().setSos(evt.u, evt.t);
-    // Safety overrides preference gating: a backgrounded member must get
-    // the OS notification, like "other" (internal errors) in the engine
-    // path. Foreground members see the persistent banner instead.
-    if (AppState.currentState !== "active") {
-      void notifyAlert({
-        id: `evt-sos-${evt.u}-${evt.t}`,
-        severity: "warn",
-        title: `SOS — ${name} needs help`,
-        body: "Tap to open Buds and see their live location.",
-      });
-    }
-  } else if (evt.k === "sos_clear") {
-    useMembersStore.getState().clearSos(evt.u);
   }
 }
 
