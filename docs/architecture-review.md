@@ -227,6 +227,21 @@ Google key), the honest degradation chain for routing, and the
 
 ---
 
+## Progress (2026-10-27)
+
+| # | Item | Status |
+|---|---|---|
+| 1 | A3 protocol version field | Done — #52 (`PROTOCOL_VERSION`, receivers drop newer, absent = v1) |
+| 2 | R1 adaptive send rate | Done — #53 (`hasWatchers` → 30s heartbeat when nobody is foreground) |
+| 3 | SOS via RPC | Done — #54 (migration 0009 `set_sos`, `room_members.sos_at`; legacy evt dropped) |
+| 4 | A1 transport seam | Done — #55 (`RoomTransport`, `supabaseTransport`, `roomDispatch`) |
+| 5 | A2 room screen split | Done — #56 (`roomSession` controller + hooks + overlays; screen 1,102 → 365 lines) |
+| — | R2 Worker edge | Waiting on a Cloudflare account and the hosted Supabase project (#1) |
+| — | R3 Durable Object live plane | Waiting on a trigger (see 1.4) |
+
+None of it is device-verified yet: the two-phone drill (#5) is the check
+for R1 (rate drops when backgrounded) and the SOS round-trip.
+
 ## 3. Suggested order
 
 | # | Item | Size | Depends on |

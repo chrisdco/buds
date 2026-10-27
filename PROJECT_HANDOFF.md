@@ -231,7 +231,8 @@ src/
     room/[id]/invite.tsx         QR + share sheet
   lib/                           supabaseClient, geo (haversine/bearing), time (skew), ids, expiry, nav, activeRoom
   services/
-    realtime/roomChannel.ts      channel lifecycle, payloads, reconnect, isRoomChannelLive
+    realtime/                    roomChannel (lifecycle + API), roomDispatch (inbound validation),
+                                 transport + supabaseTransport (backend seam, see architecture-review)
     location/                    pipeline (fg), backgroundTask (headless), publisher (shared core),
                                  tick (pure codec), throttle, jitterFilter, permissions, battery
     routing/                     router (ORS→OSRM→straight-line), ors, osrm, deviation, routeManager
@@ -264,7 +265,7 @@ npm install
 # Supabase (one-time)
 npx supabase login
 npx supabase link --project-ref <your-project-ref>
-npx supabase db push                 # applies migrations 0001..0006
+npx supabase db push                 # applies migrations 0001..0009
 # then enable Authentication -> Sign In/Up -> Anonymous in the dashboard
 cp .env.example .env                  # fill in URL + anon key
 
@@ -326,11 +327,10 @@ No private/service keys are used anywhere. Never commit `.env` (gitignored).
 - **Background lane is unverified on hardware** — the highest-priority debt. The
   logic is structured and unit-tested where pure, but headless relaunch, OEM
   battery handling, and OS-notification delivery need a real device (#13/#14/#4).
-- **Backgrounded alert computation** — alerts are computed in the React screen on
-  a 5s clock; RN throttles JS timers in background, so some alerts may not fire
-  unless computed inside the background task (#4).
-- **No integration test for `roomChannel`** — coverage is unit + SQL smoke only;
-  the realtime broadcast/presence wiring has no automated test (#17).
+- **Backgrounded alert computation** — alerts run in the room-session controller
+  (`features/room/session`, started by the room layout, not tied to the map
+  screen) on a 5s clock; RN still throttles JS timers in background, so some
+  alerts may not fire unless computed inside the background task (#4).
 - **Member detail / smart-focus** — tapping a member to see their ETA, navigate
   to them, or pin the camera was in the plan but not built (#16).
 - **Adaptive throttle floor (`min_send_interval_ms`)** exists in `rooms.settings`

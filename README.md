@@ -42,7 +42,7 @@ the Docker stack on this laptop as long as both are on the same Wi-Fi.
 
 ```bash
 npx supabase start          # local stack (ports remapped to 5433x, see config.toml)
-npx supabase db reset       # applies migrations 0001..0008 fresh
+npx supabase db reset       # applies migrations 0001..0009 fresh
 ```
 
 Then point `.env` at this laptop's LAN IP (not `localhost` — that means the
@@ -117,7 +117,10 @@ Control changes (destination, kick, mode) → SECURITY DEFINER RPC → Postgres
        → trigger broadcast_changes() → all clients converge on DB truth
 ```
 
-- `src/services/realtime/roomChannel.ts` — channel lifecycle, payloads, reconnect
+- `src/services/realtime/` — `roomChannel` (lifecycle + public API), `roomDispatch`
+  (inbound validation + store writes), `transport` + `supabaseTransport` (the backend seam)
+- `src/features/room/session/roomSession.ts` — alerts, route reconcile, arrival
+  (runs for the whole room stack, started by the room layout)
 - `src/services/location/pipeline.ts` — the GPS → filter → throttle → publish loop
 - `src/stores/` — zustand stores (plain JS objects, writable from headless code)
 - `supabase/migrations/` — schema, RPCs, realtime RLS, triggers, expiry cron
@@ -125,11 +128,13 @@ Control changes (destination, kick, mode) → SECURITY DEFINER RPC → Postgres
 ## Daily development (cont.)
 
 ```bash
-npm test             # 155 unit tests: geo, throttle, jitter filter, alert engine,
+npm test             # 177 unit tests: geo, throttle, jitter filter, alert engine,
                      # arrival detector (incl. retry), routing fallback chain,
                      # mode strategies, expiry countdown, tick codec,
                      # notification dedup, realtime channel (incl. stale-
-                     # channel races), planned trips, join-error policy
+                     # channel races), transport seam, room-session controller,
+                     # adaptive send rate, server-attested SOS, planned trips,
+                     # join-error policy
 ```
 
 Routing uses OSRM's public demo server by default; for better quality and

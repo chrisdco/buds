@@ -50,13 +50,13 @@ deferred.
 
 ## What's verified
 
-- **Backend**: all 8 migrations apply cleanly on a local Supabase stack; the
+- **Backend**: all 9 migrations apply cleanly on a local Supabase stack; the
   full RPC lifecycle is exercised by [supabase/tests/smoke.sql](../supabase/tests/smoke.sql)
   (create → join → full/locked/kicked/rejoin rejections → validation errors →
   destinations → arrival → mode switch → end → host-transfer → expiry-unswept),
   and `broadcast_changes` triggers are confirmed to write
   into `realtime.messages`.
-- **Client logic**: 155 jest unit tests (`npm test`) over geo math, the send
+- **Client logic**: 177 jest unit tests (`npm test`) over geo math, the send
   throttle, jitter/teleport filter, alert engine (priming/sustain/re-arm),
   arrival detector (incl. retry/re-arm), the routing fallback chain (incl.
   malformed-payload fallthrough), every mode strategy, the
