@@ -3,7 +3,11 @@ import type { Fix } from "@/services/location/jitterFilter";
 
 // Adaptive send throttle (plan §3): driving 2.5s, walking 4s, stationary 20s,
 // doubled in background; gated on actual movement with a 30s heartbeat so
-// parked travelers still emit an occasional "I'm alive" tick.
+// parked travelers still emit an occasional "I'm alive" tick. When no peer
+// is watching (nobody else foreground), every rate drops to the heartbeat:
+// recipients are billed per message, and pocketed phones don't render. The
+// first fix after a watcher appears is already past the normal interval, so
+// the rate snaps back with no extra delay.
 const DRIVING_SPEED_MS = 7;
 const WALKING_SPEED_MS = 0.7;
 const DRIVING_INTERVAL_MS = 2_500;
@@ -17,6 +21,8 @@ export interface ThrottleOptions {
   /** Remote-tweakable floor from rooms.settings.min_send_interval_ms. */
   floorMs?: () => number;
   isBackground?: () => boolean;
+  /** False when no other member could be looking (see membersStore.hasWatchers). */
+  hasWatchers?: () => boolean;
 }
 
 export interface ThrottleVerdict {
@@ -46,6 +52,9 @@ export function createSendThrottle(
           ? WALKING_INTERVAL_MS
           : STATIONARY_INTERVAL_MS;
     if (options.isBackground?.()) interval *= 2;
+    if (options.hasWatchers && !options.hasWatchers()) {
+      interval = Math.max(interval, HEARTBEAT_MS);
+    }
     interval = Math.max(interval, options.floorMs?.() ?? 0);
 
     if (!lastSent) {
