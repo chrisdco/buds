@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: 30,
     fontFamily: fontFamily.bold,
     letterSpacing: 0.2,
     marginBottom: space.xs,
@@ -243,11 +243,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.regular,
   },
+  // White focus outline (Uber's active field); blue stays information-only.
   inputFocused: {
-    borderColor: colors.accent,
+    borderColor: colors.text,
   },
+  // Uber CTA: a tall rounded rectangle (not a stadium pill), 56dp.
   btn: {
-    borderRadius: radius.full,
+    borderRadius: radius.md,
+    minHeight: 56,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
@@ -268,11 +271,11 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnPressed: { opacity: 0.85 },
-  btnCompact: { paddingVertical: 10 },
+  btnCompact: { paddingVertical: 10, minHeight: 44 },
   btnTextCompact: { fontSize: 14 },
   // Primary/danger labels sit on filled ink: black/white respectively.
   // Ghost labels are plain white text (was accent blue).
-  btnText: { fontSize: 16, fontFamily: fontFamily.medium },
+  btnText: { fontSize: 17, fontFamily: fontFamily.semiBold },
   btnTextPrimary: { color: colors.onPrimary },
   btnTextDanger: { color: colors.text },
   btnTextGhost: { color: colors.text },

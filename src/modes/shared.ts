@@ -51,6 +51,6 @@ export function arrivalConditions(
     active: m.arrivedAt != null,
     sustainMs: 0,
     severity: "info" as const,
-    title: m.userId === viewerId ? "You arrived 🎉" : `${m.name} arrived 🎉`,
+    title: m.userId === viewerId ? "You arrived" : `${m.name} arrived`,
   }));
 }

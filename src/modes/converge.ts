@@ -40,7 +40,7 @@ export const convergeStrategy: ModeStrategy = {
     if (!snap.destRoom) {
       headline = "No destination yet — the host long-presses the map to set one";
     } else if (all.length > 0 && arrived.length === all.length) {
-      headline = "Everyone has arrived 🎉";
+      headline = "Everyone has arrived";
     } else if (slowestEtaS != null) {
       headline = `${arrived.length}/${all.length} arrived · last ETA ${formatDurationS(slowestEtaS)}`;
     } else if (all.length > 0) {

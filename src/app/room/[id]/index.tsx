@@ -2,11 +2,12 @@ import type { CameraRef, MapRef } from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { clearActiveRoom } from "@/lib/activeRoom";
 import { expiryInfo } from "@/lib/expiry";
+import { haversineMeters } from "@/lib/geo";
 import { LoadingView } from "@/components/ui";
 import { openExternalNavigation } from "@/lib/nav";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
@@ -14,11 +15,16 @@ import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { RoomMap } from "@/features/map/RoomMap";
 import { RouteLines } from "@/features/map/RouteLines";
 import { ExpiryBanner } from "@/features/room/ExpiryBanner";
-import { InsightsPanel } from "@/features/room/InsightsPanel";
 import { MemberList } from "@/features/room/MemberList";
-import { RoomDetails } from "@/features/room/RoomDetails";
-import { DestinationBar, RoomFabs, RoomTopBar } from "@/features/room/RoomOverlays";
-import { RoomSheet, type SheetDetent } from "@/features/room/RoomSheet";
+import { AdjustPin, BackCircle, RoomFabs } from "@/features/room/RoomOverlays";
+import { RoomSheet, sheetVisibleHeight, type SheetDetent } from "@/features/room/RoomSheet";
+import {
+  DestinationRow,
+  RoomFacts,
+  SheetFooter,
+  SheetHeader,
+  primaryAction,
+} from "@/features/room/RoomSheetContent";
 import { roomScreenStyles as styles } from "@/features/room/roomScreenStyles";
 import { SosBanner } from "@/features/room/SosBanner";
 import { Toasts } from "@/features/room/Toasts";
@@ -27,7 +33,7 @@ import { useRoomCamera } from "@/features/room/useRoomCamera";
 import { useRoomSos } from "@/features/room/useRoomSos";
 import { modeRegistry } from "@/modes/registry";
 import { travelers } from "@/modes/shared";
-import type { ClientSnapshot } from "@/modes/types";
+import { DEFAULT_ARRIVAL_RADIUS_M, type ClientSnapshot } from "@/modes/types";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -45,6 +51,7 @@ export default function RoomScreen() {
   const insets = useSafeAreaInsets();
   const { height: H } = useWindowDimensions();
   const [detent, setDetent] = useState<SheetDetent>("half");
+  const [peekH, setPeekH] = useState(160);
   const room = useRoomStore((s) => s.room);
   const myMemberId = useRoomStore((s) => s.myMemberId);
   const destRoom = useRoomStore((s) => s.destRoom);
@@ -118,16 +125,11 @@ export default function RoomScreen() {
     snap,
     strategy,
     myUserId,
-    detent,
-    screenH: H,
+    padBottom: Math.round(sheetVisibleHeight(detent, H, peekH) + 40),
     nowMs,
     suspended: adjust != null,
   });
   const sos = useRoomSos({ roomId: room?.id, myUserId, isTraveler, membersMap, nowMs });
-  const showSos = sos.items.length > 0;
-  // One banner row (~38px + 6px gap) per sender: overlays below stack past
-  // all of them instead of assuming a single row.
-  const sosStackH = sos.items.length * 44;
 
   const canCheckIn =
     room != null &&
@@ -209,11 +211,8 @@ export default function RoomScreen() {
   }, [myDest]);
 
   const showConnBanner = connection !== "connected";
-  // Primitives (not the expiry object) feed memoized children so the 5s
-  // presence tick doesn't churn their props.
   const expiry = expiryInfo(room?.expires_at ?? null, nowMs);
   const expiryLabel = expiry && !expiry.expired ? expiry.label : null;
-  const expiryWarning = expiry?.warning ?? false;
   const focusedName =
     focusUserIds.length === 1 ? (membersMap[focusUserIds[0]]?.name ?? null) : null;
   const focusLabel =
@@ -225,6 +224,66 @@ export default function RoomScreen() {
           ? `Following ${focusedName}`
           : null;
 
+  // Who may set the destination under this mode (the sheet hides the search
+  // row otherwise — Uber hides what you can't do).
+  const policy = strategy.destinationPolicy;
+  const canSetDest =
+    isTraveler &&
+    (policy === "room" ? isHost : policy !== "leader-position" || room?.leader_id === myUserId);
+  const destLabel =
+    policy === "room" ? (destRoom?.label ?? null) : myDest && myDest.kind !== "leader" ? myDest.label : null;
+
+  // "I'm here" takes over the CTA once you're close to where you're going.
+  const radiusM = room?.settings.arrival_radius_m ?? DEFAULT_ARRIVAL_RADIUS_M;
+  const nearDest =
+    myDest != null && me?.pos != null
+      ? haversineMeters(me.pos.lat, me.pos.lng, myDest.lat, myDest.lng) <= Math.max(300, radiusM * 3)
+      : false;
+  const action = adjust
+    ? null
+    : primaryAction({
+        isTraveler,
+        hasDest: myDest != null,
+        canSetDest,
+        canCheckIn,
+        nearDest,
+      });
+  const runAction = () => {
+    if (action === "checkin") checkIn();
+    else if (action === "navigate") onNavigateToDest();
+    else if (action === "setDest") onSearchDest();
+    else if (action === "invite") onInvite();
+  };
+
+  const travelerCount = tripProgress?.total ?? 0;
+  const spectatorCount = members.filter((m) => m.role === "spectator").length;
+  const status = insights.headline;
+  const meta = [strategy.label, expiryLabel, `${members.length} in room`].filter(Boolean).join(" · ");
+  const etaByUser = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [uid, i] of Object.entries(insights.perMember)) {
+      if (i.etaS != null && i.arrivedRank == null) out[uid] = i.etaS;
+    }
+    return out;
+  }, [insights]);
+
+  // Top stack, Uber-minimal: back circle on its own row, then banners,
+  // then the adjust card, then toasts — each starts below the last.
+  let y = insets.top + 68;
+  const connTop = y;
+  if (showConnBanner) y += 40;
+  const sosTop = y;
+  y += sos.items.length * 44;
+  const waitingTop = y;
+  const showWaiting = room != null && positioned.length === 0 && connection === "connected";
+  if (showWaiting) y += 36;
+  const adjustTop = y;
+  if (adjust) y += 124;
+  const toastTop = y;
+
+  const visibleSheet = sheetVisibleHeight(detent, H, peekH);
+  const fabBottom = visibleSheet + 12;
+
   return (
     <View style={styles.container}>
       <RoomMap
@@ -233,21 +292,16 @@ export default function RoomScreen() {
         onLongPress={picker.onLongPress}
         onUserPan={() => useUiStore.getState().setCameraMode("manual")}
         onRegionChange={picker.onRegionChange}
-        ornamentPosition={
-          detent === "peek" ? { bottom: 8, right: 8 } : { top: insets.top + 76, right: 8 }
-        }
+        ornamentPosition={{ top: insets.top + 12, right: 12 }}
       >
         <RouteLines routes={routes} myUserId={myUserId} />
-        <DestinationMarkers
-          destRoom={destRoom}
-          destByMember={destByMember}
-          members={membersMap}
-        />
+        <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
         <MemberMarkers
           members={positioned}
           nowMs={nowMs}
           myUserId={myUserId}
           selectedIds={focusUserIds}
+          etaByUser={etaByUser}
           onToggleFocus={(userId) => {
             useUiStore.getState().toggleFocusUserId(userId);
             useUiStore.getState().setCameraMode("auto");
@@ -262,126 +316,111 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Connected but nobody has shared a position yet. */}
-      {room && positioned.length === 0 && connection === "connected" && (
-        <View style={[styles.waitingPill, { top: insets.top + 108 }]}>
-          <Text style={styles.waitingText}>Waiting for locations…</Text>
-        </View>
-      )}
-
-      <RoomTopBar
-        top={insets.top + 8}
-        name={room?.name ?? null}
-        subtitle={copied ? "Copied!" : `${room?.code ?? ""} · ${strategy.label}`}
-        onLeave={leave}
-        onCopyCode={() => void copyCode()}
-        onInvite={onInvite}
-        onSettings={onSettings}
-      />
+      <BackCircle top={insets.top + 8} onPress={leave} />
 
       {showConnBanner && (
-        <View style={[styles.connBanner, { top: insets.top + 64 }]}>
+        <View style={[styles.connBanner, { top: connTop }]}>
           <Text style={styles.connBannerText}>
             {connection === "reconnecting" ? "Reconnecting…" : "Connecting…"}
           </Text>
         </View>
       )}
 
-      {/* Peer SOS alerts stack below the connection banner when visible. */}
-      {showSos && (
+      {sos.items.length > 0 && (
         <SosBanner
           items={sos.items}
           nowMs={sos.sosNowMs}
-          top={insets.top + (showConnBanner ? 108 : 64)}
+          top={sosTop}
           onNavigate={(lat, lng) => void openExternalNavigation(lat, lng)}
         />
       )}
 
-      <DestinationBar
-        top={insets.top + (showConnBanner ? 108 : 60) + sosStackH}
-        adjust={adjust}
-        destLabel={destRoom?.label ?? null}
-        canSearch={isTraveler}
-        onSearch={onSearchDest}
-        onCancel={picker.cancel}
-        onConfirm={picker.confirm}
-      />
+      {/* Connected but nobody has shared a position yet. */}
+      {showWaiting && (
+        <View style={[styles.waitingPill, { top: waitingTop }]}>
+          <Text style={styles.waitingText}>Waiting for locations…</Text>
+        </View>
+      )}
 
-      {/* Toasts sit below the connection/SOS banners when visible. */}
-      <Toasts topOffset={insets.top + (showConnBanner ? 104 : 64) + sosStackH} />
+      {adjust && (
+        <AdjustPin top={adjustTop} adjust={adjust} onCancel={picker.cancel} onConfirm={picker.confirm} />
+      )}
 
-      <RoomFabs
-        bottom={insets.bottom + 160}
-        focusLabel={focusLabel}
-        focusA11y={
-          focusUserIds.length > 1
-            ? `Clear focus on ${focusUserIds.length} members`
-            : `Unfollow ${focusedName}`
-        }
-        onClearFocus={() => useUiStore.getState().setFocusUserIds([])}
-        onNavigate={myDest ? onNavigateToDest : null}
-        autoCamera={cameraMode === "auto"}
-        onRecenter={recenter}
-        sos={isTraveler ? { active: sos.mySosActive, onPress: sos.mySosActive ? sos.cancel : sos.send } : null}
-      />
+      <Toasts topOffset={toastTop} />
 
-      {/* Maps-style non-modal sheet: peek (headline) / half (trip panel) /
-          full (trip card deck). Map stays interactive behind it; FABs sit
-          under the sheet when expanded, with Navigate mirrored in the deck. */}
+      {detent !== "full" && (
+        <RoomFabs
+          bottom={fabBottom}
+          focusLabel={focusLabel}
+          focusA11y={
+            focusUserIds.length > 1
+              ? `Clear focus on ${focusUserIds.length} members`
+              : `Unfollow ${focusedName}`
+          }
+          onClearFocus={() => useUiStore.getState().setFocusUserIds([])}
+          autoCamera={cameraMode === "auto"}
+          onRecenter={recenter}
+          sos={isTraveler ? { active: sos.mySosActive, onPress: sos.mySosActive ? sos.cancel : sos.send } : null}
+        />
+      )}
+
+      {/* Uber "Choose a trip" sheet: title + status, destination, the member
+      list (ETA right), and one pinned CTA that follows the trip's state. */}
       <RoomSheet
         detent={detent}
         onDetentChange={setDetent}
-        renderContent={(d) => (
+        onPeekHeight={setPeekH}
+        renderHeader={() => (
+          <SheetHeader
+            title={room?.name ?? "…"}
+            status={status}
+            meta={meta}
+            progress={tripProgress && tripProgress.total > 1 ? tripProgress : null}
+            onInvite={onInvite}
+            onSettings={onSettings}
+          />
+        )}
+        renderBody={(d) => (
           <>
-            <InsightsPanel headline={insights.headline} progress={tripProgress} />
-            {d !== "peek" && (
-              <>
-                <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
-                {/* Non-hosts otherwise never see the expiry until T-10min. */}
-                {!isHost && expiryLabel && !expiryWarning && (
-                  <Text style={styles.expiryNote}>{expiryLabel} · ask the host to extend</Text>
-                )}
-                {canCheckIn && (
-                  <Pressable
-                    style={({ pressed }) => [styles.checkin, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Mark yourself arrived"
-                    testID="room-checkin"
-                    onPress={checkIn}
-                  >
-                    <Text style={styles.checkinText}>I&apos;m here</Text>
-                  </Pressable>
-                )}
-                <MemberList
-                  members={members}
-                  hostId={room?.host_id ?? null}
-                  leaderId={room?.mode === "leader" ? (room?.leader_id ?? null) : null}
-                  insights={insights.perMember}
-                  nowMs={nowMs}
-                  units={units}
-                  onSelectMember={onSelectMember}
-                  selectedIds={focusUserIds}
-                />
-              </>
-            )}
+            <ExpiryBanner expiresAt={room?.expires_at ?? null} nowMs={nowMs} />
+            <DestinationRow label={destLabel} canSet={canSetDest} onSearch={onSearchDest} />
+            <MemberList
+              members={members}
+              myUserId={myUserId}
+              hostId={room?.host_id ?? null}
+              leaderId={room?.mode === "leader" ? (room?.leader_id ?? null) : null}
+              insights={insights.perMember}
+              sosUserIds={sos.activeUserIds}
+              nowMs={nowMs}
+              units={units}
+              onSelectMember={onSelectMember}
+              selectedIds={focusUserIds}
+            />
             {d === "full" && room && (
-              <RoomDetails
+              <RoomFacts
                 code={room.code}
-                travelerCount={tripProgress?.total ?? 0}
-                spectatorCount={members.filter((m) => m.role === "spectator").length}
-                expiryLabel={expiryLabel}
-                destLabel={destRoom?.label ?? null}
                 copied={copied}
-                onCopyCode={copyCode}
-                canNavigate={myDest != null}
-                onNavigate={onNavigateToDest}
-                onRecenter={recenter}
+                travelerCount={travelerCount}
+                spectatorCount={spectatorCount}
+                onCopyCode={() => void copyCode()}
                 onInvite={onInvite}
                 onSettings={onSettings}
+                onLeave={leave}
               />
             )}
           </>
         )}
+        renderFooter={
+          action
+            ? () => (
+                <SheetFooter
+                  action={action}
+                  onAction={runAction}
+                  secondary={action !== "invite" ? { label: "Invite buds", onPress: onInvite } : null}
+                />
+              )
+            : undefined
+        }
       />
     </View>
   );

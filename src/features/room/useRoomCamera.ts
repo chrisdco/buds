@@ -1,7 +1,6 @@
 import type { CameraRef } from "@maplibre/maplibre-react-native";
 import { useCallback, useEffect, type RefObject } from "react";
 
-import type { SheetDetent } from "@/features/room/RoomSheet";
 import { collectFitPoints } from "@/lib/mapBounds";
 import type { CameraTarget, ClientSnapshot, ModeStrategy } from "@/modes/types";
 import { useUiStore } from "@/stores/uiStore";
@@ -15,18 +14,14 @@ export function useRoomCamera(args: {
   snap: ClientSnapshot | null;
   strategy: ModeStrategy;
   myUserId: string | null;
-  detent: SheetDetent;
-  screenH: number;
+  /** Visible sheet height + margin: framed content stays in the map strip. */
+  padBottom: number;
   nowMs: number;
   suspended: boolean;
 }) {
-  const { cameraRef, snap, strategy, myUserId, detent, screenH, nowMs, suspended } = args;
+  const { cameraRef, snap, strategy, myUserId, padBottom, nowMs, suspended } = args;
   const cameraMode = useUiStore((s) => s.cameraMode);
   const focusUserIds = useUiStore((s) => s.focusUserIds);
-
-  // Bottom padding tracks the sheet so framed content stays in the visible
-  // map strip (Maps contentPadding pattern).
-  const padBottom = detent === "peek" ? 200 : Math.round(screenH * 0.42 + 60);
 
   const apply = useCallback(
     (target: CameraTarget) => {
@@ -86,7 +81,7 @@ export function useRoomCamera(args: {
           : strategy.cameraTarget(snap, myUserId),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nowMs, cameraMode, suspended, snap?.room.mode, focusUserIds, detent, screenH]);
+  }, [nowMs, cameraMode, suspended, snap?.room.mode, focusUserIds, padBottom]);
 
   return { cameraMode, focusUserIds, recenter };
 }

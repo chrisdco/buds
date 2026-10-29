@@ -45,8 +45,12 @@ export function useRoomSos(args: {
     return out;
   }, [sosByUser, membersMap, sosNowMs, myUserId]);
 
-  const mySosActive =
-    myUserId != null && activeSos(sosByUser, sosNowMs).some((i) => i.userId === myUserId);
+  // Every active sender (incl. us) — the member list marks their rows.
+  const activeUserIds = useMemo(
+    () => activeSos(sosByUser, sosNowMs).map((i) => i.userId),
+    [sosByUser, sosNowMs],
+  );
+  const mySosActive = myUserId != null && activeUserIds.includes(myUserId);
 
   // Explicit panic action: confirm-gated send (an SOS alarms the whole room),
   // frictionless cancel (a resolved emergency shouldn't fight UI). Travelers
@@ -100,5 +104,5 @@ export function useRoomSos(args: {
     })();
   }, [myUserId, roomId]);
 
-  return { items, sosNowMs, mySosActive, send, cancel };
+  return { items, activeUserIds, sosNowMs, mySosActive, send, cancel };
 }

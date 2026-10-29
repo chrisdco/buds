@@ -1,201 +1,167 @@
 import { memo, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AppSymbol, icons } from "@/components/Symbol";
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
-import { colors, radius } from "@/constants/theme";
+import { colorForUser, colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { formatDistanceM, type DistanceUnit } from "@/lib/geo";
-import { formatDurationS } from "@/lib/time";
+import { typeScale } from "@/constants/typography";
+import type { DistanceUnit } from "@/lib/geo";
 import type { MemberInsight } from "@/modes/types";
-import { presenceLabel, presenceOf } from "@/stores/membersStore";
+import { memberMeta, memberValue, sortMembers } from "@/features/room/sheetLogic";
+import { presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
 
-function insightLine(insight: MemberInsight | undefined, units: DistanceUnit): string | null {
-  if (!insight) return null;
-  if (insight.arrivedRank != null) return `Arrived #${insight.arrivedRank}`;
-  const parts: string[] = [];
-  if (insight.etaS != null) parts.push(`ETA ${formatDurationS(insight.etaS)}`);
-  if (insight.remainingM != null) parts.push(formatDistanceM(insight.remainingM, units));
-  if (parts.length === 0 && insight.distanceToLeaderM != null) {
-    parts.push(`${formatDistanceM(insight.distanceToLeaderM, units)} behind`);
-  }
-  if (parts.length === 0 && insight.distanceFromCentroidM != null) {
-    parts.push(
-      insight.outsideRadius
-        ? // U+FE0E forces monochrome text presentation cross-platform.
-          `${"\u26A0\uFE0E"} ${formatDistanceM(insight.distanceFromCentroidM, units)} out`
-        : `${formatDistanceM(insight.distanceFromCentroidM, units)} from center`,
-    );
-  }
-  if (insight.overlapPct != null && insight.overlapPct >= 30) {
-    parts.push(`${insight.overlapPct}% shared`);
-  }
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
+// The room's member list in Uber ride-list grammar (ref "Choose a trip"):
+// one vertical row per person — face left, name + status, and the deciding
+// number (ETA) right-aligned as the largest text. Rows sort by what needs
+// attention: SOS, then soonest arrival, arrived last, spectators at the end.
 
 interface MemberListProps {
   members: MemberLive[];
+  myUserId: string | null;
   hostId: string | null;
   leaderId: string | null;
   insights: Record<string, MemberInsight>;
+  sosUserIds: string[];
   nowMs: number;
   units: DistanceUnit;
-  /** Opens the member detail sheet; omitted = cards not tappable. */
   onSelectMember?: (userId: string) => void;
-  /** Focus-set members render selected (Uber selected-card border). */
+  /** Focus-set members render selected (Uber selected-row border). */
   selectedIds?: string[];
 }
 
 export function MemberList({
   members,
+  myUserId,
   hostId,
   leaderId,
   insights,
+  sosUserIds,
   nowMs,
   units,
   onSelectMember,
   selectedIds,
 }: MemberListProps) {
   const selected = useMemo(() => new Set(selectedIds ?? []), [selectedIds]);
-  const sorted = useMemo(
-    () => [...members].sort((a, b) => a.name.localeCompare(b.name)),
-    [members],
-  );
+  const sos = useMemo(() => new Set(sosUserIds), [sosUserIds]);
+  const sorted = useMemo(() => sortMembers(members, insights, sos), [members, insights, sos]);
   if (sorted.length === 0) {
     return (
       <View style={styles.empty}>
         <WaitingPeepArt width={84} />
-        <Text style={styles.emptyText}>No members yet — invite your buds from the map</Text>
+        <Text style={typeScale.rowSub}>No one here yet — invite your buds.</Text>
       </View>
     );
   }
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.content}
-    >
+    <View>
       {sorted.map((m) => (
-        <MemberCard
+        <MemberRow
           key={m.userId}
           member={m}
-          isHost={m.userId === hostId}
-          isLeader={m.userId === leaderId}
-          insight={insights[m.userId]}
-          nowMs={nowMs}
-          units={units}
+          value={m.role === "spectator" ? null : memberValue(insights[m.userId], units)}
+          meta={memberMeta(m, insights[m.userId], units, nowMs, {
+            isMe: m.userId === myUserId,
+            isHost: m.userId === hostId,
+            isLeader: m.userId === leaderId,
+            sos: sos.has(m.userId),
+          })}
+          isMe={m.userId === myUserId}
+          sos={sos.has(m.userId)}
+          faded={(() => {
+            const s = presenceOf(m, nowMs);
+            return s === "offline" || s === "reconnecting";
+          })()}
           selected={selected.has(m.userId)}
           onSelectMember={onSelectMember}
         />
       ))}
-    </ScrollView>
+    </View>
   );
 }
 
-const MemberCard = memo(function MemberCard({
+const MemberRow = memo(function MemberRow({
   member: m,
-  isHost,
-  isLeader,
-  insight,
-  nowMs,
-  units,
+  value,
+  meta,
+  isMe,
+  sos,
+  faded,
   selected,
   onSelectMember,
 }: {
   member: MemberLive;
-  isHost: boolean;
-  isLeader: boolean;
-  insight: MemberInsight | undefined;
-  nowMs: number;
-  units: DistanceUnit;
+  value: string | null;
+  meta: string;
+  isMe: boolean;
+  sos: boolean;
+  faded: boolean;
   selected: boolean;
   onSelectMember?: (userId: string) => void;
 }) {
-  const state = presenceOf(m, nowMs);
-  const extra = m.role === "spectator" ? null : insightLine(insight, units);
+  const name = isMe ? `${m.name} (you)` : m.name;
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.card,
-        selected && styles.cardSelected,
-        pressed && onSelectMember && styles.cardPressed,
+        styles.row,
+        selected && styles.rowSelected,
+        sos && styles.rowSos,
+        pressed && onSelectMember && styles.pressed,
       ]}
       disabled={!onSelectMember}
       accessibilityRole={onSelectMember ? "button" : undefined}
-      accessibilityLabel={onSelectMember ? `View ${m.name}` : undefined}
-      accessibilityHint={extra ?? undefined}
+      accessibilityLabel={`${name}, ${meta}${value ? `, ${value}` : ""}`}
+      accessibilityHint={onSelectMember ? "Opens their details" : undefined}
       accessibilityState={onSelectMember ? { selected } : undefined}
       testID={onSelectMember ? `member-card-${m.userId}` : undefined}
       onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
     >
-      <View style={styles.cardHeader}>
+      {/* Ring in the member's map color ties the row to their marker. */}
+      <View style={[styles.avatarRing, { borderColor: colorForUser(m.userId) }, faded && styles.faded]}>
         <PeepAvatar seed={m.userId} size={40} />
-        <View style={styles.cardTitle}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>
-              {m.name}
-            </Text>
-            {isLeader && (
-              <AppSymbol
-                name={icons.star}
-                fallback={icons.star.fallback}
-                size={12}
-                tintColor={colors.warning}
-              />
-            )}
-          </View>
-          {isHost && <Text style={styles.hostBadge}>HOST</Text>}
-        </View>
       </View>
-      <Text style={styles.status} numberOfLines={1}>
-        {m.role === "spectator" ? "Spectator" : presenceLabel(state, m, nowMs)}
-      </Text>
-      {extra && (
-        <Text style={styles.insight} numberOfLines={1}>
-          {extra}
+      <View style={styles.body}>
+        <Text style={typeScale.rowTitle} numberOfLines={1}>
+          {name}
         </Text>
-      )}
+        <Text style={[typeScale.rowSub, sos && styles.sosText]} numberOfLines={1}>
+          {meta}
+        </Text>
+      </View>
+      {value ? <Text style={[typeScale.value, styles.value]}>{value}</Text> : null}
     </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 20, gap: 8, alignItems: "flex-start" },
-  empty: { paddingHorizontal: 16, paddingVertical: 10, alignItems: "center", gap: 8 },
-  emptyText: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: "transparent",
-    borderWidth: 2,
-    borderRadius: radius.lg,
+  empty: { paddingVertical: space.md, alignItems: "center", gap: space.sm },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    minHeight: 72,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    width: 184,
-    flexShrink: 0,
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: "transparent",
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  /** Focused card: bright border like Uber's selected ride row. Border width
-  stays 2 in both states (transparent when idle) so selection never shifts
-  layout — same no-mutation rule as the tab pill + avatar picker. */
-  cardSelected: { borderColor: colors.text },
-  cardPressed: { opacity: 0.8 },
-  cardTitle: { flex: 1, flexShrink: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  name: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 14, flexShrink: 1 },
-  hostBadge: {
-    color: colors.warning,
-    fontSize: 9,
-    fontFamily: fontFamily.extraBold,
-    letterSpacing: 0.5,
+  // Uber's selected ride row: a white border, no layout shift (border is
+  // always laid out, transparent when idle).
+  rowSelected: { borderColor: colors.text },
+  rowSos: { borderColor: colors.danger },
+  pressed: { opacity: 0.75 },
+  avatarRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  leaderBadge: { color: colors.warning, fontSize: 12 },
-  status: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, marginTop: 3 },
-  insight: {
-    color: colors.accent,
-    fontSize: 12,
-    marginTop: 2,
-    fontFamily: fontFamily.semiBold,
-  },
+  faded: { opacity: 0.45 },
+  body: { flex: 1, flexShrink: 1, gap: 2 },
+  sosText: { color: colors.danger, fontFamily: fontFamily.semiBold },
+  value: { marginLeft: space.sm },
 });
