@@ -57,6 +57,9 @@ function createErrorMessage(error: RpcError): string {
 export default function CreateRoomScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
+  // Asked here only while no name is set (frozen at mount so the field
+  // doesn't vanish after the first letter).
+  const [askName] = useState(() => displayName.trim().length === 0);
   // Trip templates arrive as validated params (Trips tab cards); direct
   // entry falls back to the standard defaults. Prefilled values stay fully
   // editable — presets suggest, never lock.
@@ -128,6 +131,20 @@ export default function CreateRoomScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {askName && (
+          <View style={styles.nameBlock}>
+            <TextField
+              value={displayName}
+              onChangeText={(t) => useSessionStore.getState().setDisplayName(t)}
+              placeholder="Your name"
+              maxLength={24}
+              autoCapitalize="words"
+              accessibilityLabel="Your name"
+              testID="create-your-name"
+            />
+            <Text style={[typeScale.meta, styles.nameHint]}>Your buds see this name.</Text>
+          </View>
+        )}
         <TextField
           value={name}
           onChangeText={setName}
@@ -255,6 +272,8 @@ export default function CreateRoomScreen() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
+  nameBlock: { marginBottom: space.md },
+  nameHint: { marginTop: space.xs },
   pressed: { opacity: 0.7 },
   destCard: {
     marginTop: space.md,

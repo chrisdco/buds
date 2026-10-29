@@ -66,6 +66,8 @@ export const icons = {
   group: { ios: "person.2.fill", android: "group", fallback: "◎" },
   code: { ios: "number", android: "tag", fallback: "#" },
   check: { ios: "checkmark", android: "check", fallback: "✓" },
+  expand: { ios: "chevron.down", android: "expand_more", fallback: "▾" },
+  collapse: { ios: "chevron.up", android: "expand_less", fallback: "▴" },
 } as const;
 
 export type IconName = keyof typeof icons;

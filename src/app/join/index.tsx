@@ -1,12 +1,12 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { IconTile, NavHeader, SelectableRow, StickyFooter } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { Button, ErrorText, Screen } from "@/components/ui";
+import { Button, ErrorText, Screen, TextField } from "@/components/ui";
 import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { typeScale } from "@/constants/typography";
@@ -20,6 +20,11 @@ import type { MemberRole, RpcError } from "@/types/contracts";
 export default function JoinRoomScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
+  const { scan } = useLocalSearchParams<{ scan?: string }>();
+  // Asked here, at the moment of need, only while no name is set yet; the
+  // field stays put while typing (frozen at mount) so it doesn't vanish
+  // after the first letter.
+  const [askName] = useState(() => displayName.trim().length === 0);
   const [code, setCode] = useState("");
   const [role, setRole] = useState<MemberRole>("traveler");
   const [busy, setBusy] = useState(false);
@@ -83,6 +88,14 @@ export default function JoinRoomScreen() {
     setScanning(true);
   };
 
+  // Home's "Scan QR" tile opens straight into the camera. Deferred to a
+  // microtask: setting state synchronously in an effect is a cascading-render
+  // hazard (same rule as the room screen's destDraft hand-off).
+  useEffect(() => {
+    if (scan === "1") queueMicrotask(() => void startScan());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onScanned = (data: string) => {
     if (scanHandled.current) return;
     const scanned = parseInviteCode(data);
@@ -115,6 +128,20 @@ export default function JoinRoomScreen() {
       ) : (
         <>
           <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+            {askName && (
+              <View style={styles.nameBlock}>
+                <TextField
+                  value={displayName}
+                  onChangeText={(t) => useSessionStore.getState().setDisplayName(t)}
+                  placeholder="Your name"
+                  maxLength={24}
+                  autoCapitalize="words"
+                  accessibilityLabel="Your name"
+                  testID="join-name"
+                />
+                <Text style={[typeScale.meta, styles.nameHint]}>Your buds see this name.</Text>
+              </View>
+            )}
             {/* One field, its tools inside it: scan sits at the trailing edge
             (Uber nests Later inside the search box the same way). */}
             <View style={styles.codeBox}>
@@ -129,7 +156,7 @@ export default function JoinRoomScreen() {
                 placeholderTextColor={colors.textDim}
                 autoCapitalize="characters"
                 autoCorrect={false}
-                autoFocus
+                autoFocus={!askName}
                 maxLength={CODE_LENGTH}
                 returnKeyType="go"
                 onSubmitEditing={() => {
@@ -261,6 +288,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   pasteText: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold },
+  nameBlock: { marginBottom: space.md },
+  nameHint: { marginTop: space.xs },
   joinAsTitle: { marginTop: space.xl, marginBottom: space.sm },
   scanWrap: { flex: 1 },
   scannerBox: {

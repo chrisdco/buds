@@ -1,13 +1,15 @@
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
+import { IconTile, ListRow, NavHeader } from "@/components/layout";
+import { Button, Chip, ErrorText, Screen } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors, radius } from "@/constants/theme";
+import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { typeScale } from "@/constants/typography";
 import { formatDistanceM } from "@/lib/geo";
 import { destCreateParams } from "@/lib/tripPresets";
 import { timeSlots, type TimeSlot } from "@/lib/planned";
@@ -41,6 +43,9 @@ export default function PlanTripScreen() {
   const [saveSlot, setSaveSlot] = useState<"home" | "work" | null>(null);
   const [later, setLater] = useState(whenParam === "later");
   const [slotId, setSlotId] = useState<string>("1h");
+  // "Later" from Home arrives with the time picker already open.
+  const [whenOpen, setWhenOpen] = useState(whenParam === "later");
+  const [fieldFocused, setFieldFocused] = useState(false);
   // Slots snapshot when Later arms, deferred to a microtask: consuming
   // the clock synchronously in an effect is a cascading-render hazard
   // (same rule as the room screen's destDraft handoff).
@@ -159,110 +164,149 @@ export default function PlanTripScreen() {
 
   const pickSaved = (ref: PlaceRef) => pick({ ...ref, id: `saved-${ref.lat}-${ref.lng}`, distanceM: null });
 
+  const slotLabel = later ? (slots.find((s) => s.id === slotId)?.label ?? "Later") : "Now";
+  const clearQuery = () => {
+    requestId.current += 1;
+    setQuery("");
+    setResults([]);
+    setSearching(false);
+    setSearched(false);
+    setError(null);
+  };
+
   return (
     <Screen>
+      <NavHeader title="Plan your trip" />
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Title>Plan your trip</Title>
-          {saveSlot && (
-            <Text style={styles.arming}>Pick a place to save as {saveSlot === "home" ? "Home" : "Work"}</Text>
-          )}
-        </View>
-
-        {/* Uber "Later": same search, deferred start. Preset slots only —
-        no custom picker (one fewer native dependency). */}
+        {/* Uber "Pick-up now ▾": one chip that opens the time choices. */}
         <View style={styles.whenRow}>
-          <Chip
-            label="Now"
-            selected={!later}
-            testID="plan-when-now"
-            a11yLabel="Plan for now"
-            onPress={() => setLater(false)}
-          />
-          <Chip
-            label="Later"
-            selected={later}
-            testID="plan-when-later"
-            a11yLabel="Schedule for later"
-            onPress={() => setLater(true)}
-          />
+          <Pressable
+            style={({ pressed }) => [styles.whenChip, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`When: ${slotLabel}`}
+            accessibilityHint="Choose now or a reminder time"
+            accessibilityState={{ expanded: whenOpen }}
+            testID="plan-when"
+            onPress={() => setWhenOpen((o) => !o)}
+          >
+            <AppSymbol name={icons.clock} fallback={icons.clock.fallback} size={18} tintColor={colors.text} />
+            <Text style={styles.whenText}>{slotLabel}</Text>
+            <AppSymbol
+              name={whenOpen ? icons.collapse : icons.expand}
+              fallback={(whenOpen ? icons.collapse : icons.expand).fallback}
+              size={18}
+              tintColor={colors.text}
+            />
+          </Pressable>
         </View>
-        {later && (
-          <View style={styles.whenRow}>
-            {slots.map((s) => (
-              <Chip
-                key={s.id}
-                label={s.label}
-                selected={s.id === slotId}
-                testID={`plan-slot-${s.id}`}
-                onPress={() => setSlotId(s.id)}
-              />
-            ))}
+        {whenOpen && (
+          <View style={styles.slotRow}>
+            <Chip
+              label="Now"
+              selected={!later}
+              testID="plan-when-now"
+              a11yLabel="Plan for now"
+              onPress={() => {
+                setLater(false);
+                setWhenOpen(false);
+              }}
+            />
+            <Chip
+              label="Later"
+              selected={later}
+              testID="plan-when-later"
+              a11yLabel="Schedule for later"
+              onPress={() => setLater(true)}
+            />
+            {later &&
+              slots.map((s) => (
+                <Chip
+                  key={s.id}
+                  label={s.label}
+                  selected={s.id === slotId}
+                  testID={`plan-slot-${s.id}`}
+                  onPress={() => {
+                    setSlotId(s.id);
+                    setWhenOpen(false);
+                  }}
+                />
+              ))}
           </View>
         )}
 
-        <TextField
-          value={query}
-          onChangeText={(t) => {
-            setQuery(t);
-            if (t.trim().length < MIN_QUERY) {
-              requestId.current += 1;
-              setResults([]);
-              setSearching(false);
-              setSearched(false);
-              setError(null);
-            }
-          }}
-          placeholder="Where to?"
-          autoFocus
-          returnKeyType="search"
-          testID="plan-search-field"
-        />
+        {saveSlot && (
+          <Text style={[typeScale.meta, styles.arming]}>
+            Pick a place to save as {saveSlot === "home" ? "Home" : "Work"}
+          </Text>
+        )}
 
-        <View style={styles.savedRow}>
-          <Pressable
-            style={({ pressed }) => [styles.savedChip, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel={saved.home ? `Go to saved home, ${saved.home.name}` : "Save a home place"}
+        {/* Uber's outlined Where-to card: icon, field, clear. */}
+        <View style={[styles.field, fieldFocused && styles.fieldFocused]}>
+          <AppSymbol name={icons.search} fallback={icons.search.fallback} size={20} tintColor={colors.textDim} />
+          <TextInput
+            value={query}
+            onChangeText={(t) => {
+              setQuery(t);
+              if (t.trim().length < MIN_QUERY) {
+                requestId.current += 1;
+                setResults([]);
+                setSearching(false);
+                setSearched(false);
+                setError(null);
+              }
+            }}
+            onFocus={() => setFieldFocused(true)}
+            onBlur={() => setFieldFocused(false)}
+            placeholder="Where to?"
+            placeholderTextColor={colors.textDim}
+            autoFocus
+            returnKeyType="search"
+            style={styles.fieldInput}
+            accessibilityLabel="Where to?"
+            testID="plan-search-field"
+          />
+          {query.length > 0 && (
+            <Pressable
+              style={styles.clearBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+              onPress={clearQuery}
+            >
+              <AppSymbol name={icons.close} fallback={icons.close.fallback} size={18} tintColor={colors.textDim} />
+            </Pressable>
+          )}
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.savedRow}
+          keyboardShouldPersistTaps="handled"
+        >
+          <SavedChip
+            icon={icons.home}
+            label={saved.home ? saved.home.name : "Add Home"}
+            a11yLabel={saved.home ? `Go to saved home, ${saved.home.name}` : "Save a home place"}
             testID="plan-saved-home"
             onPress={() => {
               if (saved.home) pickSaved(saved.home);
               else setSaveSlot((s) => (s === "home" ? null : "home"));
             }}
             onLongPress={() => setSaveSlot((s) => (s === "home" ? null : "home"))}
-          >
-            <AppSymbol
-              name={icons.home}
-              fallback={icons.home.fallback}
-              size={16}
-              tintColor={colors.accent}
-            />
-            <Text style={styles.savedText} numberOfLines={1}>
-              {saved.home ? saved.home.name : "Add Home"}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.savedChip, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel={saved.work ? `Go to saved work, ${saved.work.name}` : "Save a work place"}
+          />
+          <SavedChip
+            icon={icons.work}
+            label={saved.work ? saved.work.name : "Add Work"}
+            a11yLabel={saved.work ? `Go to saved work, ${saved.work.name}` : "Save a work place"}
             testID="plan-saved-work"
             onPress={() => {
               if (saved.work) pickSaved(saved.work);
               else setSaveSlot((s) => (s === "work" ? null : "work"));
             }}
             onLongPress={() => setSaveSlot((s) => (s === "work" ? null : "work"))}
-          >
-            <AppSymbol
-              name={icons.trips}
-              fallback={icons.trips.fallback}
-              size={16}
-              tintColor={colors.accent}
-            />
-            <Text style={styles.savedText} numberOfLines={1}>
-              {saved.work ? saved.work.name : "Add Work"}
-            </Text>
-          </Pressable>
-        </View>
+          />
+        </ScrollView>
 
         {searching && (
           <View
@@ -280,190 +324,196 @@ export default function PlanTripScreen() {
         {!searching && !searched && (
           <>
             {(recents === null || recents.length === 0) && (
-              <Text style={styles.caption}>Search above — recent places will show up here.</Text>
+              <Text style={[typeScale.rowSub, styles.caption]}>Recent places will show up here.</Text>
             )}
             {(recents ?? []).map((r, i) => (
-              <Pressable
+              <ListRow
                 key={`${r.lat}-${r.lng}-${i}`}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel={`Plan a trip to ${r.name}`}
+                leading={<PlaceLead distance={null} />}
+                title={r.name}
+                sub={r.address || null}
+                divider
+                a11yLabel={`Plan a trip to ${r.name}`}
                 testID={`plan-recent-${i}`}
                 onPress={() => pick({ ...r, id: `recent-${i}`, distanceM: null })}
-              >
-                <AppSymbol
-                  name={icons.history}
-                  fallback={icons.history.fallback}
-                  size={20}
-                  tintColor={colors.textDim}
-                />
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowName} numberOfLines={1}>
-                    {r.name}
-                  </Text>
-                  {r.address !== "" && (
-                    <Text style={styles.rowSub} numberOfLines={1}>
-                      {r.address}
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.chev}>›</Text>
-              </Pressable>
+              />
             ))}
           </>
         )}
 
-        {results.map((r, i) => {
-          const distLabel = r.distanceM != null ? formatDistanceM(r.distanceM, units) : null;
-          return (
-            <Pressable
-              key={r.id}
-              style={styles.row}
-              accessibilityRole="button"
-              accessibilityLabel={`Plan a trip to ${r.name}`}
-              testID={`plan-search-result-${i}`}
-              onPress={() => pick(r)}
-            >
-              {distLabel ? (
-                <Text style={styles.dist}>{distLabel}</Text>
-              ) : (
-                <AppSymbol
-                  name={icons.history}
-                  fallback={icons.history.fallback}
-                  size={20}
-                  tintColor={colors.textDim}
-                />
-              )}
-              <View style={styles.rowBody}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                  {r.name}
-                </Text>
-                {r.address !== "" && (
-                  <Text style={styles.rowSub} numberOfLines={1}>
-                    {r.address}
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.chev}>›</Text>
-            </Pressable>
-          );
-        })}
+        {results.map((r, i) => (
+          <ListRow
+            key={r.id}
+            leading={
+              <PlaceLead
+                distance={r.distanceM != null ? formatDistanceM(r.distanceM, units) : null}
+                search
+              />
+            }
+            title={r.name}
+            sub={r.address || null}
+            divider
+            a11yLabel={`Plan a trip to ${r.name}`}
+            testID={`plan-search-result-${i}`}
+            onPress={() => pick(r)}
+          />
+        ))}
 
         {!searching && searched && results.length === 0 && !error && (
-          <Text style={styles.caption} testID="plan-search-empty">
+          <Text style={[typeScale.rowSub, styles.caption]} testID="plan-search-empty">
             No places found — try another name.
           </Text>
         )}
         <ErrorText>{error}</ErrorText>
         {error && !searching && (
-          <Pressable
-            style={styles.retry}
-            accessibilityRole="button"
-            accessibilityLabel="Retry search"
+          <Button
+            label="Try again"
+            variant="ghost"
+            size="compact"
             testID="plan-search-retry"
             onPress={() => setRetryNonce((n) => n + 1)}
-          >
-            <Text style={styles.retryText}>Try again</Text>
-          </Pressable>
+          />
         )}
 
-        <Label>More options</Label>
-        <Pressable
-          style={styles.row}
-          accessibilityRole="button"
-          accessibilityLabel="Search without nearby bias, for a different city"
+        <ListRow
+          leading={<IconTile icon={icons.globe} round />}
+          title="Search in a different city"
+          sub={unbiased ? "Searching everywhere" : "Searching near you"}
+          divider
+          a11yLabel="Search without nearby bias, for a different city"
           testID="plan-different-city"
           onPress={() => {
             setUnbiased((u) => !u);
             setRetryNonce((n) => n + 1);
           }}
-        >
-          <AppSymbol
-            name={icons.search}
-            fallback={icons.search.fallback}
-            size={20}
-            tintColor={colors.textDim}
-          />
-          <View style={styles.rowBody}>
-            <Text style={styles.rowName}>Search in a different city</Text>
-            <Text style={styles.rowSub}>{unbiased ? "Bias off" : "Currently biased nearby"}</Text>
-          </View>
-        </Pressable>
-
-        <Pressable
-          style={styles.row}
-          accessibilityRole="button"
-          accessibilityLabel="Create a room first, then place the pin on the map"
-          accessibilityHint="Pin-placing needs a live room map"
+        />
+        <ListRow
+          leading={<IconTile icon={icons.pin} round />}
+          title="Set location on map"
+          sub="Starts a room — then long-press the map"
+          a11yLabel="Create a room first, then place the pin on the map"
           testID="plan-map"
           onPress={() => router.push("/create")}
-        >
-          <AppSymbol
-            name={icons.recenter}
-            fallback={icons.recenter.fallback}
-            size={20}
-            tintColor={colors.textDim}
-          />
-          <View style={styles.rowBody}>
-            <Text style={styles.rowName}>Set location on map</Text>
-            <Text style={styles.rowSub}>Create a room, then long-press to place the pin</Text>
-          </View>
-        </Pressable>
-
-        <Button label="Back" variant="ghost" onPress={() => router.back()} />
-        <View style={{ height: 24 }} />
+        />
+        <View style={{ height: space.xl }} />
       </ScrollView>
     </Screen>
   );
 }
 
+/** Fixed left column: clock (recent) or pin (result), distance under it. */
+function PlaceLead({ distance, search }: { distance: string | null; search?: boolean }) {
+  const icon = search ? icons.pin : icons.clock;
+  return (
+    <View style={styles.lead}>
+      <AppSymbol name={icon} fallback={icon.fallback} size={20} tintColor={colors.text} />
+      {distance ? (
+        <Text style={styles.leadDist} numberOfLines={1}>
+          {distance}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function SavedChip({
+  icon,
+  label,
+  a11yLabel,
+  testID,
+  onPress,
+  onLongPress,
+}: {
+  icon: (typeof icons)["home"] | (typeof icons)["work"];
+  label: string;
+  a11yLabel: string;
+  testID: string;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.savedChip, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      testID={testID}
+      onPress={onPress}
+      onLongPress={onLongPress}
+    >
+      {/* Uber's Home/Work tiles are the one place blue reads as identity. */}
+      <View style={styles.savedIcon}>
+        <AppSymbol name={icon} fallback={icon.fallback} size={16} tintColor={colors.accent} />
+      </View>
+      <Text style={styles.savedText} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: { marginTop: 24, marginBottom: 4 },
-  arming: { color: colors.accent, fontSize: 13, fontFamily: fontFamily.semiBold, marginTop: 4 },
-  whenRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 12 },
-  caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 12 },
   pressed: { opacity: 0.75 },
-  savedRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  savedChip: {
-    flex: 1,
+  whenRow: { flexDirection: "row" },
+  whenChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: radius.full,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  savedText: { color: colors.text, fontSize: 14, fontFamily: fontFamily.semiBold, flex: 1, flexShrink: 1 },
-  row: {
+  whenText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
+  slotRow: { flexDirection: "row", flexWrap: "wrap", marginTop: space.md },
+  arming: { marginTop: space.md, color: colors.text },
+  field: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 14,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginTop: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.surfaceAlt,
+    paddingHorizontal: space.md,
+    minHeight: 60,
   },
-  dist: {
+  fieldFocused: { borderColor: colors.text },
+  fieldInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 18,
+    fontFamily: fontFamily.medium,
+    paddingVertical: 12,
+  },
+  clearBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  savedRow: { gap: space.sm, paddingVertical: space.md },
+  savedChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 6,
+    maxWidth: 220,
+  },
+  savedIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    backgroundColor: "rgba(79,142,247,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  savedText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.medium, flexShrink: 1 },
+  caption: { marginTop: space.sm, marginBottom: space.sm },
+  lead: { width: 52, alignItems: "center", gap: 2 },
+  leadDist: {
     color: colors.textDim,
-    fontSize: 12,
-    fontFamily: fontFamily.semiBold,
-    minWidth: 48,
+    fontSize: 13,
+    fontFamily: fontFamily.medium,
     fontVariant: ["tabular-nums"],
   },
-  rowBody: { flex: 1, flexShrink: 1 },
-  rowName: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
-  rowSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 1 },
-  chev: { color: colors.textDim, fontSize: 20, fontFamily: fontFamily.regular },
-  retry: {
-    marginTop: 12,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignSelf: "flex-start",
-  },
-  retryText: { color: colors.text, fontSize: 14, fontFamily: fontFamily.semiBold },
 });

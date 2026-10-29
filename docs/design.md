@@ -19,20 +19,29 @@ White space, Unity).
    labels, neutral grays; blue survives only as information (live codes,
    ETAs, links). Type is Inter only (`constants/fonts.ts`, exact family
    names, no bare `fontWeight` — Android can't synthesize weights):
-   700 titles/codes, 600 labels/insights, 500 buttons, 400 body. Pills are
-   999px stadium; cards 16px.
+   700 titles/codes, 600 labels/insights, 500 buttons, 400 body. Sizes come
+   from the named scale in `constants/typography.ts` (display, navTitle,
+   section, sheetTitle, rowTitle, rowSub, value, meta) — nothing under 12pt
+   off the map. Chips/search are 999px stadium; CTAs are 56dp rounded
+   rectangles (Uber "Choose Auto"); cards 16px.
 3. **Confirms are native sheets, not system alerts.** Destructive or
    consequential choices go through `ConfirmSheet` (@expo/ui modal
    BottomSheet + scrim); `Alert.alert` remains only for pure notices.
    Callers `await requestConfirm()` — replacement resolves pending false,
    so no one hangs.
-4. **One primary action per view.** Map chrome is the exception (it is all
-   actions): pills share one language (same bg/border/radius/metrics).
+4. **One primary action per view, pinned.** The CTA sits in a
+   `StickyFooter` (or the room sheet's footer), names the choice ("Create
+   Converge room"), and never scrolls away. Pushed screens get `NavHeader`
+   (← + centered title) — no "Back" buttons at the bottom. Map chrome is
+   minimal: a back circle, recenter + SOS, everything else in the sheet.
 5. **Settings stay flat.** Toggle rows are full-bleed with hairline dividers,
    48px+ touch height; heterogeneous blocks separated by spacing, not boxes.
    Cards are earned (map overlays, member cards), not default.
-6. **Eyebrow labels for hierarchy.** `Label` (uppercase, letterspaced, dim)
-   introduces every section; values stay larger/brighter than their labels.
+6. **Sentence-case section heads for hierarchy.** `SectionHeader` (22pt
+   bold, Uber "For you") introduces sections; lists are `ListRow`s in a
+   `GroupedCard`, options are `SelectableRow`s (selected = 2px white
+   border). The deciding value (ETA, count) is the largest text in its row.
+   `Label` eyebrows remain only inside dense settings forms.
 7. **Sheets balance top-to-bottom.** Detail screens anchor actions at the
    bottom (`marginTop: auto`) so the primary CTA sits in the thumb zone;
    no top-packed voids.

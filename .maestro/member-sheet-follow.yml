@@ -3,8 +3,8 @@
 appId: com.buds.app
 ---
 - launchApp
-# Open the member detail sheet via the member list card (name is dynamic).
-- tapOn: "Maestro"
+# Open member detail via your own row in the sheet list.
+- tapOn: "Maestro \(you\)"
 - assertVisible: "Follow on map"
 # Follow pins the camera and shows the focus chip back on the map.
 - tapOn:

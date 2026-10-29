@@ -1,38 +1,44 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Button, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
-import { PresetCircles } from "@/features/trips/PresetCircles";
+import {
+  GroupedCard,
+  IconTile,
+  ListRow,
+  SectionHeader,
+  TabBarClearance,
+} from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors, radius } from "@/constants/theme";
+import { Button, ErrorText, Screen } from "@/components/ui";
+import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { PresetCircles } from "@/features/trips/PresetCircles";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
-import { TRIP_PRESETS, destCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
 import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { countdownLabel } from "@/lib/planned";
+import { TRIP_PRESETS, destCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { usePlacesStore } from "@/stores/placesStore";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 
-// Uber home grammar: search box as primary entry (real place search here,
-// not the code gate), one rejoin card max, "For you" grid, name + join as
-// the secondary row. Join-with-code is a button, not a search impersonator.
+// Uber home grammar (ref: Uber Home): the "Where to?" box is the one primary
+// entry with Later nested inside it; one grouped card holds the live room +
+// recent places + planned trips; "For you" is a circle grid of trip presets
+// and shortcuts (join, scan, new room). No form fields here — your name is
+// asked where it's needed (create / join).
 export default function HomeScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
-  const setDisplayName = useSessionStore((s) => s.setDisplayName);
   const sessionError = useSessionStore((s) => s.error);
   const recentPlaces = usePlacesStore((s) => s.recents);
   const planned = usePlannedStore((s) => s.planned);
   const [activeRoom, setActiveRoom] = useState<ActiveRoomRef | null>(null);
   const [rejoinBusy, setRejoinBusy] = useState(false);
   const [rejoinError, setRejoinError] = useState<string | null>(null);
-  const [nameNudge, setNameNudge] = useState(false);
   const [nowMs, setNowMs] = useState(0);
-  const nameRef = useRef<TextInput>(null);
   // Double-tap guard: priming awaits a sheet + user decision, so two rapid
   // taps would otherwise push duplicate routes.
   const navBusy = useRef(false);
@@ -45,8 +51,6 @@ export default function HomeScreen() {
       setNowMs(Date.now());
     }, []),
   );
-
-  const nameValid = displayName.trim().length > 0;
 
   // Location priming (double-prompt): our sheet explains the exchange at the
   // moment of intent; the OS dialog follows later at room join. Either button
@@ -64,31 +68,22 @@ export default function HomeScreen() {
     });
   };
 
-  const pressCreate = () => {
+  const guardedPush = (go: () => void) => {
     if (navBusy.current) return;
     navBusy.current = true;
     void (async () => {
       try {
         await primeLocation();
-        router.push("/create");
+        go();
       } finally {
         navBusy.current = false;
       }
     })();
   };
 
-  const pressJoin = () => {
-    if (navBusy.current) return;
-    navBusy.current = true;
-    void (async () => {
-      try {
-        await primeLocation();
-        router.push("/join");
-      } finally {
-        navBusy.current = false;
-      }
-    })();
-  };
+  const pressCreate = () => guardedPush(() => router.push("/create"));
+  const pressJoin = (scan = false) =>
+    guardedPush(() => router.push(scan ? { pathname: "/join", params: { scan: "1" } } : "/join"));
 
   const startFromPreset = (presetId: TripPresetId) => {
     const preset = TRIP_PRESETS.find((p) => p.id === presetId);
@@ -140,339 +135,188 @@ export default function HomeScreen() {
     }
   };
 
+  const recentShown = (recentPlaces ?? []).slice(0, 2);
+  const plannedShown = planned ?? [];
+  const hasGroup = activeRoom != null || recentShown.length > 0 || plannedShown.length > 0;
+
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <View style={styles.hero}>
-        <Title>Buds</Title>
-        <Text style={styles.tagline}>
-          Live maps for small groups — see your buds, converge, convoy.
-        </Text>
-      </View>
-
-      {/* Real search: places (Photon), not the code gate. Needs no name —
-      identity is asked at create/join time, never blocks exploring. */}
-      {/* Uber split: the box searches now, the Later pill schedules —
-      one row, two intents, no nested pressables (both taps stay isolated). */}
-      <View style={styles.searchRow}>
-        <Pressable
-          style={({ pressed }) => [styles.searchEntry, pressed && styles.pressed]}
-          accessibilityRole="search"
-          accessibilityLabel="Search for a destination"
-          accessibilityHint="Searches places, then creates a room around the pick"
-          testID="home-search"
-          onPress={() => router.push("/search")}
-        >
-          <AppSymbol
-            name={icons.search}
-            fallback={icons.search.fallback}
-            size={20}
-            tintColor={colors.textDim}
-          />
-          <Text style={styles.searchPlaceholder}>Where to?</Text>
-          <Text style={styles.searchChev}>›</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.laterPill, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Schedule for later"
-          accessibilityHint="Pick a place and a reminder time"
-          testID="home-later"
-          onPress={() => router.push({ pathname: "/search", params: { when: "later" } })}
-        >
-          <Text style={styles.laterText}>Later</Text>
-        </Pressable>
-      </View>
-
-      <Label>Your name</Label>
-      <TextField
-        inputRef={nameRef}
-        value={displayName}
-        onChangeText={(t) => {
-          setDisplayName(t);
-          if (t.trim().length > 0) setNameNudge(false);
-        }}
-        placeholder="e.g. Chris"
-        maxLength={24}
-        autoCapitalize="words"
-        returnKeyType="done"
-        testID="home-name"
-      />
-      {nameNudge && !nameValid && (
-        <Text style={styles.hint}>Enter your name first.</Text>
-      )}
-
-      {activeRoom && (
-        <>
-          <Label>Pick up where you left off</Label>
+        {/* Uber home: the search box IS the screen's one primary action,
+        with "Later" nested inside it (two pressables side by side in one
+        container, never nested, so both taps stay isolated). */}
+        <View style={styles.searchBox}>
           <Pressable
-            style={({ pressed }) => [styles.rejoinCard, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel={`Rejoin ${activeRoom.name}`}
-            accessibilityHint={`Code ${activeRoom.code}, joined as ${activeRoom.role}`}
-            testID="home-rejoin"
-            onPress={() => void rejoin()}
+            style={({ pressed }) => [styles.searchMain, pressed && styles.pressed]}
+            accessibilityRole="search"
+            accessibilityLabel="Where to? Search for a destination"
+            accessibilityHint="Searches places, then creates a room around the pick"
+            testID="home-search"
+            onPress={() => router.push("/search")}
           >
-            <View style={styles.rejoinIcon}>
-              {rejoinBusy ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <AppSymbol
-                  name={icons.history}
-                  fallback={icons.history.fallback}
-                  size={22}
-                  tintColor={colors.textDim}
-                />
-              )}
-            </View>
-            <View style={styles.rejoinBody}>
-              <Text style={styles.rejoinName} numberOfLines={1}>
-                {activeRoom.name}
-              </Text>
-              <Text style={styles.rejoinSub} numberOfLines={1}>
-                {activeRoom.code} · {activeRoom.role === "traveler" ? "Traveler" : "Spectator"}
-              </Text>
-            </View>
-            <Text style={styles.rejoinChev}>›</Text>
+            <AppSymbol name={icons.search} fallback={icons.search.fallback} size={24} tintColor={colors.text} />
+            <Text style={styles.searchPlaceholder}>Where to?</Text>
           </Pressable>
-          <ErrorText>{rejoinError}</ErrorText>
-        </>
-      )}
+          <Pressable
+            style={({ pressed }) => [styles.laterPill, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Schedule for later"
+            accessibilityHint="Pick a place and a reminder time"
+            testID="home-later"
+            onPress={() => router.push({ pathname: "/search", params: { when: "later" } })}
+          >
+            <AppSymbol name={icons.calendar} fallback={icons.calendar.fallback} size={18} tintColor={colors.text} />
+            <Text style={styles.laterText}>Later</Text>
+          </Pressable>
+        </View>
 
-      {(recentPlaces ?? []).length > 0 && (
-        <>
-          <Label>Recent places</Label>
-          {(recentPlaces ?? []).slice(0, 2).map((p, i) => (
-            <Pressable
-              key={`${p.lat}-${p.lng}-${i}`}
-              style={({ pressed }) => [styles.placeRow, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`Plan a trip to ${p.name}`}
-              testID={`home-recent-place-${i}`}
-              onPress={() => planToPlace(p)}
-            >
-              <View style={styles.rejoinIcon}>
-                <AppSymbol
-                  name={icons.history}
-                  fallback={icons.history.fallback}
-                  size={20}
-                  tintColor={colors.textDim}
-                />
-              </View>
-              <View style={styles.rejoinBody}>
-                <Text style={styles.rejoinName} numberOfLines={1}>
-                  {p.name}
-                </Text>
-                {p.address !== "" && (
-                  <Text style={styles.placeSub} numberOfLines={1}>
-                    {p.address}
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.rejoinChev}>›</Text>
-            </Pressable>
-          ))}
-        </>
-      )}
-
-      {(planned ?? []).length > 0 && (
-        <>
-          <Label>Planned</Label>
-          {(planned ?? []).map((t) => (
-            <View key={t.id} style={styles.plannedRow}>
-              <Pressable
-                style={({ pressed }) => [styles.plannedMain, pressed && styles.pressed]}
-                accessibilityRole="button"
-                accessibilityLabel={`Start trip to ${t.place.name} now`}
+        {/* One grouped card (Uber's recents block): the live room first,
+        then recent places, then planned trips — one row anatomy. */}
+        {hasGroup && (
+          <GroupedCard style={styles.group}>
+            {activeRoom && (
+              <ListRow
+                leading={
+                  <IconTile>
+                    {rejoinBusy ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <AppSymbol name={icons.group} fallback={icons.group.fallback} size={20} tintColor={colors.text} />
+                    )}
+                  </IconTile>
+                }
+                title={activeRoom.name}
+                sub={`Rejoin · ${activeRoom.role === "traveler" ? "Traveler" : "Spectator"}`}
+                chevron
+                divider={recentShown.length > 0 || plannedShown.length > 0}
+                a11yLabel={`Rejoin ${activeRoom.name}`}
+                a11yHint={`Code ${activeRoom.code}, joined as ${activeRoom.role}`}
+                testID="home-rejoin"
+                onPress={() => void rejoin()}
+              />
+            )}
+            {recentShown.map((p, i) => (
+              <ListRow
+                key={`${p.lat}-${p.lng}-${i}`}
+                icon={icons.clock}
+                title={p.name}
+                sub={p.address || null}
+                chevron
+                divider={i < recentShown.length - 1 || plannedShown.length > 0}
+                a11yLabel={`Plan a trip to ${p.name}`}
+                testID={`home-recent-place-${i}`}
+                onPress={() => planToPlace(p)}
+              />
+            ))}
+            {plannedShown.map((t, i) => (
+              <ListRow
+                key={t.id}
+                icon={icons.calendar}
+                title={t.place.name}
+                sub={`${nowMs === 0 ? "Scheduled" : countdownLabel(t.atMs, nowMs)}${t.notifId ? "" : " · no reminder"}`}
+                divider={i < plannedShown.length - 1}
+                a11yLabel={`Start trip to ${t.place.name} now`}
                 testID={`home-planned-start-${t.id}`}
                 onPress={() => planToPlace({ lat: t.place.lat, lng: t.place.lng, name: t.place.name })}
-              >
-                <View style={styles.rejoinBody}>
-                  <Text style={styles.rejoinName} numberOfLines={1}>
-                    {t.place.name}
-                  </Text>
-                  <Text style={styles.placeSub} numberOfLines={1}>
-                    {nowMs === 0 ? "Scheduled" : countdownLabel(t.atMs, nowMs)}
-                    {t.notifId ? "" : " · no reminder"}
-                  </Text>
-                </View>
-                <Text style={styles.rejoinChev}>›</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.plannedCancel, pressed && styles.pressed]}
-                accessibilityRole="button"
-                accessibilityLabel={`Cancel planned trip to ${t.place.name}`}
-                testID={`home-planned-cancel-${t.id}`}
-                hitSlop={12}
-                onPress={() => void usePlannedStore.getState().cancel(t.id)}
-              >
-                <Text style={styles.plannedCancelGlyph}>×</Text>
-              </Pressable>
-            </View>
-          ))}
-        </>
-      )}
-
-      <View style={styles.forYouHeader}>
-        <Label>For you</Label>
-        <Pressable
-          style={({ pressed }) => [styles.forYouArrow, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="See all trip options"
-          testID="home-foryou-all"
-          hitSlop={8}
-          onPress={() => router.push("/trips")}
-        >
-          <Text style={styles.forYouArrowGlyph}>›</Text>
-        </Pressable>
-      </View>
-      <PresetCircles onSelect={startFromPreset} />
-
-      <View style={styles.actions}>
-        <Button
-          label="Create a room"
-          testID="home-create"
-          onPress={() => {
-            if (!nameValid) {
-              setNameNudge(true);
-              nameRef.current?.focus();
-              return;
-            }
-            pressCreate();
-          }}
-        />
-        <Button
-          label="Join with code"
-          variant="ghost"
-          testID="home-join"
-          onPress={() => {
-            if (!nameValid) {
-              setNameNudge(true);
-              nameRef.current?.focus();
-              return;
-            }
-            setNameNudge(false);
-            pressJoin();
-          }}
-        />
-        {!nameValid && (
-          <Text style={styles.hint}>Enter your name to create or join a room.</Text>
+                trailing={
+                  <Pressable
+                    style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Cancel planned trip to ${t.place.name}`}
+                    testID={`home-planned-cancel-${t.id}`}
+                    hitSlop={8}
+                    onPress={() => void usePlannedStore.getState().cancel(t.id)}
+                  >
+                    <AppSymbol name={icons.close} fallback={icons.close.fallback} size={18} tintColor={colors.textDim} />
+                  </Pressable>
+                }
+              />
+            ))}
+          </GroupedCard>
         )}
-        <ErrorText>{sessionError}</ErrorText>
+        <ErrorText>{rejoinError}</ErrorText>
+
+        <SectionHeader title="For you" />
+        <PresetCircles
+          onSelect={startFromPreset}
+          extras={[
+            {
+              key: "join",
+              title: "Join",
+              icon: icons.code,
+              a11yHint: "Enter a 6-letter room code",
+              testID: "home-join",
+              onPress: () => pressJoin(),
+            },
+            {
+              key: "scan",
+              title: "Scan QR",
+              icon: icons.qr,
+              a11yHint: "Join by scanning an invite code",
+              testID: "home-scan",
+              onPress: () => pressJoin(true),
+            },
+            {
+              key: "new",
+              title: "New room",
+              icon: icons.plus,
+              a11yHint: "Start a blank room and pick everything yourself",
+              testID: "home-create",
+              onPress: () => pressCreate(),
+            },
+            {
+              key: "later",
+              title: "Plan later",
+              icon: icons.clock,
+              a11yHint: "Pick a place and get a reminder",
+              testID: "home-plan-later",
+              onPress: () => router.push({ pathname: "/search", params: { when: "later" } }),
+            },
+          ]}
+        />
+
         {sessionError && (
-          <Button
-            label="Retry connection"
-            variant="ghost"
-            onPress={() => void useSessionStore.getState().init()}
-          />
+          <View style={styles.sessionError}>
+            <ErrorText>{sessionError}</ErrorText>
+            <Button
+              label="Retry connection"
+              variant="ghost"
+              size="compact"
+              onPress={() => void useSessionStore.getState().init()}
+            />
+          </View>
         )}
-      </View>
-      {/* Clearance above the floating tab pill. */}
-      <View style={{ height: 110 }} />
+        <TabBarClearance />
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: 24, marginBottom: 12 },
-  tagline: {
-    color: colors.textDim,
-    fontSize: 15,
-    lineHeight: 21,
-    fontFamily: fontFamily.regular,
-  },
-  actions: { marginTop: 28 },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
-  searchEntry: {
-    flex: 1,
+  pressed: { opacity: 0.75 },
+  searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-  laterPill: {
+    marginTop: space.lg,
     backgroundColor: colors.surfaceAlt,
-    borderColor: colors.border,
-    borderWidth: 1,
     borderRadius: radius.full,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    minHeight: 64,
+    paddingLeft: space.lg,
+    paddingRight: space.sm,
   },
-  laterText: { color: colors.text, fontSize: 14, fontFamily: fontFamily.semiBold },
-  searchPlaceholder: {
-    color: colors.textDim,
-    fontSize: 16,
-    fontFamily: fontFamily.regular,
-    flex: 1,
-    flexShrink: 1,
-  },
-  searchChev: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
-  placeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  placeSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  plannedRow: {
+  searchMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14, minHeight: 64 },
+  searchPlaceholder: { color: colors.text, fontSize: 20, fontFamily: fontFamily.medium },
+  laterPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    backgroundColor: colors.bg,
+    borderRadius: radius.full,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  plannedMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  plannedCancel: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  plannedCancelGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
-  forYouHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  forYouArrow: { padding: 8 },
-  forYouArrowGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
-  rejoinCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: 14,
-  },
-  rejoinIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rejoinBody: { flex: 1, flexShrink: 1 },
-  rejoinName: { color: colors.text, fontSize: 17, fontFamily: fontFamily.semiBold },
-  rejoinSub: {
-    color: colors.accent,
-    fontSize: 13,
-    fontFamily: fontFamily.bold,
-    letterSpacing: 1,
-    fontVariant: ["tabular-nums"],
-    marginTop: 2,
-  },
-  rejoinChev: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
-  pressed: { opacity: 0.75 },
-  hint: {
-    color: colors.textDim,
-    fontSize: 13,
-    marginTop: 10,
-    textAlign: "center",
-    fontFamily: fontFamily.regular,
-  },
+  laterText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
+  group: { marginTop: space.lg },
+  closeBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  sessionError: { marginTop: space.lg },
 });

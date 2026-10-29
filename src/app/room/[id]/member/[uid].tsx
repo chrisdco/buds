@@ -2,7 +2,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { Button, Label, Screen, Title } from "@/components/ui";
+import { NavHeader } from "@/components/layout";
+import { Button, Label, Screen } from "@/components/ui";
+import { typeScale } from "@/constants/typography";
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
@@ -41,10 +43,10 @@ export default function MemberDetailScreen() {
   if (!member) {
     return (
       <Screen>
+        <NavHeader />
         <View style={styles.center}>
-          <Title>Member not found</Title>
+          <Text style={typeScale.section}>Member not found</Text>
           <Text style={styles.sub}>They may have left the room.</Text>
-          <Button label="Back to map" variant="ghost" onPress={() => router.back()} />
         </View>
       </Screen>
     );
@@ -71,11 +73,12 @@ export default function MemberDetailScreen() {
 
   return (
     <Screen>
+      <NavHeader />
       <View style={styles.body}>
         <View>
           <View style={styles.header}>
-            <PeepAvatar seed={member.userId} size={64} />
-            <Title>{member.name}</Title>
+            <PeepAvatar seed={member.userId} size={72} />
+            <Text style={typeScale.display}>{member.name}</Text>
             <Text style={styles.sub}>
               {[
                 member.role === "spectator" ? "Spectator" : presenceLabel(state, member, nowMs),
@@ -135,12 +138,6 @@ export default function MemberDetailScreen() {
             variant="ghost"
             testID="member-follow"
             onPress={toggleFollow}
-          />
-          <Button
-            label="Back to map"
-            variant="ghost"
-            testID="member-back"
-            onPress={() => router.back()}
           />
         </View>
       </View>

@@ -6,11 +6,15 @@
 appId: com.buds.app
 ---
 - launchApp
-# Long-press near map center to drop a destination (host-only confirm dialog).
+# Long-press seeds adjust-pin mode; confirm opens the host-only sheet.
 - longPressOn:
     point: "50%,40%"
+- assertVisible: "Drag the map to fine-tune the pin"
+- tapOn:
+    id: "adjust-confirm"
 - assertVisible: "Set room destination?"
 - tapOn: "Set destination"
-# Route reconciliation fetches OSRM, then renders pin + ETA + Navigate.
-- assertVisible: "Navigate"
-  timeout: 30000
+# Route reconciliation fetches OSRM; the pinned CTA becomes Navigate.
+- assertVisible:
+    id: "room-cta-navigate"
+    timeout: 30000
