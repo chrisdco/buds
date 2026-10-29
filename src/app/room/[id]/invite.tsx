@@ -1,16 +1,15 @@
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
-import { Button, LoadingView, Screen, Title } from "@/components/ui";
+import { NavHeader, StickyFooter } from "@/components/layout";
+import { Button, LoadingView, Screen } from "@/components/ui";
 import { colors, radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useRoomStore } from "@/stores/roomStore";
 
 export default function InviteScreen() {
-  const router = useRouter();
   const room = useRoomStore((s) => s.room);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,8 +44,8 @@ export default function InviteScreen() {
 
   return (
     <Screen>
+      <NavHeader title="Invite your buds" />
       <View style={styles.header}>
-        <Title>Invite your buds</Title>
         <Text style={styles.sub}>
           Scan the QR with a phone camera, or share the code.
         </Text>
@@ -65,25 +64,22 @@ export default function InviteScreen() {
           : "No expiry — works until the host ends the room"}
       </Text>
 
-      <Button
-        label={copied ? "Copied!" : "Copy code"}
-        variant="ghost"
-        testID="invite-copy"
-        onPress={() => copyCode(room.code)}
-      />
-      <Button label="Share invite" testID="invite-share" onPress={share} />
-      <Button
-        label="Back to map"
-        variant="ghost"
-        testID="invite-back"
-        onPress={() => router.back()}
-      />
+      <View style={{ flex: 1 }} />
+      <StickyFooter>
+        <Button label="Share invite" testID="invite-share" onPress={share} />
+        <Button
+          label={copied ? "Copied!" : "Copy code"}
+          variant="ghost"
+          testID="invite-copy"
+          onPress={() => copyCode(room.code)}
+        />
+      </StickyFooter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { marginTop: 24, marginBottom: 18 },
+  header: { marginBottom: 18 },
   sub: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular, marginTop: 4 },
   qrBox: {
     alignSelf: "center",

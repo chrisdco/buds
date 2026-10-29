@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { useState } from "react";
 import {
@@ -11,7 +10,8 @@ import {
   View,
 } from "react-native";
 
-import { Button, Chip, ErrorText, Label, Screen, Title } from "@/components/ui";
+import { NavHeader } from "@/components/layout";
+import { Button, Chip, ErrorText, Label, Screen } from "@/components/ui";
 import { colorForUser, colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { extendedExpiryIso } from "@/lib/expiry";
@@ -29,7 +29,6 @@ import type { RoomMode } from "@/types/contracts";
 const MODES = Object.values(modeRegistry);
 
 export default function RoomSettingsScreen() {
-  const router = useRouter();
   const room = useRoomStore((s) => s.room);
   const myMemberId = useRoomStore((s) => s.myMemberId);
   const destRoom = useRoomStore((s) => s.destRoom);
@@ -128,9 +127,9 @@ export default function RoomSettingsScreen() {
 
   return (
     <Screen>
+      <NavHeader title="Room settings" />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Title>Room settings</Title>
           <Text style={styles.sub}>
             {room.name} · code {room.code}
             {isHost ? "" : " · host controls are read-only"}
@@ -327,6 +326,8 @@ export default function RoomSettingsScreen() {
         ))}
 
         <ErrorText>{error}</ErrorText>
+        {/* Destructive action sits alone at the end, spaced off the rest. */}
+        {isHost && <View style={{ height: 24 }} />}
         {isHost && (
           <Button
             label="End room for everyone"
@@ -335,8 +336,7 @@ export default function RoomSettingsScreen() {
             onPress={endRoom}
           />
         )}
-        <Button label="Back to map" variant="ghost" onPress={() => router.back()} />
-        <View style={{ height: 24 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </Screen>
   );

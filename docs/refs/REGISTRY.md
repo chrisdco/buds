@@ -11,6 +11,11 @@ for that turn only — nothing persists until the file lands here.
 | Reserve / schedule sheet | — | — | awaiting screenshot (date/time picker, pickup window, SET PICKUP TIME, fare review, SCHEDULE confirm) |
 | Upcoming / edit-cancel | — | — | awaiting screenshot (edit time, cancel ride rows) |
 
+Local originals (not in the repo — it's public and they show real
+addresses): `C:\Users\admin\Downloads\uber\` — Home, Plan your trip, and two
+"Choose a trip" sheets. Full screen-by-screen critique against them:
+[`../ui-critique.md`](../ui-critique.md) (Oct 2026).
+
 Conventions: UI is taken at face value from the image; anything the
 pixels can't answer (states, errors, empty lists) falls back to the
 live help docs, noted as such in the distillation.

@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
-import { PeepAvatar } from "@/components/PeepAvatar";
-import { colors, radius } from "@/constants/theme";
-import { fontFamily } from "@/constants/fonts";
+import { IconTile, ListRow, NavHeader, SelectableRow, StickyFooter } from "@/components/layout";
+import { AppSymbol, icons } from "@/components/Symbol";
+import { Button, Chip, ErrorText, Screen, TextField } from "@/components/ui";
+import { colors, radius, space } from "@/constants/theme";
+import { typeScale } from "@/constants/typography";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { TRIP_PRESETS, parseCreateParams } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -13,12 +14,20 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { RoomMode, RpcError } from "@/types/contracts";
 
-const MODES: { id: RoomMode; label: string; blurb: string; tag?: string }[] = [
-  { id: "solo", label: "Solo", blurb: "Just share where you are. Others can watch.", tag: "Experimental" },
-  { id: "converge", label: "Converge", blurb: "Everyone heads to one shared destination.", tag: "Popular" },
-  { id: "multitrack", label: "Multi-track", blurb: "Each traveler has their own destination.", tag: "Experimental" },
-  { id: "leader", label: "Follow leader", blurb: "One leader, everyone keeps up." },
-  { id: "formation", label: "Formation", blurb: "Stay within a set radius of the group." },
+// Uber ride-list grammar: icon left, name + one line of meta, the popular
+// option badged. Internal maturity flags stay out of the UI.
+const MODES: {
+  id: RoomMode;
+  label: string;
+  blurb: string;
+  tag?: string;
+  icon: (typeof icons)[keyof typeof icons];
+}[] = [
+  { id: "converge", label: "Converge", blurb: "Everyone heads to one shared destination.", tag: "Popular", icon: icons.flag },
+  { id: "leader", label: "Follow leader", blurb: "One leader, everyone keeps up.", icon: icons.star },
+  { id: "formation", label: "Formation", blurb: "Stay within a set radius of the group.", icon: icons.group },
+  { id: "multitrack", label: "Multi-track", blurb: "Each traveler has their own destination.", icon: icons.trips },
+  { id: "solo", label: "Solo", blurb: "Just share where you are. Others can watch.", icon: icons.profile },
 ];
 
 const DURATIONS: { label: string; hours: number | null }[] = [
@@ -48,8 +57,9 @@ function createErrorMessage(error: RpcError): string {
 export default function CreateRoomScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
-  const deviceId = useSessionStore((s) => s.deviceId);
-  const avatar = useSessionStore((s) => s.avatar);
+  // Asked here only while no name is set (frozen at mount so the field
+  // doesn't vanish after the first letter).
+  const [askName] = useState(() => displayName.trim().length === 0);
   // Trip templates arrive as validated params (Trips tab cards); direct
   // entry falls back to the standard defaults. Prefilled values stay fully
   // editable — presets suggest, never lock.
@@ -108,262 +118,188 @@ export default function CreateRoomScreen() {
     }
   };
 
+  const modeLabel = MODES.find((m) => m.id === mode)?.label ?? "";
+  const summary = `${limit} traveler${limit === 1 ? "" : "s"} · ${
+    durationHours == null ? "no expiry" : `expires in ${durationHours}h`
+  }`;
+
   return (
     <Screen>
-      <View style={styles.header}>
-        <Title>New room</Title>
-        {presetTitle && <Text style={styles.presetHint}>{presetTitle} preset — tweak anything</Text>}
-      </View>
-
-      {/* Gather-your-buds strip (Open Peeps faces, fixed seeds): the room
-      starts with you, and every seat after that is a bud with a code. */}
-      <View style={styles.crew} accessibilityLabel="Gather your buds">
-        <View style={styles.crewStack}>
-          <PeepAvatar
-            seed={deviceId || "you"}
-            face={typeof avatar === "number" ? avatar : undefined}
-            size={44}
-          />
-          <View style={styles.crewOverlap}>
-            <PeepAvatar seed="buds-crew-b" size={44} />
+      <NavHeader title={presetTitle ? `${presetTitle} trip` : "New room"} />
+      <ScrollView
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {askName && (
+          <View style={styles.nameBlock}>
+            <TextField
+              value={displayName}
+              onChangeText={(t) => useSessionStore.getState().setDisplayName(t)}
+              placeholder="Your name"
+              maxLength={24}
+              autoCapitalize="words"
+              accessibilityLabel="Your name"
+              testID="create-your-name"
+            />
+            <Text style={[typeScale.meta, styles.nameHint]}>Your buds see this name.</Text>
           </View>
-          <View style={styles.crewOverlap}>
-            <PeepAvatar seed="buds-crew-c" size={44} />
+        )}
+        <TextField
+          value={name}
+          onChangeText={setName}
+          maxLength={60}
+          placeholder="Room name"
+          returnKeyType="done"
+          accessibilityLabel="Room name"
+          testID="create-name"
+        />
+
+        {dest && (
+          <View style={styles.destCard}>
+            <ListRow
+              icon={icons.pin}
+              title={dest.label}
+              sub="Fine-tune the pin after creating"
+              trailing={
+                <Pressable
+                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove destination ${dest.label}`}
+                  testID="create-dest-clear"
+                  hitSlop={8}
+                  onPress={() => setDest(undefined)}
+                >
+                  <AppSymbol
+                    name={icons.close}
+                    fallback={icons.close.fallback}
+                    size={20}
+                    tintColor={colors.textDim}
+                  />
+                </Pressable>
+              }
+            />
           </View>
-        </View>
-        <Text style={styles.crewText}>Gather your buds — they join with your code.</Text>
-      </View>
+        )}
 
-      <Label>Room name</Label>
-      <TextField
-        value={name}
-        onChangeText={setName}
-        maxLength={60}
-        returnKeyType="done"
-        onSubmitEditing={() => void create()}
-        testID="create-name"
-      />
-
-      {dest && (
-        <>
-          <Label>Destination</Label>
-          <View style={styles.destRow}>
-            <View style={styles.destBody}>
-              <Text style={styles.destName} numberOfLines={1}>
-                {dest.label}
-              </Text>
-              <Text style={styles.blurb}>Fine-tune the pin after creating</Text>
-            </View>
-            <Pressable
-              style={({ pressed }) => [styles.destClear, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove destination ${dest.label}`}
-              testID="create-dest-clear"
-              hitSlop={8}
-              onPress={() => setDest(undefined)}
-            >
-              <Text style={styles.destClearGlyph}>×</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-
-      <Label>Mode</Label>
-      <View style={styles.modeList}>
-        {MODES.map((m) => {
-          const selected = m.id === mode;
-          return (
-            <Pressable
+        <Text style={[typeScale.sheetTitle, styles.chooseTitle]} accessibilityRole="header">
+          Choose a mode
+        </Text>
+        <View accessibilityRole="radiogroup">
+          {MODES.map((m) => (
+            <SelectableRow
               key={m.id}
-              style={({ pressed }) => [
-                styles.modeRow,
-                selected && styles.modeRowSelected,
-                pressed && styles.pressed,
-              ]}
-              accessibilityRole="radio"
-              accessibilityLabel={m.label}
-              accessibilityHint={m.blurb}
-              accessibilityState={{ selected }}
+              title={m.label}
+              meta={m.blurb}
+              badge={m.tag ?? null}
+              selected={m.id === mode}
+              leading={<IconTile icon={m.icon} round />}
+              a11yHint={m.blurb}
               testID={`create-mode-${m.id}`}
               onPress={() => setMode(m.id)}
+            />
+          ))}
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingText}>
+            <Text style={typeScale.rowTitle}>Travelers</Text>
+            <Text style={typeScale.rowSub}>Who can share location. Spectators unlimited.</Text>
+          </View>
+          <View style={styles.stepper}>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Decrease traveler limit"
+              accessibilityHint={`Currently ${limit} of 10`}
+              testID="create-limit-minus"
+              hitSlop={8}
+              onPress={() => setLimit((v) => Math.max(1, v - 1))}
             >
-              <View style={styles.modeBody}>
-                <View style={styles.modeTitleRow}>
-                  <Text style={[styles.modeTitle, selected && styles.modeTitleSelected]}>
-                    {m.label}
-                  </Text>
-                  {m.tag && (
-                    <View style={styles.modeTag}>
-                      <Text style={styles.modeTagText}>{m.tag}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.blurb}>{m.blurb}</Text>
-              </View>
-              <View
-                style={[styles.radio, selected && styles.radioSelected]}
-                accessibilityElementsHidden
-              >
-                {selected && <View style={styles.radioDot} />}
-              </View>
+              <AppSymbol name={icons.minus} fallback={icons.minus.fallback} size={18} tintColor={colors.text} />
             </Pressable>
-          );
-        })}
-      </View>
+            <Text
+              style={[typeScale.value, styles.stepValue]}
+              accessibilityLabel={`${limit} travelers`}
+              testID="create-limit-value"
+            >
+              {limit}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Increase traveler limit"
+              accessibilityHint={`Currently ${limit} of 10`}
+              testID="create-limit-plus"
+              hitSlop={8}
+              onPress={() => setLimit((v) => Math.min(10, v + 1))}
+            >
+              <AppSymbol name={icons.plus} fallback={icons.plus.fallback} size={18} tintColor={colors.text} />
+            </Pressable>
+          </View>
+        </View>
 
-      <Label>Traveler limit</Label>
-      <Text style={styles.caption}>How many people can share location. Spectators are unlimited.</Text>
-      <View style={styles.stepper}>
-        <Pressable
-          style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Decrease traveler limit"
-          accessibilityHint={`Currently ${limit} of 10`}
-          testID="create-limit-minus"
-          hitSlop={8}
-          onPress={() => setLimit((v) => Math.max(1, v - 1))}
-        >
-          <Text style={styles.stepBtnText}>−</Text>
-        </Pressable>
-        <Text
-          style={styles.stepValue}
-          accessibilityLabel={`${limit} travelers`}
-          testID="create-limit-value"
-        >
-          {limit}
-        </Text>
-        <Pressable
-          style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Increase traveler limit"
-          accessibilityHint={`Currently ${limit} of 10`}
-          testID="create-limit-plus"
-          hitSlop={8}
-          onPress={() => setLimit((v) => Math.min(10, v + 1))}
-        >
-          <Text style={styles.stepBtnText}>+</Text>
-        </Pressable>
-      </View>
+        <Text style={[typeScale.rowTitle, styles.expiresTitle]}>Room expires</Text>
+        <View style={styles.chips}>
+          {DURATIONS.map((d) => (
+            <Chip
+              key={d.label}
+              label={d.label}
+              selected={d.hours === durationHours}
+              testID={`create-duration-${d.label.replace(/\s+/g, "").toLowerCase()}`}
+              a11yLabel={`Expire after ${d.label}`}
+              onPress={() => setDurationHours(d.hours)}
+            />
+          ))}
+        </View>
+        <ErrorText>{error}</ErrorText>
+      </ScrollView>
 
-      <Label>Room expires after</Label>
-      <View style={styles.chips}>
-        {DURATIONS.map((d) => (
-          <Chip
-            key={d.label}
-            label={d.label}
-            selected={d.hours === durationHours}
-            testID={`create-duration-${d.label.replace(/\s+/g, "").toLowerCase()}`}
-            a11yLabel={`Expire after ${d.label}`}
-            onPress={() => setDurationHours(d.hours)}
-          />
-        ))}
-      </View>
-
-      <ErrorText>{error}</ErrorText>
-      <Text style={styles.summary}>
-        {limit} traveler{limit === 1 ? "" : "s"} · {MODES.find((m) => m.id === mode)?.label} ·{" "}
-        {durationHours == null ? "no expiry" : `${durationHours}h`}
-      </Text>
-      <Button label="Create room" busy={busy} testID="create-submit" onPress={() => void create()} />
-      <Button label="Back" variant="ghost" onPress={() => router.back()} />
+      {/* Uber "Choose Auto": one pinned CTA that names the choice. */}
+      <StickyFooter summary={summary}>
+        <Button
+          label={`Create ${modeLabel} room`}
+          busy={busy}
+          testID="create-submit"
+          onPress={() => void create()}
+        />
+      </StickyFooter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { marginTop: 24, marginBottom: 4 },
-  crew: { flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 4 },
-  crewStack: { flexDirection: "row", alignItems: "center" },
-  crewOverlap: { marginLeft: -14 },
-  crewText: {
-    color: colors.textDim,
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-    flex: 1,
-    flexShrink: 1,
-    marginLeft: 10,
-  },
-  caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  summary: {
-    color: colors.textDim,
-    fontSize: 13,
-    fontFamily: fontFamily.semiBold,
-    textAlign: "center",
-    marginTop: 12,
-  },
-  pressed: { opacity: 0.75 },
-  presetHint: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  chips: { flexDirection: "row", flexWrap: "wrap" },
-  blurb: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  modeList: { gap: 8, marginTop: 4 },
-  modeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  scroll: { flex: 1 },
+  nameBlock: { marginBottom: space.md },
+  nameHint: { marginTop: space.xs },
+  pressed: { opacity: 0.7 },
+  destCard: {
+    marginTop: space.md,
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
     borderRadius: radius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: space.md,
   },
-  modeRowSelected: { borderColor: colors.text },
-  modeBody: { flex: 1, flexShrink: 1 },
-  modeTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  modeTitle: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
-  modeTitleSelected: { fontFamily: fontFamily.bold },
-  modeTag: {
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  chooseTitle: { textAlign: "center", marginTop: space.lg, marginBottom: space.sm },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: space.md,
   },
-  modeTagText: { color: colors.textDim, fontSize: 10, fontFamily: fontFamily.semiBold },
-  destRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  destBody: { flex: 1, flexShrink: 1 },
-  destName: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
-  destClear: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  destClearGlyph: { color: colors.textDim, fontSize: 22, fontFamily: fontFamily.regular },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  radioSelected: { borderColor: colors.text },
-  radioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.text },
-  stepper: { flexDirection: "row", alignItems: "center", gap: 18 },
+  settingRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 64 },
+  settingText: { flex: 1, flexShrink: 1, gap: 2 },
+  stepper: { flexDirection: "row", alignItems: "center", gap: space.sm },
   stepBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBtnText: { color: colors.text, fontSize: 22, fontFamily: fontFamily.medium },
-  stepValue: {
-    color: colors.text,
-    fontSize: 20,
-    fontFamily: fontFamily.bold,
-    minWidth: 28,
-    textAlign: "center",
-  },
+  stepValue: { minWidth: 28, textAlign: "center" },
+  expiresTitle: { marginTop: space.lg, marginBottom: space.sm },
+  chips: { flexDirection: "row", flexWrap: "wrap", paddingBottom: space.md },
 });

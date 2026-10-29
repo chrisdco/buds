@@ -1,7 +1,7 @@
 import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colorForUser, colors, radius } from "@/constants/theme";
+import { colorForUser, colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
@@ -15,6 +15,8 @@ interface MemberMarkersProps {
   selectedIds?: string[];
   /** Toggles focus membership; omitted = markers not tappable. */
   onToggleFocus?: (userId: string) => void;
+  /** Route ETA (seconds) per member: Uber's "1 MIN" box beside the label. */
+  etaByUser?: Record<string, number>;
 }
 
 export function MemberMarkers({
@@ -23,6 +25,7 @@ export function MemberMarkers({
   myUserId,
   selectedIds,
   onToggleFocus,
+  etaByUser,
 }: MemberMarkersProps) {
   const selected = new Set(selectedIds ?? []);
   return (
@@ -62,9 +65,19 @@ export function MemberMarkers({
                 >
                   <Text style={styles.initial}>{m.name.slice(0, 1).toUpperCase()}</Text>
                 </View>
-                <Text style={styles.name} numberOfLines={1}>
-                  {m.name}
-                </Text>
+                <View style={styles.callout}>
+                  {etaByUser?.[m.userId] != null && (
+                    <View style={styles.etaBox}>
+                      <Text style={styles.etaNum}>
+                        {Math.max(1, Math.round(etaByUser[m.userId] / 60))}
+                      </Text>
+                      <Text style={styles.etaUnit}>MIN</Text>
+                    </View>
+                  )}
+                  <Text style={styles.name} numberOfLines={1}>
+                    {isSelf ? "You" : m.name}
+                  </Text>
+                </View>
               </View>
             </Marker>
           );
@@ -74,7 +87,7 @@ export function MemberMarkers({
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: "center", width: 84 },
+  wrap: { alignItems: "center", width: 150 },
   faded: { opacity: 0.45 },
   headingArrow: {
     position: "absolute",
@@ -107,15 +120,31 @@ const styles = StyleSheet.create({
   /** Focused member: bright ring so the camera set reads on the map. */
   selectedAvatar: { borderColor: colors.text, borderWidth: 3 },
   initial: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 15 },
-  name: {
-    marginTop: 2,
-    color: colors.text,
-    backgroundColor: colors.scrim,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    fontSize: 11,
-    fontFamily: fontFamily.semiBold,
+  // Uber callout: square black box; the ETA box (white, number over MIN)
+  // sits on its leading edge like the pickup label in the references.
+  callout: {
+    marginTop: 3,
+    flexDirection: "row",
+    alignItems: "stretch",
+    backgroundColor: "#000000",
+    borderRadius: 2,
     overflow: "hidden",
+    maxWidth: 150,
+  },
+  etaBox: {
+    backgroundColor: colors.text,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  etaNum: { color: colors.onPrimary, fontSize: 13, lineHeight: 15, fontFamily: fontFamily.bold },
+  etaUnit: { color: colors.onPrimary, fontSize: 8, lineHeight: 10, fontFamily: fontFamily.semiBold },
+  name: {
+    color: colors.text,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
+    flexShrink: 1,
   },
 });

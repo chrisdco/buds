@@ -5,7 +5,8 @@ import * as Notifications from "expo-notifications";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Button, ErrorText, Label, Screen, Title } from "@/components/ui";
+import { NavHeader } from "@/components/layout";
+import { Button, ErrorText, Label, Screen } from "@/components/ui";
 import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { NOTIFY_CATEGORY_LABELS } from "@/events/notifyPrefs";
@@ -82,10 +83,8 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      <NavHeader title="Settings" />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Title>Settings</Title>
-        </View>
 
         <Label>Notifications</Label>
         <Text style={styles.caption}>
@@ -162,7 +161,7 @@ export default function SettingsScreen() {
           <Text style={styles.link}>github.com/chrisdco/buds</Text>
         </Pressable>
 
-        <Button label="Back" variant="ghost" onPress={() => router.back()} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </Screen>
   );

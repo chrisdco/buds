@@ -2,7 +2,8 @@ import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { ErrorText, Screen, TextField, Title } from "@/components/ui";
+import { NavHeader } from "@/components/layout";
+import { ErrorText, Screen, TextField } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, radius } from "@/constants/theme";
@@ -105,8 +106,8 @@ export default function DestSearchScreen() {
 
   return (
     <Screen>
+      <NavHeader title="Set destination" />
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Title>Set destination</Title>
 
         <TextField
           value={query}

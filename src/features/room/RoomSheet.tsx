@@ -1,5 +1,5 @@
-import { useEffect, useMemo, type ReactNode } from "react";
-import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   ReduceMotion,
@@ -8,29 +8,33 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import * as Haptics from "expo-haptics";
 
 import { colors, space } from "@/constants/theme";
 
-// Google Maps / Uber grammar: full-screen map with a non-modal draggable
-// sheet (peek / half / full, no scrim — the map stays interactive behind it).
-// Content adapts per settled detent; while dragging, the settled content
-// stays put so nothing flickers mid-gesture.
+// Uber "Choose a trip" grammar: full-screen map with a non-modal sheet (peek /
+// half / full, no scrim — the map stays interactive behind it). Three parts:
+//   - header: handle + title block. The ONLY drag area, so the body can scroll.
+//   - body: scrolls within whatever the settled detent leaves visible.
+//   - footer: the one pinned CTA, held at the screen bottom at every detent
+//     (and while dragging), like "Choose Auto".
+// Peek is sized to header + footer, so the collapsed sheet always shows the
+// trip's title and its primary action.
 export type SheetDetent = "peek" | "half" | "full";
 
 const ORDER: SheetDetent[] = ["peek", "half", "full"];
-const PEEK_HEIGHT = 140;
-const HALF_RATIO = 0.42;
-const FULL_RATIO = 0.85;
+const MIN_PEEK = 120;
+const HALF_RATIO = 0.5;
+const FULL_RATIO = 0.88;
 // Apple designer params (expo-animation skill): sheet settle, no overshoot
 // past the detent list (targets are interior, so clamping would deaden it).
 const SPRING = { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System } as const;
 
 // Apple's exponential-decay projection (expo-animation skill recipe):
 // where the finger would come to rest if it kept decelerating. A fast
-// short flick commits; a slow long drag doesn't — distance alone would
-// make the sheet feel heavy.
+// short flick commits; a slow long drag doesn't.
 function project(velocity: number, decelerationRate = 0.998): number {
   "worklet";
   return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
@@ -43,10 +47,20 @@ function rubberband(overshoot: number, dimension: number, constant = 0.55): numb
   return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
 }
 
+/** Visible sheet height at a settled detent (for map padding / FAB placement). */
+export function sheetVisibleHeight(detent: SheetDetent, screenH: number, peekH: number): number {
+  return detent === "peek" ? peekH : detent === "half" ? screenH * HALF_RATIO : screenH * FULL_RATIO;
+}
+
 interface RoomSheetProps {
   detent: SheetDetent;
   onDetentChange: (detent: SheetDetent) => void;
-  renderContent: (detent: SheetDetent) => ReactNode;
+  renderHeader: (detent: SheetDetent) => ReactNode;
+  renderBody: (detent: SheetDetent) => ReactNode;
+  /** Pinned CTA; null hides the footer (e.g. while adjusting a pin). */
+  renderFooter?: (detent: SheetDetent) => ReactNode;
+  /** Reports the measured peek height so the screen can place FABs above it. */
+  onPeekHeight?: (h: number) => void;
 }
 
 /** Single light tick when a detent catches — visual leads, haptic follows. */
@@ -54,35 +68,58 @@ function settleHaptic(): void {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
-export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetProps) {
+export function RoomSheet({
+  detent,
+  onDetentChange,
+  renderHeader,
+  renderBody,
+  renderFooter,
+  onPeekHeight,
+}: RoomSheetProps) {
   const { height: H } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
+  const [headerH, setHeaderH] = useState(96);
+  const [footerH, setFooterH] = useState(0);
+  const footer = renderFooter?.(detent) ?? null;
+  const footerHeight = footer ? footerH : 0;
+  const peekH = Math.max(MIN_PEEK, headerH + footerHeight);
+  const peekSV = useSharedValue(peekH);
+  const footerSV = useSharedValue(footerHeight);
+
+  useEffect(() => {
+    peekSV.set(peekH);
+    footerSV.set(footerHeight);
+    onPeekHeight?.(peekH);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peekH, footerHeight]);
+
   // Worklet-marked so gesture callbacks (UI runtime) can call it
-  // synchronously. Worklets 0.10 forbids calling plain JS closures from the
-  // UI runtime ("Remote Function" error) — this directive is required, not
-  // optional. Calling it from JS (below) keeps working as a normal call.
+  // synchronously; calling it from JS keeps working as a normal call.
   const topFor = (d: SheetDetent): number => {
     "worklet";
-    return d === "peek" ? H - PEEK_HEIGHT : d === "half" ? H * (1 - HALF_RATIO) : H * (1 - FULL_RATIO);
+    return d === "peek"
+      ? H - peekSV.get()
+      : d === "half"
+        ? H * (1 - HALF_RATIO)
+        : H * (1 - FULL_RATIO);
   };
 
   const translateY = useSharedValue(topFor(detent));
   const dragStartY = useSharedValue(topFor(detent));
 
-  // Tap-handle / programmatic moves animate; drags drive the value directly.
+  // Tap-handle / programmatic moves (and a re-measured peek) animate.
   useEffect(() => {
     translateY.set(withSpring(topFor(detent), SPRING));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detent, H]);
+  }, [detent, H, peekH]);
 
   // Memoized on screen height + callback identity so parent re-renders
   // (presence tick) never rebuild the gesture mid-drag and cancel it.
   const pan = useMemo(
     () =>
       Gesture.Pan()
-        // Vertical drags belong to the sheet; taps and horizontal scrolls
-        // (member list) pass through to children.
-        .activeOffsetY([-12, 12])
+        .activeOffsetY([-8, 8])
         .onStart(() => {
           dragStartY.set(translateY.get());
         })
@@ -90,7 +127,6 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
           const min = topFor("full");
           const max = topFor("peek");
           const next = dragStartY.get() + e.translationY;
-          // Interior travel is free; past either edge the sheet resists.
           translateY.set(
             next < min
               ? min + rubberband(next - min, H)
@@ -122,8 +158,12 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
     [H, onDetentChange, reducedMotion],
   );
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.get() }],
+  }));
+  // Footer stays glued to the screen bottom wherever the sheet is.
+  const footerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: H - translateY.get() - footerSV.get() }],
   }));
 
   const cycle = () => {
@@ -131,21 +171,43 @@ export function RoomSheet({ detent, onDetentChange, renderContent }: RoomSheetPr
     onDetentChange(ORDER[(ORDER.indexOf(detent) + 1) % ORDER.length]);
   };
 
+  // Body gets what the settled detent leaves between header and footer.
+  const bodyH = Math.max(0, H - topFor(detent) - headerH - footerHeight);
+
   return (
-    <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.sheet, { height: H }, animatedStyle]}>
-        <Pressable
-          style={styles.handleZone}
-          accessibilityRole="button"
-          accessibilityLabel={`Trip panel, ${detent}. Activate to ${detent === "full" ? "collapse" : "expand"}.`}
-          testID="room-sheet-handle"
-          onPress={cycle}
+    <Animated.View style={[styles.sheet, { height: H }, sheetStyle]}>
+      <GestureDetector gesture={pan}>
+        <View onLayout={(e) => setHeaderH(Math.ceil(e.nativeEvent.layout.height))}>
+          <Pressable
+            style={styles.handleZone}
+            accessibilityRole="button"
+            accessibilityLabel={`Trip panel, ${detent}. Activate to ${detent === "full" ? "collapse" : "expand"}.`}
+            testID="room-sheet-handle"
+            onPress={cycle}
+          >
+            <View style={styles.handle} />
+          </Pressable>
+          <View style={styles.pad}>{renderHeader(detent)}</View>
+        </View>
+      </GestureDetector>
+      {bodyH > 24 && (
+        <ScrollView
+          style={{ height: bodyH }}
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.handle} />
-        </Pressable>
-        {renderContent(detent)}
-      </Animated.View>
-    </GestureDetector>
+          {renderBody(detent)}
+        </ScrollView>
+      )}
+      {footer && (
+        <Animated.View
+          style={[styles.footer, { paddingBottom: insets.bottom + space.sm }, footerStyle]}
+          onLayout={(e) => setFooterH(Math.ceil(e.nativeEvent.layout.height))}
+        >
+          {footer}
+        </Animated.View>
+      )}
+    </Animated.View>
   );
 }
 
@@ -155,19 +217,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: colors.border,
     overflow: "hidden",
     elevation: 8,
-    paddingHorizontal: space.md,
   },
+  pad: { paddingHorizontal: space.md },
+  body: { paddingHorizontal: space.md, paddingBottom: space.md },
   handleZone: {
-    height: 32,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -175,6 +234,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: colors.textDim,
+    opacity: 0.5,
+  },
+  footer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: space.sm,
+    paddingHorizontal: space.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
 });

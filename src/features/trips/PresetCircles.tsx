@@ -1,33 +1,43 @@
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { colors, radius } from "@/constants/theme";
+import { AppSymbol, type AppSymbolName } from "@/components/Symbol";
+import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import {
-  TRIP_PRESETS,
-  type TripPreset,
-  type TripPresetId,
-} from "@/lib/tripPresets";
+import { TRIP_PRESETS, type TripPreset, type TripPresetId } from "@/lib/tripPresets";
 
-// Uber "For you" grid, shared by Home and Trips: one row of circular art
-// tiles (scene zoomed to a focal window, badge overlapping the top edge,
-// label below). Bitmaps are preloaded at startup, so the row paints complete
-// in a single commit. testIDs stable for Maestro.
-const CIRCLE = 92;
+// Uber "For you" grid: four circles per row, wrapping, one-word label under
+// each and an optional badge overlapping the top edge. Trip presets render
+// their art; shortcut tiles (join, scan, new room…) render an icon. Circles
+// size to the screen so four always fit. testIDs stable for Maestro.
 
-function PresetArtInner({ preset }: { preset: TripPreset }) {
+const GUTTER = 20; // Screen's horizontal padding
+const GAP = 12;
+const COLUMNS = 4;
+
+export interface ForYouTile {
+  key: string;
+  title: string;
+  icon: AppSymbolName & { fallback: string };
+  badge?: string;
+  a11yHint?: string;
+  testID: string;
+  onPress: () => void;
+}
+
+function PresetArtInner({ preset, size }: { preset: TripPreset; size: number }) {
   const { Art, vbW, vbH, fx, fy, window } = preset.image;
-  const scale = CIRCLE / window;
+  const scale = size / window;
   const w = vbW * scale;
   const h = vbH * scale;
   return (
-    <View style={styles.circleArt}>
+    <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
       <View
         style={{
           width: w,
           height: h,
-          marginLeft: CIRCLE / 2 - fx * vbW * scale,
-          marginTop: CIRCLE / 2 - fy * vbH * scale,
+          marginLeft: size / 2 - fx * vbW * scale,
+          marginTop: size / 2 - fy * vbH * scale,
         }}
       >
         <Art width={w} />
@@ -40,85 +50,119 @@ function PresetArtInner({ preset }: { preset: TripPreset }) {
 // refetches — the art mounts once and never re-executes.
 const PresetArt = memo(PresetArtInner);
 
-export function PresetCircles({ onSelect }: { onSelect: (id: TripPresetId) => void }) {
+function Cell({
+  size,
+  title,
+  badge,
+  a11yLabel,
+  a11yHint,
+  testID,
+  onPress,
+  children,
+}: {
+  size: number;
+  title: string;
+  badge?: string;
+  a11yLabel: string;
+  a11yHint?: string;
+  testID: string;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={styles.circles}>
+    <Pressable
+      style={({ pressed }) => [styles.cell, { width: size }, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint={a11yHint}
+      testID={testID}
+      hitSlop={4}
+      onPress={onPress}
+    >
+      <View>
+        {children}
+        {badge && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.label} numberOfLines={1}>
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function PresetCircles({
+  onSelect,
+  extras = [],
+}: {
+  onSelect: (id: TripPresetId) => void;
+  /** Shortcut tiles appended after the presets (Uber's Reserve / Rentals). */
+  extras?: ForYouTile[];
+}) {
+  const { width } = useWindowDimensions();
+  const size = Math.floor((width - GUTTER * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
+  return (
+    <View style={styles.grid}>
       {TRIP_PRESETS.map((preset) => (
-        <Pressable
+        <Cell
           key={preset.id}
-          style={({ pressed }) => [styles.circleCell, pressed && styles.circleCellPressed]}
-          accessibilityRole="button"
-          accessibilityLabel={`Start a ${preset.title} trip`}
-          accessibilityHint={preset.blurb}
+          size={size}
+          title={preset.title}
+          badge={preset.badge}
+          a11yLabel={`Start a ${preset.title} trip`}
+          a11yHint={preset.blurb}
           testID={`trips-template-${preset.id}`}
-          hitSlop={8}
           onPress={() => onSelect(preset.id)}
         >
-          <View>
-            <PresetArt preset={preset} />
-            {/* Badge overlaps the art's top edge like Uber's Promo pill
-            (functional color only: danger = promo/popular). */}
-            {preset.badge && (
-              <View style={styles.circleBadge}>
-                <Text style={styles.circleBadgeText}>{preset.badge}</Text>
-              </View>
-            )}
+          <PresetArt preset={preset} size={size} />
+        </Cell>
+      ))}
+      {extras.map((t) => (
+        <Cell
+          key={t.key}
+          size={size}
+          title={t.title}
+          badge={t.badge}
+          a11yLabel={t.title}
+          a11yHint={t.a11yHint}
+          testID={t.testID}
+          onPress={t.onPress}
+        >
+          <View style={[styles.circle, styles.iconCircle, { width: size, height: size, borderRadius: size / 2 }]}>
+            <AppSymbol name={t.icon} fallback={t.icon.fallback} size={Math.round(size * 0.36)} tintColor={colors.text} />
           </View>
-          <Text style={styles.circleLabel} numberOfLines={1}>
-            {preset.title}
-          </Text>
-          <Text style={styles.circleBlurb} numberOfLines={2}>
-            {preset.blurb}
-          </Text>
-        </Pressable>
+        </Cell>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  circles: { flexDirection: "row", gap: 12, marginTop: 4 },
-  circleCell: { flex: 1, alignItems: "center" },
-  circleCellPressed: { opacity: 0.75 },
-  // Fixed circular window; the scene inside renders larger and
-  // focal-cropped (PresetArt math). Paint is static per mount — no Fabric
-  // radius hazard.
-  circleArt: {
-    width: CIRCLE,
-    height: CIRCLE,
-    borderRadius: CIRCLE / 2,
-    overflow: "hidden",
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  circleBadge: {
+  grid: { flexDirection: "row", flexWrap: "wrap", columnGap: GAP, rowGap: space.lg },
+  cell: { alignItems: "center" },
+  pressed: { opacity: 0.75 },
+  // Fixed circular window; preset scenes render larger and focal-cropped.
+  circle: { overflow: "hidden", backgroundColor: colors.surfaceAlt },
+  iconCircle: { alignItems: "center", justifyContent: "center" },
+  // Uber's Promo pill: overlaps the circle's top edge, functional red.
+  badge: {
     position: "absolute",
     top: -8,
     alignSelf: "center",
     backgroundColor: colors.danger,
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  circleBadgeText: {
+  badgeText: { color: colors.text, fontSize: 12, fontFamily: fontFamily.semiBold },
+  label: {
     color: colors.text,
-    fontSize: 10,
-    fontFamily: fontFamily.bold,
-    letterSpacing: 0.3,
-  },
-  circleLabel: {
-    color: colors.text,
-    fontSize: 13,
-    fontFamily: fontFamily.semiBold,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  circleBlurb: {
-    color: colors.textDim,
-    fontSize: 11,
-    fontFamily: fontFamily.regular,
-    marginTop: 2,
+    fontSize: 15,
+    fontFamily: fontFamily.medium,
+    marginTop: space.sm,
     textAlign: "center",
   },
 });

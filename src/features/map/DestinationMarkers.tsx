@@ -3,7 +3,7 @@ import { memo } from "react";
 import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colorForUser, colors, radius } from "@/constants/theme";
+import { colorForUser, colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import type { DestRow, MemberLive } from "@/types/contracts";
 
@@ -30,7 +30,7 @@ export const DestinationMarkers = memo(function DestinationMarkers({
       {destRoom && (
         <Marker id="dest-room" lngLat={[destRoom.lng, destRoom.lat]} anchor="bottom">
           <View style={styles.wrap}>
-            <Text style={styles.label} numberOfLines={1}>
+            <Text style={styles.label} numberOfLines={2}>
               {destRoom.label}
             </Text>
             <View style={[styles.pin, { backgroundColor: colors.accent }]}>
@@ -49,7 +49,7 @@ export const DestinationMarkers = memo(function DestinationMarkers({
           <Marker key={d.id} id={`dest-${d.id}`} lngLat={[d.lng, d.lat]} anchor="bottom">
             <View style={styles.wrap}>
               {owner && (
-                <Text style={styles.label} numberOfLines={1}>
+                <Text style={styles.memberLabel} numberOfLines={1}>
                   {owner.name}
                 </Text>
               )}
@@ -67,16 +67,30 @@ export const DestinationMarkers = memo(function DestinationMarkers({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: "center" },
+  // Uber map callout: a square-cornered black box with real-size text.
   label: {
     color: colors.text,
-    backgroundColor: colors.scrim,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    fontSize: 11,
+    backgroundColor: "#000000",
+    borderRadius: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 15,
+    lineHeight: 19,
     fontFamily: fontFamily.semiBold,
-    marginBottom: 2,
-    maxWidth: 110,
+    marginBottom: 4,
+    maxWidth: 200,
+    overflow: "hidden",
+  },
+  memberLabel: {
+    color: colors.text,
+    backgroundColor: "#000000",
+    borderRadius: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: 3,
+    maxWidth: 140,
     overflow: "hidden",
   },
   pin: {

@@ -1,13 +1,15 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Button, Chip, ErrorText, Label, Screen, TextField, Title } from "@/components/ui";
-import { LocationSearchArt } from "@/components/illustrations/LocationSearchArt";
-import { colors, radius } from "@/constants/theme";
+import { IconTile, NavHeader, SelectableRow, StickyFooter } from "@/components/layout";
+import { AppSymbol, icons } from "@/components/Symbol";
+import { Button, ErrorText, Screen, TextField } from "@/components/ui";
+import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { typeScale } from "@/constants/typography";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode, parseInviteCode } from "@/lib/ids";
 import { joinErrorMessage } from "@/lib/joinErrors";
@@ -18,6 +20,11 @@ import type { MemberRole, RpcError } from "@/types/contracts";
 export default function JoinRoomScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
+  const { scan } = useLocalSearchParams<{ scan?: string }>();
+  // Asked here, at the moment of need, only while no name is set yet; the
+  // field stays put while typing (frozen at mount) so it doesn't vanish
+  // after the first letter.
+  const [askName] = useState(() => displayName.trim().length === 0);
   const [code, setCode] = useState("");
   const [role, setRole] = useState<MemberRole>("traveler");
   const [busy, setBusy] = useState(false);
@@ -81,6 +88,14 @@ export default function JoinRoomScreen() {
     setScanning(true);
   };
 
+  // Home's "Scan QR" tile opens straight into the camera. Deferred to a
+  // microtask: setting state synchronously in an effect is a cascading-render
+  // hazard (same rule as the room screen's destDraft hand-off).
+  useEffect(() => {
+    if (scan === "1") queueMicrotask(() => void startScan());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onScanned = (data: string) => {
     if (scanHandled.current) return;
     const scanned = parseInviteCode(data);
@@ -93,18 +108,12 @@ export default function JoinRoomScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Title>Join a room</Title>
-      </View>
-
-      {/* Finding-a-room scene (unDraw, brand recolor). Compact: this form
-      has no scroll, so the art stays small. */}
-      <View style={styles.art} accessible={false}>
-        <LocationSearchArt width={150} />
-      </View>
-
+      <NavHeader
+        title={scanning ? "Scan invite" : "Join a room"}
+        onBack={scanning ? () => setScanning(false) : undefined}
+      />
       {scanning ? (
-        <>
+        <View style={styles.scanWrap}>
           <View style={styles.scannerBox}>
             <CameraView
               style={StyleSheet.absoluteFill}
@@ -114,88 +123,119 @@ export default function JoinRoomScreen() {
             />
             <View style={styles.scanFrame} pointerEvents="none" />
           </View>
-          <Text style={styles.scanHint}>Point at a Buds invite QR code</Text>
-          <Button label="Cancel scan" variant="ghost" onPress={() => setScanning(false)} />
-        </>
+          <Text style={[typeScale.rowSub, styles.scanHint]}>Point at a Buds invite QR code</Text>
+        </View>
       ) : (
         <>
-          <Label>Room code</Label>
-          <TextField
-            value={code}
-            onChangeText={(text) => {
-              const next = normalizeCode(text);
-              setCode(next);
-              if (next === clipboardCode) setClipboardCode(null);
-            }}
-            placeholder="ABC123"
-            autoCapitalize="characters"
-            autoCorrect={false}
-            autoFocus
-            maxLength={CODE_LENGTH}
-            returnKeyType="go"
-            onSubmitEditing={() => {
-              if (code.length === CODE_LENGTH) void join(code, role);
-            }}
-            style={styles.codeInput}
-            testID="join-code"
-          />
-          {clipboardCode && code.length === 0 && (
+          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+            {askName && (
+              <View style={styles.nameBlock}>
+                <TextField
+                  value={displayName}
+                  onChangeText={(t) => useSessionStore.getState().setDisplayName(t)}
+                  placeholder="Your name"
+                  maxLength={24}
+                  autoCapitalize="words"
+                  accessibilityLabel="Your name"
+                  testID="join-name"
+                />
+                <Text style={[typeScale.meta, styles.nameHint]}>Your buds see this name.</Text>
+              </View>
+            )}
+            {/* One field, its tools inside it: scan sits at the trailing edge
+            (Uber nests Later inside the search box the same way). */}
+            <View style={styles.codeBox}>
+              <TextInput
+                value={code}
+                onChangeText={(text) => {
+                  const next = normalizeCode(text);
+                  setCode(next);
+                  if (next === clipboardCode) setClipboardCode(null);
+                }}
+                placeholder="Room code"
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoFocus={!askName}
+                maxLength={CODE_LENGTH}
+                returnKeyType="go"
+                onSubmitEditing={() => {
+                  if (code.length === CODE_LENGTH) void join(code, role);
+                }}
+                style={[styles.codeInput, code.length > 0 && styles.codeInputFilled]}
+                accessibilityLabel="Room code"
+                testID="join-code"
+              />
+              <Pressable
+                style={({ pressed }) => [styles.scanBtn, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Scan QR code"
+                testID="join-scan"
+                hitSlop={6}
+                onPress={() => void startScan()}
+              >
+                <AppSymbol name={icons.qr} fallback={icons.qr.fallback} size={22} tintColor={colors.text} />
+              </Pressable>
+            </View>
+            {clipboardCode && code.length === 0 && (
+              <Pressable
+                style={({ pressed }) => [styles.pasteChip, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`Paste code ${clipboardCode}`}
+                testID="join-paste"
+                onPress={() => {
+                  setCode(clipboardCode);
+                  setClipboardCode(null);
+                }}
+              >
+                <AppSymbol name={icons.paste} fallback={icons.paste.fallback} size={16} tintColor={colors.text} />
+                <Text style={styles.pasteText}>Paste {clipboardCode}</Text>
+              </Pressable>
+            )}
+
+            <Text style={[typeScale.sheetTitle, styles.joinAsTitle]} accessibilityRole="header">
+              Join as
+            </Text>
+            <View accessibilityRole="radiogroup">
+              <SelectableRow
+                title="Traveler"
+                meta="Share your live location with the room (max 10)."
+                selected={role === "traveler"}
+                leading={<IconTile icon={icons.navigate} round />}
+                testID="join-role-traveler"
+                a11yLabel="Join as traveler"
+                onPress={() => setRole("traveler")}
+              />
+              <SelectableRow
+                title="Spectator"
+                meta="Just watch the map. Nothing about you is shared."
+                selected={role === "spectator"}
+                leading={<IconTile icon={icons.group} round />}
+                testID="join-role-spectator"
+                a11yLabel="Join as spectator"
+                onPress={() => setRole("spectator")}
+              />
+            </View>
+
+            <ErrorText>{error ? joinErrorMessage(error) : null}</ErrorText>
+            {error === "room_full" && role === "traveler" && (
+              <Button
+                label="Join as spectator instead"
+                variant="ghost"
+                size="compact"
+                onPress={() => void join(code, "spectator")}
+              />
+            )}
+          </ScrollView>
+          <StickyFooter>
             <Button
-              label={`Paste ${clipboardCode}`}
-              variant="ghost"
-              size="compact"
-              testID="join-paste"
-              onPress={() => {
-                setCode(clipboardCode);
-                setClipboardCode(null);
-              }}
+              label={role === "spectator" ? "Join as spectator" : "Join room"}
+              busy={busy}
+              disabled={code.length !== CODE_LENGTH}
+              testID="join-submit"
+              onPress={() => void join(code, role)}
             />
-          )}
-
-          <Label>Join as</Label>
-          <Text style={styles.caption}>
-            Travelers share location (max 10). Spectators just watch.
-          </Text>
-          <View style={styles.chips}>
-            <Chip
-              label="Traveler"
-              selected={role === "traveler"}
-              testID="join-role-traveler"
-              a11yLabel="Join as traveler"
-              onPress={() => setRole("traveler")}
-            />
-            <Chip
-              label="Spectator"
-              selected={role === "spectator"}
-              testID="join-role-spectator"
-              a11yLabel="Join as spectator"
-              onPress={() => setRole("spectator")}
-            />
-          </View>
-
-          <ErrorText>{error ? joinErrorMessage(error) : null}</ErrorText>
-          {error === "room_full" && role === "traveler" && (
-            <Button
-              label="Join as spectator instead"
-              variant="ghost"
-              onPress={() => void join(code, "spectator")}
-            />
-          )}
-
-          <Button
-            label="Join room"
-            busy={busy}
-            disabled={code.length !== CODE_LENGTH}
-            testID="join-submit"
-            onPress={() => void join(code, role)}
-          />
-          <Button
-            label="Scan QR code"
-            variant="ghost"
-            testID="join-scan"
-            onPress={() => void startScan()}
-          />
-          <Button label="Back" variant="ghost" onPress={() => router.back()} />
+          </StickyFooter>
         </>
       )}
     </Screen>
@@ -203,39 +243,70 @@ export default function JoinRoomScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { marginTop: 24, marginBottom: 4 },
-  art: { alignItems: "center", marginVertical: 4 },
-  caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 2 },
-  chips: { flexDirection: "row", flexWrap: "wrap" },
-  codeInput: {
-    fontSize: 24,
-    fontFamily: fontFamily.bold,
-    letterSpacing: 8,
-    textAlign: "center",
-    fontVariant: ["tabular-nums"],
-    color: colors.text,
+  scroll: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  codeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingLeft: space.md,
+    paddingRight: space.xs,
+    minHeight: 64,
   },
+  codeInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 20,
+    fontFamily: fontFamily.medium,
+    paddingVertical: 14,
+  },
+  // Typed code reads like a ticket number; the placeholder stays plain.
+  codeInputFilled: {
+    fontSize: 26,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 6,
+    fontVariant: ["tabular-nums"],
+  },
+  scanBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pasteChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: space.sm,
+    marginTop: space.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  pasteText: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold },
+  nameBlock: { marginBottom: space.md },
+  nameHint: { marginTop: space.xs },
+  joinAsTitle: { marginTop: space.xl, marginBottom: space.sm },
+  scanWrap: { flex: 1 },
   scannerBox: {
-    height: 320,
+    flex: 1,
+    maxHeight: 460,
     borderRadius: radius.lg,
     overflow: "hidden",
-    marginTop: 12,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   scanFrame: {
-    width: 200,
-    height: 200,
+    width: 220,
+    height: 220,
     borderRadius: radius.lg,
     borderWidth: 2,
     borderColor: colors.text,
   },
-  scanHint: {
-    color: colors.textDim,
-    textAlign: "center",
-    marginTop: 10,
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-  },
+  scanHint: { textAlign: "center", marginTop: space.md },
 });
