@@ -250,22 +250,12 @@ export default function HomeScreen() {
                 icon={icons.calendar}
                 title={t.place.name}
                 sub={`${nowMs === 0 ? "Scheduled" : countdownLabel(t.atMs, nowMs)}${t.notifId ? "" : " · no reminder"}`}
+                chevron
                 divider={i < plannedShown.length - 1}
-                a11yLabel={`Start trip to ${t.place.name} now`}
-                testID={`home-planned-start-${t.id}`}
-                onPress={() => planToPlace({ lat: t.place.lat, lng: t.place.lng, name: t.place.name })}
-                trailing={
-                  <Pressable
-                    style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Cancel planned trip to ${t.place.name}`}
-                    testID={`home-planned-cancel-${t.id}`}
-                    hitSlop={8}
-                    onPress={() => void usePlannedStore.getState().cancel(t.id)}
-                  >
-                    <AppSymbol name={icons.close} fallback={icons.close.fallback} size={18} tintColor={colors.textDim} />
-                  </Pressable>
-                }
+                a11yLabel={`Planned trip to ${t.place.name}`}
+                a11yHint="Change the time, start now or cancel"
+                testID={`home-planned-${t.id}`}
+                onPress={() => router.push(`/planned/${t.id}`)}
               />
             ))}
           </GroupedCard>
@@ -346,6 +336,5 @@ const styles = StyleSheet.create({
   },
   laterText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   group: { marginTop: space.lg },
-  closeBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   sessionError: { marginTop: space.sm, marginBottom: space.md },
 });

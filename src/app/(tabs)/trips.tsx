@@ -1,15 +1,14 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { Button, Screen } from "@/components/ui";
 import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
-import { AppSymbol, icons } from "@/components/Symbol";
-import { colors, space } from "@/constants/theme";
+import { icons } from "@/components/Symbol";
+import { space } from "@/constants/theme";
 import { typeScale } from "@/constants/typography";
 import { countdownLabel } from "@/lib/planned";
-import { placeCreateParams } from "@/lib/tripPresets";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
@@ -38,10 +37,6 @@ export default function TripsScreen() {
       setNowMs(Date.now());
     }, []),
   );
-
-  // A planned trip starts like a search pick: create around its place.
-  const startPlanned = (place: { lat: number; lng: number; name: string }) =>
-    router.push({ pathname: "/create", params: placeCreateParams(place) });
 
   const upcoming = planned ?? [];
   const past = recents ?? [];
@@ -78,17 +73,12 @@ export default function TripsScreen() {
                   icon={icons.calendar}
                   title={t.place.name}
                   sub={`${countdownLabel(t.atMs, nowMs)}${t.notifId ? "" : " · no reminder"}`}
+                  chevron
                   divider={i < upcoming.length - 1}
-                  a11yLabel={`Start trip to ${t.place.name} now`}
+                  a11yLabel={`Planned trip to ${t.place.name}`}
+                  a11yHint="Change the time, start now or cancel"
                   testID={`trips-planned-${t.id}`}
-                  onPress={() => startPlanned(t.place)}
-                  trailing={
-                    <CloseButton
-                      label={`Cancel planned trip to ${t.place.name}`}
-                      testID={`trips-planned-cancel-${t.id}`}
-                      onPress={() => void usePlannedStore.getState().cancel(t.id)}
-                    />
-                  }
+                  onPress={() => router.push(`/planned/${t.id}`)}
                 />
               ))}
             </GroupedCard>
@@ -164,27 +154,10 @@ export default function TripsScreen() {
   );
 }
 
-function CloseButton({ label, testID, onPress }: { label: string; testID: string; onPress: () => void }) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.close, pressed && styles.pressed]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-      hitSlop={8}
-      onPress={onPress}
-    >
-      <AppSymbol name={icons.close} fallback={icons.close.fallback} size={18} tintColor={colors.textDim} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   title: { marginTop: space.lg },
   firstSection: { marginTop: space.lg },
   stats: { marginTop: space.lg },
-  pressed: { opacity: 0.75 },
-  close: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", gap: space.sm, paddingVertical: space.md },
   emptySub: { textAlign: "center", paddingHorizontal: space.lg },
   emptyActions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch", marginTop: space.sm },
