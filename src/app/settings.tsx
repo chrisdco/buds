@@ -97,7 +97,7 @@ export default function SettingsScreen() {
               value={notifyPrefs[c]}
               testID={`app-settings-notify-${c}`}
               onValueChange={(v) => useSessionStore.getState().setNotifyPref(c, v)}
-              trackColor={{ true: colors.accent, false: colors.border }}
+              trackColor={{ true: colors.success, false: colors.raised }}
               thumbColor={colors.text}
             />
           </View>

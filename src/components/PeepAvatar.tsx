@@ -63,8 +63,6 @@ export function PeepAvatar({
 const styles = StyleSheet.create({
   medallion: {
     backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: "hidden",
     alignItems: "center",
   },

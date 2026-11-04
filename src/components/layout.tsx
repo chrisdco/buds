@@ -333,8 +333,6 @@ const styles = StyleSheet.create({
   group: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     paddingHorizontal: space.md,
   },
   option: {
