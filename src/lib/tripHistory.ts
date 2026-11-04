@@ -88,3 +88,18 @@ export function budsLabel(buds: { name: string }[] | undefined): string | null {
   const more = buds.length - names.length;
   return `with ${names.join(", ")}${more > 0 ? ` +${more}` : ""}`;
 }
+
+/**
+ * /create params to repeat a past trip: same mode and name, and the same
+ * place when we know its coordinates. Group size and length use defaults.
+ */
+export function goAgainParams(ref: ActiveRoomRef): Record<string, string> {
+  const params: Record<string, string> = { name: ref.name.slice(0, 60) };
+  if (ref.mode) params.mode = ref.mode;
+  if (ref.destLabel && ref.destLat != null && ref.destLng != null) {
+    params.destLat = String(ref.destLat);
+    params.destLng = String(ref.destLng);
+    params.destLabel = ref.destLabel.slice(0, 80);
+  }
+  return params;
+}

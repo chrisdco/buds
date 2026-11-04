@@ -19,6 +19,9 @@ export interface ActiveRoomRef {
   // recordRoomVisit). Optional: refs saved by older builds lack them.
   mode?: RoomMode;
   destLabel?: string | null;
+  /** Room destination coordinates, so "Go again" can reuse the place. */
+  destLat?: number | null;
+  destLng?: number | null;
   /** Other members seen in the room (not you), newest snapshot wins. */
   buds?: { userId: string; name: string }[];
   /** Last time this device had the room open, ms epoch. */
@@ -46,6 +49,8 @@ export function mergeVisit(
     name: snap.room.name,
     mode: snap.room.mode,
     destLabel: roomDest?.label ?? null,
+    destLat: roomDest?.lat ?? null,
+    destLng: roomDest?.lng ?? null,
     buds,
     lastAtMs: nowMs,
   };
