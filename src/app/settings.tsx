@@ -164,14 +164,6 @@ export default function SettingsScreen() {
         <GroupedCard>
           <ListRow icon={icons.feedback} title="Send feedback" chevron divider onPress={sendFeedback} />
           <ListRow
-            icon={icons.star}
-            title="Preview app icons"
-            chevron
-            divider
-            testID="settings-icon-preview"
-            onPress={() => router.push("/icon-preview")}
-          />
-          <ListRow
             icon={icons.link}
             title="Source code"
             sub="github.com/chrisdco/buds"

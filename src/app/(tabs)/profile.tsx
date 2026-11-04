@@ -14,6 +14,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePlacesStore } from "@/stores/placesStore";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
+import { AppIconPicker } from "@/features/profile/AppIconPicker";
 import { BudsRow, QuickTiles } from "@/features/profile/ProfileSections";
 import { frequentBuds } from "@/lib/tripHistory";
 
@@ -193,6 +194,9 @@ export default function ProfileScreen() {
             onPress={() => router.push("/settings")}
           />
         </GroupedCard>
+
+        <SectionHeader title="App icon" />
+        <AppIconPicker />
 
         <SectionHeader title="Spread the word" />
         <GroupedCard>
