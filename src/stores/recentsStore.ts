@@ -9,7 +9,7 @@ import {
 // Recent-trips list, resident in memory: loaded once at startup (root
 // layout) instead of per focus. Tab screens therefore paint rows on first
 // commit — no empty-then-populated flash. Refreshes that change nothing
-// don't notify (id-key compare), so focus refetches are visually free.
+// don't notify (content compare), so focus refetches are visually free.
 interface RecentsState {
   /** null = not loaded yet; renderers must show blank (not empty-state). */
   recents: ActiveRoomRef[] | null;
@@ -17,7 +17,9 @@ interface RecentsState {
   remove: (id: string) => Promise<void>;
 }
 
-const idsOf = (rs: ActiveRoomRef[]): string => rs.map((r) => r.id).join(",");
+// Content key, not just ids: a visit updates details (buds, destination,
+// time) in place and the Trips/Profile rows must pick that up.
+const keyOf = (rs: ActiveRoomRef[]): string => JSON.stringify(rs);
 
 export const useRecentsStore = create<RecentsState>()((set, get) => ({
   recents: null,
@@ -25,7 +27,7 @@ export const useRecentsStore = create<RecentsState>()((set, get) => ({
   refresh: async () => {
     const recents = await getRecentRooms();
     const prev = get().recents;
-    if (prev === null || idsOf(recents) !== idsOf(prev)) {
+    if (prev === null || keyOf(recents) !== keyOf(prev)) {
       set({ recents });
     }
   },
