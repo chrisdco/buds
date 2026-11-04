@@ -1,5 +1,5 @@
 import { mergeVisit, type ActiveRoomRef } from "@/lib/activeRoom";
-import { budsLabel, frequentBuds, goAgainParams, groupByRecency, tripStats } from "@/lib/tripHistory";
+import { budsLabel, frequentBuds, goAgainParams, groupByRecency, tripStats, tripsWith } from "@/lib/tripHistory";
 import type { SnapshotPayload } from "@/types/contracts";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
@@ -93,5 +93,13 @@ describe("goAgainParams", () => {
 
   it("drops the place when coordinates are unknown", () => {
     expect(goAgainParams(ref("r1", { destLabel: "Baga" }))).toEqual({ name: "Room r1" });
+  });
+});
+
+describe("tripsWith", () => {
+  it("keeps only rooms that person was in", () => {
+    const a = ref("a", { buds: [{ userId: "u2", name: "Asha" }] });
+    const b = ref("b", { buds: [{ userId: "u3", name: "Ravi" }] });
+    expect(tripsWith([a, b], "u2")).toEqual([a]);
   });
 });

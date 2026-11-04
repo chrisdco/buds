@@ -135,7 +135,7 @@ export default function ProfileScreen() {
         {buds.length > 0 && (
           <>
             <SectionHeader title="Your buds" />
-            <BudsRow buds={buds} />
+            <BudsRow buds={buds} onSelect={(b) => router.push(`/bud/${b.userId}`)} />
           </>
         )}
 

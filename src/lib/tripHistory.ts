@@ -43,6 +43,11 @@ export function frequentBuds(rooms: ActiveRoomRef[], limit = 10): Bud[] {
   return [...byId.values()].sort((a, b) => b.trips - a.trips).slice(0, limit);
 }
 
+/** Rooms you shared with one person, newest first. */
+export function tripsWith(rooms: ActiveRoomRef[], userId: string): ActiveRoomRef[] {
+  return rooms.filter((r) => r.buds?.some((b) => b.userId === userId));
+}
+
 export interface TripSection {
   title: string;
   rooms: ActiveRoomRef[];
