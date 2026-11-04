@@ -1,5 +1,5 @@
 import { mergeVisit, type ActiveRoomRef } from "@/lib/activeRoom";
-import { budsLabel, frequentBuds, groupByRecency, tripStats } from "@/lib/tripHistory";
+import { budsLabel, frequentBuds, goAgainParams, groupByRecency, tripStats } from "@/lib/tripHistory";
 import type { SnapshotPayload } from "@/types/contracts";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
@@ -26,7 +26,7 @@ describe("mergeVisit", () => {
     ],
     destinations: [
       { member_id: "m9", label: "Mine" },
-      { member_id: null, label: "Baga Beach" },
+      { member_id: null, label: "Baga Beach", lat: 15.55, lng: 73.75 },
     ],
   } as unknown as SnapshotPayload;
 
@@ -36,6 +36,8 @@ describe("mergeVisit", () => {
       name: "Goa run",
       mode: "leader",
       destLabel: "Baga Beach",
+      destLat: 15.55,
+      destLng: 73.75,
       buds: [{ userId: "u2", name: "Asha" }],
       lastAtMs: NOW,
     });
@@ -79,5 +81,17 @@ describe("trip history", () => {
     expect(budsLabel(undefined)).toBeNull();
     expect(budsLabel([{ name: "Asha" }])).toBe("with Asha");
     expect(budsLabel([{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }])).toBe("with A, B +2");
+  });
+});
+
+describe("goAgainParams", () => {
+  it("reuses mode, name and place", () => {
+    expect(
+      goAgainParams(ref("r1", { mode: "converge", destLabel: "Baga", destLat: 15.5, destLng: 73.7 })),
+    ).toEqual({ name: "Room r1", mode: "converge", destLat: "15.5", destLng: "73.7", destLabel: "Baga" });
+  });
+
+  it("drops the place when coordinates are unknown", () => {
+    expect(goAgainParams(ref("r1", { destLabel: "Baga" }))).toEqual({ name: "Room r1" });
   });
 });

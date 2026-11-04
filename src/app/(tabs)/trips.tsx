@@ -1,9 +1,9 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
-import { Button, ErrorText, Screen } from "@/components/ui";
+import { Button, Screen } from "@/components/ui";
 import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, space } from "@/constants/theme";
@@ -11,11 +11,7 @@ import { typeScale } from "@/constants/typography";
 import { countdownLabel } from "@/lib/planned";
 import { placeCreateParams } from "@/lib/tripPresets";
 import { usePlannedStore } from "@/stores/plannedStore";
-import { setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
-import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { useRecentsStore } from "@/stores/recentsStore";
-import { roomsRpc } from "@/services/rpc/rooms";
-import { useSessionStore } from "@/stores/sessionStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
 import { AvatarStack } from "@/features/trips/AvatarStack";
 import { StatTiles } from "@/features/trips/StatTiles";
@@ -25,17 +21,12 @@ import { MODE_OPTIONS } from "@/modes/modeOptions";
 // Trips tab (Uber Activity): counts at a glance, upcoming planned trips,
 // then every room this device created or joined, bucketed by recency, each
 // row saying where it went, with whom and when.
-// Rejoin re-validates membership through join_room (idempotent) and prunes
-// dead rooms inline — the list never shows a room you can't enter.
+// A row opens the trip's detail (where, who, rejoin or go again).
 export default function TripsScreen() {
   const router = useRouter();
   // Resident recents (loaded once at startup): rows paint on first commit,
   // and focus refetches that change nothing don't re-render at all.
   const recents = useRecentsStore((s) => s.recents);
-  const [error, setError] = useState<string | null>(null);
-  // Double-tap guard: joinRoom awaits the network, so two rapid taps would
-  // otherwise fire duplicate joins and competing replaces.
-  const openBusy = useRef(false);
 
   const planned = usePlannedStore((s) => s.planned);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -51,38 +42,6 @@ export default function TripsScreen() {
   // A planned trip starts like a search pick: create around its place.
   const startPlanned = (place: { lat: number; lng: number; name: string }) =>
     router.push({ pathname: "/create", params: placeCreateParams(place) });
-
-  const forgetTrip = (ref: ActiveRoomRef) => {
-    void useRecentsStore.getState().remove(ref.id);
-  };
-
-  const openTrip = (ref: ActiveRoomRef) => {
-    void (async () => {
-      if (openBusy.current) return;
-      openBusy.current = true;
-      try {
-        setError(null);
-        const name = useSessionStore.getState().displayName.trim() || "Anonymous";
-        const result = await roomsRpc.joinRoom({ code: ref.code, displayName: name, role: ref.role });
-        if (result.ok) {
-          setActiveRoom({
-            id: result.room.id,
-            code: result.room.code,
-            name: result.room.name,
-            role: result.member.role,
-          });
-          router.replace(`/room/${result.room.id}`);
-        } else {
-          if (isTerminalJoinError(result.error)) {
-            void useRecentsStore.getState().remove(ref.id);
-          }
-          setError(rejoinErrorMessage(result.error));
-        }
-      } finally {
-        openBusy.current = false;
-      }
-    })();
-  };
 
   const upcoming = planned ?? [];
   const past = recents ?? [];
@@ -183,24 +142,14 @@ export default function TripsScreen() {
                       key={r.id}
                       icon={mode?.icon ?? icons.group}
                       title={r.name}
-                      sub={[when, where].filter(Boolean).join(" · ") || "Tap to rejoin"}
+                      sub={[when, where].filter(Boolean).join(" · ") || null}
                       divider={i < section.rooms.length - 1}
-                      a11yLabel={`Rejoin ${r.name}${who ? `, ${who}` : ""}`}
-                      a11yHint={`Code ${r.code}, joined as ${r.role}`}
-                      testID={`trips-rejoin-${r.code}`}
-                      onPress={() => openTrip(r)}
-                      trailing={
-                        <View style={styles.trailing}>
-                          <AvatarStack buds={r.buds ?? []} size={24} />
-                          {/* Local forget only: the room is untouched,
-                          rejoin-by-code keeps working. */}
-                          <CloseButton
-                            label={`Remove ${r.name} from recents`}
-                            testID={`trips-forget-${r.code}`}
-                            onPress={() => forgetTrip(r)}
-                          />
-                        </View>
-                      }
+                      chevron
+                      a11yLabel={`${r.name}${who ? `, ${who}` : ""}`}
+                      a11yHint="Opens trip details"
+                      testID={`trips-open-${r.code}`}
+                      onPress={() => router.push(`/trip/${r.id}`)}
+                      trailing={<AvatarStack buds={r.buds ?? []} size={24} />}
                     />
                   );
                 })}
@@ -208,7 +157,6 @@ export default function TripsScreen() {
             </View>
           ))
         )}
-        <ErrorText>{error}</ErrorText>
 
         <TabBarClearance />
       </TabScrollView>
@@ -235,7 +183,6 @@ const styles = StyleSheet.create({
   title: { marginTop: space.lg },
   firstSection: { marginTop: space.lg },
   stats: { marginTop: space.lg },
-  trailing: { flexDirection: "row", alignItems: "center", gap: space.xs },
   pressed: { opacity: 0.75 },
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", gap: space.sm, paddingVertical: space.md },
