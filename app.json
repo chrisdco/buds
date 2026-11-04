@@ -63,7 +63,31 @@
           "cameraPermission": "Buds uses the camera to scan room invite QR codes."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      // In-app icon choice (Profile -> App icon). Default stays the
+      // top-level icon (Geist Serif "buds"); these are the alternates.
+      // Rendered by scripts/render-icons.mjs from assets/icons/src/.
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "GeistB",
+            "ios": "./assets/icons/alt/GeistB-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/alt/GeistB-android.png",
+              "backgroundColor": "#000000"
+            }
+          },
+          {
+            "name": "FrauncesB",
+            "ios": "./assets/icons/alt/FrauncesB-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/alt/FrauncesB-android.png",
+              "backgroundColor": "#000000"
+            }
+          }
+        ]
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

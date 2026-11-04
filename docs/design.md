@@ -192,20 +192,26 @@ peep avatars, and small spots (<100 nodes). Node budget for any future scene:
 
 ## App icon (Nov 2026)
 
-A white Fraunces Black lowercase "b" on solid black, matching the ink canvas.
-Fraunces is SIL OFL, so it's fine to use in a logo. Geist Serif was
-considered but ships in one weight only, with no bold. The master artwork is
-`assets/expo.icon/Assets/b.svg`, the iOS Icon Composer layer on a black fill.
-The PNGs are rendered from the same glyph outlines:
-- `icon.png`: 1024, ink at about 58% height.
-- Android adaptive foreground and monochrome: ink at 40%, inside the
-  66% safe circle.
-- Adaptive background: solid black.
-- `splash-icon.png`: on a black splash.
-- `favicon.png`.
+Default: the word "buds" in Geist Serif, white on solid black. Two
+alternates can be picked in Profile → App icon (`expo-alternate-app-icons`):
+a Geist Serif "b" and a Fraunces Black "b". Both fonts are SIL OFL, so fine
+in a logo.
 
-Native icons only change after a rebuild (`expo prebuild --clean` for the
-local `android/`).
+Sources are vector, one 1024 square each (black rect + one white glyph
+path), in `assets/icons/src/`. `node scripts/render-icons.mjs` renders
+everything from them:
+- Default: `icon.png`, Android adaptive foreground and monochrome (glyph
+  scaled by 72/108 so it reads the same size inside the visible area),
+  `splash-icon.png`, `favicon.png`, and the iOS Icon Composer layer
+  `assets/expo.icon/Assets/glyph.svg` on icon.json's black fill.
+- Alternates: `assets/icons/alt/<Name>-ios.png` (opaque) and
+  `<Name>-android.png` (adaptive foreground), registered in app.json.
+
+To change the default, set `DEFAULT` in the script and re-run. To add an
+alternate, add a source SVG, an `ALTERNATES` entry, the app.json plugin
+entry and an `OPTIONS` entry in `src/features/profile/AppIconPicker.tsx`.
+Icons only change on device after a native rebuild; switching on Android
+swaps the launcher entry and can close the app once.
 
 ## Future review (optional): screen transitions
 

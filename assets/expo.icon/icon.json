@@ -6,8 +6,8 @@
     {
       "layers" : [
         {
-          "image-name" : "b.svg",
-          "name" : "b"
+          "image-name" : "glyph.svg",
+          "name" : "glyph"
         }
       ],
       "shadow" : {
