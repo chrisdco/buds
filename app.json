@@ -68,6 +68,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "82a2e5a4-b425-44a1-bcc3-ccd820840087"
+      }
+    },
+    "owner": "chrisdcosta"
   }
 }
