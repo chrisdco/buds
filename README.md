@@ -97,6 +97,23 @@ cd android && .\gradlew assembleRelease
 # -> android/app/build/outputs/apk/release/app-release.apk, sideload to phones
 ```
 
+### EAS builds and over-the-air updates
+
+The phone APK comes from EAS (`eas.json`, `preview` profile). Its Supabase
+URL and anon key are EAS environment variables (`preview` environment), not
+`.env`, which never leaves this machine.
+
+```bash
+eas build --profile preview --platform android   # new APK (native changes)
+npm run update:preview -- --message "what changed"  # OTA to installed APKs
+```
+
+An update reaches a build only when their native fingerprints match
+(`runtimeVersion.policy: fingerprint`). JS, styles and images ship over the
+air. A new native library, permission, plugin or the app icon changes the
+fingerprint and needs a new build. Installed apps fetch the update on launch
+and apply it on the next launch.
+
 iOS: works via `npx expo run:ios` from a Mac (free Apple ID = 7-day re-signed
 dev builds). TestFlight needs a paid Apple Developer account.
 
