@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { Button, ErrorText, Screen } from "@/components/ui";
@@ -16,6 +16,7 @@ import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
+import { TabScrollView } from "@/features/nav/TabScrollView";
 
 // Trips tab (Uber Activity): upcoming planned trips, then every room this
 // device created or joined, newest first.
@@ -93,7 +94,7 @@ export default function TripsScreen() {
 
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <TabScrollView showsVerticalScrollIndicator={false}>
         <Text style={[typeScale.display, styles.title]} accessibilityRole="header">
           Trips
         </Text>
@@ -184,7 +185,7 @@ export default function TripsScreen() {
         )}
         <ErrorText>{error}</ErrorText>
         <TabBarClearance />
-      </ScrollView>
+      </TabScrollView>
     </Screen>
   );
 }

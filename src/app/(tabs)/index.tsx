@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   GroupedCard,
@@ -14,6 +14,7 @@ import { Button, ErrorText, Screen } from "@/components/ui";
 import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { PresetCircles } from "@/features/trips/PresetCircles";
+import { TabScrollView } from "@/features/nav/TabScrollView";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { countdownLabel } from "@/lib/planned";
@@ -141,7 +142,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <TabScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Uber home: the search box IS the screen's one primary action,
         with "Later" nested inside it (two pressables side by side in one
         container, never nested, so both taps stay isolated). */}
@@ -287,7 +288,7 @@ export default function HomeScreen() {
           </View>
         )}
         <TabBarClearance />
-      </ScrollView>
+      </TabScrollView>
     </Screen>
   );
 }

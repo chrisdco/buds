@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { PeepAvatar, PEEP_COUNT, peepIndexFor } from "@/components/PeepAvatar";
@@ -10,6 +10,7 @@ import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { typeScale } from "@/constants/typography";
 import { useSessionStore } from "@/stores/sessionStore";
+import { TabScrollView } from "@/features/nav/TabScrollView";
 
 // Profile tab in Uber Account grammar: big name + avatar header, then one
 // flat card of rows. Anonymous identity stays: profile = name + prefs, and
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <TabScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={[typeScale.display, styles.name]} numberOfLines={2} accessibilityRole="header">
             {displayName.trim() || "Your profile"}
@@ -128,7 +129,7 @@ export default function ProfileScreen() {
           />
         </GroupedCard>
         <TabBarClearance />
-      </ScrollView>
+      </TabScrollView>
     </Screen>
   );
 }
