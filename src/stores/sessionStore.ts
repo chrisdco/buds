@@ -6,6 +6,7 @@ import { ACTIVE_ROOM_KEY, RECENTS_KEY, getRecentRooms } from "@/lib/activeRoom";
 import { supabase } from "@/lib/supabaseClient";
 import type { DistanceUnit } from "@/lib/geo";
 import type { NotifyCategory } from "@/events/notifyPrefs";
+import { sessionErrorMessage } from "@/lib/sessionErrors";
 
 const NAME_KEY = "buds.displayName";
 const DEVICE_KEY = "buds.deviceId";
@@ -149,16 +150,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         notifyPrefs,
         avatar,
         ready: true,
-        error: session ? null : "Could not start a session.",
+        error: session ? null : sessionErrorMessage(null),
       });
     } catch (e) {
-      set({
-        ready: true,
-        error:
-          e instanceof Error
-            ? e.message
-            : "Could not reach the server. Check your connection and retry.",
-      });
+      console.warn("session init failed", e);
+      set({ ready: true, error: sessionErrorMessage(e) });
     } finally {
       initPromise = null;
     }

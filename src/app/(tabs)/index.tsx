@@ -10,7 +10,7 @@ import {
   TabBarClearance,
 } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { Button, ErrorText, Screen } from "@/components/ui";
+import { ErrorText, Screen } from "@/components/ui";
 import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { PresetCircles } from "@/features/trips/PresetCircles";
@@ -143,6 +143,21 @@ export default function HomeScreen() {
   return (
     <Screen>
       <TabScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* No session = nothing works (rooms, joins), so the failure sits
+        first, as one tappable row, not below the fold. */}
+        {sessionError && (
+          <GroupedCard style={styles.sessionError}>
+            <ListRow
+              icon={icons.warning}
+              title="Not connected"
+              sub={sessionError}
+              value="Retry"
+              a11yLabel={`Not connected. ${sessionError} Tap to retry.`}
+              testID="home-session-retry"
+              onPress={() => void useSessionStore.getState().init()}
+            />
+          </GroupedCard>
+        )}
         {/* Uber home: the search box IS the screen's one primary action,
         with "Later" nested inside it (two pressables side by side in one
         container, never nested, so both taps stay isolated). */}
@@ -276,17 +291,6 @@ export default function HomeScreen() {
           ]}
         />
 
-        {sessionError && (
-          <View style={styles.sessionError}>
-            <ErrorText>{sessionError}</ErrorText>
-            <Button
-              label="Retry connection"
-              variant="ghost"
-              size="compact"
-              onPress={() => void useSessionStore.getState().init()}
-            />
-          </View>
-        )}
         <TabBarClearance />
       </TabScrollView>
     </Screen>
@@ -319,5 +323,5 @@ const styles = StyleSheet.create({
   laterText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   group: { marginTop: space.lg },
   closeBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  sessionError: { marginTop: space.lg },
+  sessionError: { marginTop: space.sm, marginBottom: space.md },
 });
