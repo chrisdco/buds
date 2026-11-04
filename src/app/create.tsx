@@ -9,26 +9,11 @@ import { colors, radius, space } from "@/constants/theme";
 import { typeScale } from "@/constants/typography";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { TRIP_PRESETS, parseCreateParams } from "@/lib/tripPresets";
+import { MODE_OPTIONS as MODES } from "@/modes/modeOptions";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { RoomMode, RpcError } from "@/types/contracts";
-
-// Uber ride-list grammar: icon left, name + one line of meta, the popular
-// option badged. Internal maturity flags stay out of the UI.
-const MODES: {
-  id: RoomMode;
-  label: string;
-  blurb: string;
-  tag?: string;
-  icon: (typeof icons)[keyof typeof icons];
-}[] = [
-  { id: "converge", label: "Converge", blurb: "Everyone heads to one shared destination.", tag: "Popular", icon: icons.flag },
-  { id: "leader", label: "Follow leader", blurb: "One leader, everyone keeps up.", icon: icons.star },
-  { id: "formation", label: "Formation", blurb: "Stay within a set radius of the group.", icon: icons.group },
-  { id: "multitrack", label: "Multi-track", blurb: "Each traveler has their own destination.", icon: icons.trips },
-  { id: "solo", label: "Solo", blurb: "Just share where you are. Others can watch.", icon: icons.profile },
-];
 
 const DURATIONS: { label: string; hours: number | null }[] = [
   { label: "No limit", hours: null },
