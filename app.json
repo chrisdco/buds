@@ -74,6 +74,13 @@
         "projectId": "82a2e5a4-b425-44a1-bcc3-ccd820840087"
       }
     },
-    "owner": "chrisdcosta"
+    "owner": "chrisdcosta",
+    // OTA updates (EAS Update). Builds only accept updates whose native
+    // fingerprint matches theirs, so an update that needs new native code
+    // can't land on an APK that lacks it; that change needs a rebuild.
+    "runtimeVersion": { "policy": "fingerprint" },
+    "updates": {
+      "url": "https://u.expo.dev/82a2e5a4-b425-44a1-bcc3-ccd820840087"
+    }
   }
 }
