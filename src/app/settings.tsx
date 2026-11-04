@@ -156,6 +156,12 @@ export default function SettingsScreen() {
 
         <Label>Support</Label>
         <Button label="Send feedback" variant="ghost" onPress={sendFeedback} />
+        <Button
+          label="Preview app icons"
+          variant="ghost"
+          testID="settings-icon-preview"
+          onPress={() => router.push("/icon-preview")}
+        />
         <Text style={styles.caption}>Buds {version}</Text>
         <Pressable onPress={() => void Linking.openURL("https://github.com/chrisdco/buds").catch(() => {})}>
           <Text style={styles.link}>github.com/chrisdco/buds</Text>
