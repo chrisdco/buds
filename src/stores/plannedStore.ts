@@ -25,6 +25,8 @@ interface PlannedState {
   refresh: () => Promise<void>;
   /** Schedules + saves; double-prompt primes notifications at intent. */
   plan: (place: PlannedPlace, atMs: number) => Promise<PlannedTrip | null>;
+  /** New fire time, same trip; the reminder moves with it. */
+  reschedule: (id: string, atMs: number) => Promise<void>;
   cancel: (id: string) => Promise<void>;
 }
 
@@ -71,6 +73,24 @@ export const usePlannedStore = create<PlannedState>()((set) => ({
     }
     set({ planned: trips });
     return trip;
+  },
+
+  reschedule: async (id, atMs) => {
+    const trip = (await getPlannedTrips()).find((t) => t.id === id);
+    if (!trip) return;
+    if (trip.notifId) await cancelPlannedReminder(trip.notifId);
+    // Only re-ask the OS if a reminder was on; "Not now" stays respected.
+    const notifId =
+      trip.notifId && (await ensureNotificationPermission())
+        ? await schedulePlannedReminder({
+            plannedId: id,
+            title: `Time to head to ${trip.place.name}?`,
+            body: "Tap to create the room — your destination is prefilled.",
+            atMs,
+          })
+        : null;
+    const { trips } = await addPlannedTrip({ ...trip, atMs, notifId });
+    set({ planned: trips });
   },
 
   cancel: async (id) => {
