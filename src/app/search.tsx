@@ -40,7 +40,11 @@ export default function PlanTripScreen() {
   const [retryNonce, setRetryNonce] = useState(0);
   const [unbiased, setUnbiased] = useState(false);
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
-  const [saveSlot, setSaveSlot] = useState<"home" | "work" | null>(null);
+  // ?save=home|work (from Profile): open straight into "pick a place to
+  // save", and return once it's saved.
+  const saveParam = Array.isArray(rawParams.save) ? rawParams.save[0] : rawParams.save;
+  const saveOnly = saveParam === "home" || saveParam === "work" ? saveParam : null;
+  const [saveSlot, setSaveSlot] = useState<"home" | "work" | null>(saveOnly);
   const [later, setLater] = useState(whenParam === "later");
   const [slotId, setSlotId] = useState<string>("1h");
   // "Later" from Home arrives with the time picker already open.
@@ -123,6 +127,7 @@ export default function PlanTripScreen() {
     if (saveSlot) {
       void usePlacesStore.getState().save(saveSlot, ref);
       setSaveSlot(null);
+      if (saveOnly) router.back();
       return;
     }
     void usePlacesStore.getState().addRecent(ref);

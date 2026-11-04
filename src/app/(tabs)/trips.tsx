@@ -17,9 +17,14 @@ import { useRecentsStore } from "@/stores/recentsStore";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
+import { AvatarStack } from "@/features/trips/AvatarStack";
+import { StatTiles } from "@/features/trips/StatTiles";
+import { budsLabel, groupByRecency, shortDate, tripStats } from "@/lib/tripHistory";
+import { MODE_OPTIONS } from "@/modes/modeOptions";
 
-// Trips tab (Uber Activity): upcoming planned trips, then every room this
-// device created or joined, newest first.
+// Trips tab (Uber Activity): counts at a glance, upcoming planned trips,
+// then every room this device created or joined, bucketed by recency, each
+// row saying where it went, with whom and when.
 // Rejoin re-validates membership through join_room (idempotent) and prunes
 // dead rooms inline — the list never shows a room you can't enter.
 export default function TripsScreen() {
@@ -91,6 +96,8 @@ export default function TripsScreen() {
 
   const upcoming = planned ?? [];
   const past = recents ?? [];
+  const stats = tripStats(past);
+  const sections = groupByRecency(past, nowMs);
 
   return (
     <Screen>
@@ -99,10 +106,22 @@ export default function TripsScreen() {
           Trips
         </Text>
 
+        {past.length > 0 && (
+          <View style={styles.stats}>
+            <StatTiles
+              stats={[
+                { key: "trips", value: stats.trips, label: stats.trips === 1 ? "Trip" : "Trips" },
+                { key: "buds", value: stats.buds, label: stats.buds === 1 ? "Bud" : "Buds" },
+                { key: "places", value: stats.places, label: stats.places === 1 ? "Place" : "Places" },
+              ]}
+            />
+          </View>
+        )}
+
         {/* Uber Activity: Upcoming first (scheduled reminders), then Past. */}
         {upcoming.length > 0 && (
           <>
-            <SectionHeader title="Upcoming" style={styles.firstSection} />
+            <SectionHeader title="Upcoming" style={past.length > 0 ? undefined : styles.firstSection} />
             <GroupedCard>
               {upcoming.map((t, i) => (
                 <ListRow
@@ -127,63 +146,113 @@ export default function TripsScreen() {
           </>
         )}
 
-        <SectionHeader title="Past" style={upcoming.length === 0 ? styles.firstSection : undefined} />
         {/* recents === null only before the startup preload resolves: render
         nothing (same black) rather than flashing the empty state. */}
         {recents === null ? null : past.length === 0 ? (
-          <View style={styles.empty} testID="trips-empty">
-            <WaitingPeepArt width={120} />
-            <Text style={typeScale.rowTitle}>No trips yet</Text>
-            <Text style={[typeScale.rowSub, styles.emptySub]}>
-              Rooms you create or join show up here so you can jump back in.
-            </Text>
-            <View style={styles.emptyActions}>
-              <View style={styles.emptyBtn}>
-                <Button
-                  label="New room"
-                  size="compact"
-                  testID="trips-empty-create"
-                  onPress={() => router.push("/create")}
-                />
-              </View>
-              <View style={styles.emptyBtn}>
-                <Button
-                  label="Join"
-                  size="compact"
-                  variant="ghost"
-                  testID="trips-empty-join"
-                  onPress={() => router.push("/join")}
-                />
+          <>
+            <SectionHeader title="Past" style={upcoming.length === 0 ? styles.firstSection : undefined} />
+            <View style={styles.empty} testID="trips-empty">
+              <WaitingPeepArt width={120} />
+              <Text style={typeScale.rowTitle}>No trips yet</Text>
+              <Text style={[typeScale.rowSub, styles.emptySub]}>
+                Rooms you create or join show up here so you can jump back in.
+              </Text>
+              <View style={styles.emptyActions}>
+                <View style={styles.emptyBtn}>
+                  <Button
+                    label="New room"
+                    size="compact"
+                    testID="trips-empty-create"
+                    onPress={() => router.push("/create")}
+                  />
+                </View>
+                <View style={styles.emptyBtn}>
+                  <Button
+                    label="Join"
+                    size="compact"
+                    variant="ghost"
+                    testID="trips-empty-join"
+                    onPress={() => router.push("/join")}
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          </>
         ) : (
-          <GroupedCard>
-            {past.map((r, i) => (
-              <ListRow
-                key={r.id}
-                icon={icons.group}
-                title={r.name}
-                sub={`${r.role === "traveler" ? "Traveler" : "Spectator"} · Tap to rejoin`}
-                divider={i < past.length - 1}
-                a11yLabel={`Rejoin ${r.name}`}
-                a11yHint={`Code ${r.code}, joined as ${r.role}`}
-                testID={`trips-rejoin-${r.code}`}
-                onPress={() => openTrip(r)}
-                trailing={
-                  // Local forget only: the room is untouched, rejoin-by-code
-                  // keeps working.
-                  <CloseButton
-                    label={`Remove ${r.name} from recents`}
-                    testID={`trips-forget-${r.code}`}
-                    onPress={() => forgetTrip(r)}
-                  />
-                }
-              />
-            ))}
-          </GroupedCard>
+          sections.map((section) => (
+            <View key={section.title}>
+              <SectionHeader title={section.title} />
+              <GroupedCard>
+                {section.rooms.map((r, i) => {
+                  const mode = MODE_OPTIONS.find((m) => m.id === r.mode);
+                  const when = shortDate(r.lastAtMs, nowMs);
+                  const where = r.destLabel ? `to ${r.destLabel}` : (mode?.label ?? null);
+                  const who = budsLabel(r.buds);
+                  return (
+                    <ListRow
+                      key={r.id}
+                      icon={mode?.icon ?? icons.group}
+                      title={r.name}
+                      sub={[when, where].filter(Boolean).join(" · ") || "Tap to rejoin"}
+                      divider={i < section.rooms.length - 1}
+                      a11yLabel={`Rejoin ${r.name}${who ? `, ${who}` : ""}`}
+                      a11yHint={`Code ${r.code}, joined as ${r.role}`}
+                      testID={`trips-rejoin-${r.code}`}
+                      onPress={() => openTrip(r)}
+                      trailing={
+                        <View style={styles.trailing}>
+                          <AvatarStack buds={r.buds ?? []} size={24} />
+                          {/* Local forget only: the room is untouched,
+                          rejoin-by-code keeps working. */}
+                          <CloseButton
+                            label={`Remove ${r.name} from recents`}
+                            testID={`trips-forget-${r.code}`}
+                            onPress={() => forgetTrip(r)}
+                          />
+                        </View>
+                      }
+                    />
+                  );
+                })}
+              </GroupedCard>
+            </View>
+          ))
         )}
         <ErrorText>{error}</ErrorText>
+
+        {past.length > 0 && (
+          <>
+            <SectionHeader title="Plan your next" />
+            <GroupedCard>
+              <ListRow
+                icon={icons.plus}
+                title="New room"
+                sub="Pick a mode and share the code"
+                chevron
+                divider
+                testID="trips-new"
+                onPress={() => router.push("/create")}
+              />
+              <ListRow
+                icon={icons.code}
+                title="Join with a code"
+                sub="Six letters from a friend"
+                chevron
+                divider
+                testID="trips-join"
+                onPress={() => router.push("/join")}
+              />
+              <ListRow
+                icon={icons.calendar}
+                title="Plan for later"
+                sub="Pick a place, get a reminder"
+                chevron
+                testID="trips-later"
+                onPress={() => router.push({ pathname: "/search", params: { when: "later" } })}
+              />
+            </GroupedCard>
+          </>
+        )}
         <TabBarClearance />
       </TabScrollView>
     </Screen>
@@ -208,6 +277,8 @@ function CloseButton({ label, testID, onPress }: { label: string; testID: string
 const styles = StyleSheet.create({
   title: { marginTop: space.lg },
   firstSection: { marginTop: space.lg },
+  stats: { marginTop: space.lg },
+  trailing: { flexDirection: "row", alignItems: "center", gap: space.xs },
   pressed: { opacity: 0.75 },
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", gap: space.sm, paddingVertical: space.md },

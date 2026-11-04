@@ -1,5 +1,6 @@
 import { AppState } from "react-native";
 
+import { recordRoomVisit } from "@/lib/activeRoom";
 import { serverNowMs, setServerNowMs } from "@/lib/time";
 import { roomsRpc } from "@/services/rpc/rooms";
 import {
@@ -10,6 +11,7 @@ import {
 import { createSupabaseTransport } from "@/services/realtime/supabaseTransport";
 import type { RoomTransport, RoomTransportFactory } from "@/services/realtime/transport";
 import { useMembersStore } from "@/stores/membersStore";
+import { useRecentsStore } from "@/stores/recentsStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useRouteStore } from "@/stores/routeStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -75,6 +77,9 @@ async function refreshSnapshot(roomId: string, gen: number): Promise<void> {
   setServerNowMs(result.server_now_ms);
   useRoomStore.getState().applySnapshot(result, useSessionStore.getState().userId);
   useMembersStore.getState().applySnapshot(result.members);
+  void recordRoomVisit(result, useSessionStore.getState().userId).then(() =>
+    useRecentsStore.getState().refresh(),
+  );
 }
 
 export async function connectRoomChannel(roomId: string): Promise<void> {

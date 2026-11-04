@@ -1,6 +1,7 @@
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { PeepAvatar, PEEP_COUNT, peepIndexFor } from "@/components/PeepAvatar";
@@ -10,11 +11,16 @@ import { colors, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { typeScale } from "@/constants/typography";
 import { useSessionStore } from "@/stores/sessionStore";
+import { usePlacesStore } from "@/stores/placesStore";
+import { useRecentsStore } from "@/stores/recentsStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
+import { BudsRow, QuickTiles } from "@/features/profile/ProfileSections";
+import { frequentBuds } from "@/lib/tripHistory";
 
-// Profile tab in Uber Account grammar: big name + avatar header, then one
-// flat card of rows. Anonymous identity stays: profile = name + prefs, and
-// the door to Settings (notifications, privacy, support).
+// Profile tab in Uber Account grammar: big name + avatar header, three
+// square shortcuts, your buds, then grouped rows (name, places, prefs).
+// Anonymous identity stays: profile = name + prefs + what this device has
+// seen, and the door to Settings (notifications, privacy, support).
 export default function ProfileScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
@@ -23,6 +29,10 @@ export default function ProfileScreen() {
   const avatar = useSessionStore((s) => s.avatar);
   const setAvatar = useSessionStore((s) => s.setAvatar);
   const [picking, setPicking] = useState(false);
+  const saved = usePlacesStore((s) => s.saved);
+  const recents = useRecentsStore((s) => s.recents);
+  const buds = frequentBuds(recents ?? []);
+  const version = Constants.expoConfig?.version ?? "dev";
   const initial = (displayName.trim().slice(0, 1) || "?").toUpperCase();
   const effectiveFace = avatar === "initial" ? -1 : (avatar ?? peepIndexFor(deviceId || "you"));
 
@@ -54,6 +64,7 @@ export default function ProfileScreen() {
             {face(64)}
           </Pressable>
         </View>
+        <Text style={typeScale.rowSub}>Anonymous · no account, just this device</Text>
 
         {picking && (
           <View style={styles.picker}>
@@ -94,6 +105,39 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        <QuickTiles
+          tiles={[
+            {
+              key: "trips",
+              label: "Trips",
+              icon: icons.trips,
+              testID: "profile-tile-trips",
+              onPress: () => router.navigate("/trips"),
+            },
+            {
+              key: "places",
+              label: "Places",
+              icon: icons.pin,
+              testID: "profile-tile-places",
+              onPress: () => router.push("/search"),
+            },
+            {
+              key: "settings",
+              label: "Settings",
+              icon: icons.settings,
+              testID: "profile-tile-settings",
+              onPress: () => router.push("/settings"),
+            },
+          ]}
+        />
+
+        {buds.length > 0 && (
+          <>
+            <SectionHeader title="Your buds" />
+            <BudsRow buds={buds} />
+          </>
+        )}
+
         <SectionHeader title="Your name" />
         <TextField
           value={displayName}
@@ -105,6 +149,27 @@ export default function ProfileScreen() {
           testID="profile-name"
         />
         <Text style={[typeScale.meta, styles.hint]}>Shown to your buds. No account needed.</Text>
+
+        <SectionHeader title="Saved places" />
+        <GroupedCard>
+          <ListRow
+            icon={icons.home}
+            title="Home"
+            sub={saved.home?.name ?? "Add a place"}
+            chevron
+            divider
+            testID="profile-saved-home"
+            onPress={() => router.push({ pathname: "/search", params: { save: "home" } })}
+          />
+          <ListRow
+            icon={icons.work}
+            title="Work"
+            sub={saved.work?.name ?? "Add a place"}
+            chevron
+            testID="profile-saved-work"
+            onPress={() => router.push({ pathname: "/search", params: { save: "work" } })}
+          />
+        </GroupedCard>
 
         <SectionHeader title="Preferences" />
         <GroupedCard>
@@ -128,6 +193,23 @@ export default function ProfileScreen() {
             onPress={() => router.push("/settings")}
           />
         </GroupedCard>
+
+        <SectionHeader title="Spread the word" />
+        <GroupedCard>
+          <ListRow
+            icon={icons.share}
+            title="Tell a friend about Buds"
+            sub="Live location for group trips, no account"
+            chevron
+            testID="profile-share-app"
+            onPress={() =>
+              void Share.share({
+                message: "I use Buds to see my group live on one map during trips: https://github.com/chrisdco/buds",
+              })
+            }
+          />
+        </GroupedCard>
+        <Text style={[typeScale.meta, styles.version]}>Buds {version}</Text>
         <TabBarClearance />
       </TabScrollView>
     </Screen>
@@ -183,4 +265,5 @@ const styles = StyleSheet.create({
   pick: { padding: 2, borderRadius: 26, borderWidth: 2, borderColor: "transparent" },
   pickSelected: { borderColor: colors.text },
   hint: { marginTop: space.sm },
+  version: { textAlign: "center", marginTop: space.lg },
 });
