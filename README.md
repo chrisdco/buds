@@ -108,10 +108,11 @@ eas build --profile preview --platform android   # new APK (native changes)
 npm run update:preview -- --message "what changed"  # OTA to installed APKs
 ```
 
-An update reaches a build only when their native fingerprints match
-(`runtimeVersion.policy: fingerprint`). JS, styles and images ship over the
-air. A new native library, permission, plugin or the app icon changes the
-fingerprint and needs a new build. Installed apps fetch the update on launch
+An update reaches a build only when their runtime versions match
+(`runtimeVersion.policy: appVersion`, i.e. app.json `version`). JS, styles and
+images ship over the air. A new native library, permission, plugin or the app
+icon needs a new build: bump `version` first so older APKs don't get JS they
+can't run. Installed apps fetch the update on launch
 and apply it on the next launch.
 
 iOS: works via `npx expo run:ios` from a Mac (free Apple ID = 7-day re-signed
