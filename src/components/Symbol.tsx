@@ -68,6 +68,12 @@ export const icons = {
   check: { ios: "checkmark", android: "check", fallback: "✓" },
   expand: { ios: "chevron.down", android: "expand_more", fallback: "▾" },
   collapse: { ios: "chevron.up", android: "expand_less", fallback: "▴" },
+  bell: { ios: "bell.fill", android: "notifications", fallback: "♪" },
+  reset: { ios: "arrow.counterclockwise", android: "refresh", fallback: "↺" },
+  trash: { ios: "trash", android: "delete", fallback: "⌫" },
+  help: { ios: "questionmark.circle", android: "help", fallback: "?" },
+  feedback: { ios: "bubble.left", android: "chat_bubble", fallback: "✉︎" },
+  link: { ios: "link", android: "link", fallback: "↗" },
 } as const;
 
 export type IconName = keyof typeof icons;
