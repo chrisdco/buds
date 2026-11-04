@@ -30,8 +30,10 @@ export default function TripDetailScreen() {
       <Screen>
         <NavHeader />
         <View style={styles.center}>
-          <Text style={ts.section}>Trip not found</Text>
-          <Text style={[ts.rowSub, styles.centerSub]}>It may have been removed from your history.</Text>
+          <Text style={ts.section}>{error ? "Can't rejoin" : "Trip not found"}</Text>
+          {/* A terminal rejoin error prunes the trip, which lands here: say
+          why instead of silently popping. */}
+          <Text style={[ts.rowSub, styles.centerSub]}>{error ?? "It may have been removed from your history."}</Text>
         </View>
       </Screen>
     );
@@ -108,7 +110,7 @@ export default function TripDetailScreen() {
               label="Rejoin"
               busy={busyId === trip.id}
               testID="trip-rejoin"
-              onPress={() => rejoin(trip, () => router.back())}
+              onPress={() => rejoin(trip)}
             />
           </View>
         </View>

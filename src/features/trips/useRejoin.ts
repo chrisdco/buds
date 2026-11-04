@@ -19,7 +19,7 @@ export function useRejoin() {
   // Double-tap guard: joinRoom awaits the network.
   const busy = useRef(false);
 
-  const rejoin = (ref: ActiveRoomRef, onGone?: () => void) => {
+  const rejoin = (ref: ActiveRoomRef) => {
     if (busy.current) return;
     busy.current = true;
     setBusyId(ref.id);
@@ -40,7 +40,6 @@ export function useRejoin() {
         }
         if (isTerminalJoinError(result.error)) {
           void useRecentsStore.getState().remove(ref.id);
-          onGone?.();
         }
         setError(rejoinErrorMessage(result.error));
       } finally {
