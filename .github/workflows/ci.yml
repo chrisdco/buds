@@ -1,15 +1,36 @@
 # Runs everything that doesn't need a device or secrets:
 #   - check: typecheck, lint, unit tests
 #   - db:    spin up the Supabase local stack, apply migrations, run smoke.sql
+# Kept fast for many small PRs: PRs only (main gets what its PRs already
+# passed), a newer push cancels the older run, node_modules is cached on
+# the lockfile, and db only runs when the schema side changed.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      db: ${{ steps.filter.outputs.db }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            db:
+              - "supabase/**"
+              - "src/types/supabase.ts"
+              - ".github/workflows/ci.yml"
+
   check:
     runs-on: ubuntu-latest
     steps:
@@ -17,8 +38,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+      # Whole node_modules keyed on the lockfile: a hit skips npm ci (~25s).
+      - uses: actions/cache@v4
+        id: modules
+        with:
+          path: node_modules
+          key: modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.modules.outputs.cache-hit != 'true'
+        run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Lint
@@ -35,6 +62,8 @@ jobs:
   # realtime, and pg_cron objects a bare Postgres lacks), applies all
   # migrations, and runs the RPC smoke test. ubuntu-latest ships Docker.
   db:
+    needs: changes
+    if: needs.changes.outputs.db == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,10 +75,10 @@ jobs:
           # cannot provide). Keep in sync with local `npx supabase --version`.
           version: 2.117.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      # A fresh stack applies every migration on start (there is no seed
+      # file), so no separate db reset.
       - name: Start stack + apply migrations
         run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,storage-api,realtime
-      - name: Reset DB (re-apply all migrations, no seed)
-        run: supabase db reset --no-seed
       - name: Run SQL smoke test
         # ON_ERROR_STOP makes the RAISE EXCEPTION inside smoke.sql fail the job;
         # smoke.sql wraps in BEGIN/ROLLBACK so nothing persists. Container name
