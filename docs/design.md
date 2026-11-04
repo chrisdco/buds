@@ -190,6 +190,23 @@ peep avatars, and small spots (<100 nodes). Node budget for any future scene:
   stuck mount then wedged every later confirm invisible. Verified on-device:
   open → swipe-dismiss → silent logcat, room intact, reopen works.
 
+## App icon (Nov 2026)
+
+A white Fraunces Black lowercase "b" on solid black, matching the ink canvas.
+Fraunces is SIL OFL, so it's fine to use in a logo. Geist Serif was
+considered but ships in one weight only, with no bold. The master artwork is
+`assets/expo.icon/Assets/b.svg`, the iOS Icon Composer layer on a black fill.
+The PNGs are rendered from the same glyph outlines:
+- `icon.png`: 1024, ink at about 58% height.
+- Android adaptive foreground and monochrome: ink at 40%, inside the
+  66% safe circle.
+- Adaptive background: solid black.
+- `splash-icon.png`: on a black splash.
+- `favicon.png`.
+
+Native icons only change after a rebuild (`expo prebuild --clean` for the
+local `android/`).
+
 ## Future review (optional): screen transitions
 
 Deferred until the app has moved (post-device-verification / weekly tester
