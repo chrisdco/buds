@@ -28,6 +28,19 @@ export const colors = {
   scrim: "rgba(0,0,0,0.85)",
 };
 
+/**
+ * Muted panels behind illustrations on Home's idea cards: hue enough to
+ * tell cards apart at a glance, dark enough that white text and the art
+ * keep their contrast. Decoration only; never used for state.
+ */
+export const cardTints = {
+  blue: "#1B2738",
+  violet: "#262036",
+  green: "#1B2E26",
+  amber: "#33281A",
+  rose: "#33202A",
+};
+
 const memberPalette = [
   "#F94144",
   "#F3722C",

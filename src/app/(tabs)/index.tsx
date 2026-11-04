@@ -13,6 +13,8 @@ import { AppSymbol, icons } from "@/components/Symbol";
 import { ErrorText, Screen } from "@/components/ui";
 import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { IdeaCarousel, PrivacyRow } from "@/features/home/HomeSections";
+import { ideaCreateParams, type TripIdea } from "@/features/home/tripIdeas";
 import { PresetCircles } from "@/features/trips/PresetCircles";
 import { TabScrollView } from "@/features/nav/TabScrollView";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
@@ -35,6 +37,7 @@ export default function HomeScreen() {
   const displayName = useSessionStore((s) => s.displayName);
   const sessionError = useSessionStore((s) => s.error);
   const recentPlaces = usePlacesStore((s) => s.recents);
+  const saved = usePlacesStore((s) => s.saved);
   const planned = usePlannedStore((s) => s.planned);
   const [activeRoom, setActiveRoom] = useState<ActiveRoomRef | null>(null);
   const [rejoinBusy, setRejoinBusy] = useState(false);
@@ -92,6 +95,9 @@ export default function HomeScreen() {
     router.push({ pathname: "/create", params: presetCreateParams(preset, displayName) });
   };
 
+  const startFromIdea = (idea: TripIdea) =>
+    guardedPush(() => router.push({ pathname: "/create", params: ideaCreateParams(idea, displayName) }));
+
   const planToPlace = (place: { lat: number; lng: number; name: string }) => {
     router.push({
       pathname: "/create",
@@ -136,9 +142,20 @@ export default function HomeScreen() {
     }
   };
 
-  const recentShown = (recentPlaces ?? []).slice(0, 2);
+  // Saved Home/Work lead the card (Uber's pinned places), then recents
+  // that aren't already one of them, then planned trips.
+  const savedShown = (
+    [
+      ["home", saved.home],
+      ["work", saved.work],
+    ] as const
+  ).flatMap(([slot, ref]) => (ref ? [{ slot, ref }] : []));
+  const isSaved = (p: { lat: number; lng: number }) =>
+    savedShown.some(({ ref }) => ref.lat === p.lat && ref.lng === p.lng);
+  const recentShown = (recentPlaces ?? []).filter((p) => !isSaved(p)).slice(0, 3);
   const plannedShown = planned ?? [];
-  const hasGroup = activeRoom != null || recentShown.length > 0 || plannedShown.length > 0;
+  const placeRows = savedShown.length + recentShown.length + plannedShown.length;
+  const hasGroup = activeRoom != null || placeRows > 0;
 
   return (
     <Screen>
@@ -204,13 +221,26 @@ export default function HomeScreen() {
                 title={activeRoom.name}
                 sub={`Rejoin · ${activeRoom.role === "traveler" ? "Traveler" : "Spectator"}`}
                 chevron
-                divider={recentShown.length > 0 || plannedShown.length > 0}
+                divider={placeRows > 0}
                 a11yLabel={`Rejoin ${activeRoom.name}`}
                 a11yHint={`Code ${activeRoom.code}, joined as ${activeRoom.role}`}
                 testID="home-rejoin"
                 onPress={() => void rejoin()}
               />
             )}
+            {savedShown.map(({ slot, ref }, i) => (
+              <ListRow
+                key={slot}
+                icon={slot === "home" ? icons.home : icons.work}
+                title={slot === "home" ? "Home" : "Work"}
+                sub={ref.name}
+                chevron
+                divider={i < savedShown.length - 1 || recentShown.length > 0 || plannedShown.length > 0}
+                a11yLabel={`Plan a trip to ${slot}, ${ref.name}`}
+                testID={`home-saved-${slot}`}
+                onPress={() => planToPlace(ref)}
+              />
+            ))}
             {recentShown.map((p, i) => (
               <ListRow
                 key={`${p.lat}-${p.lng}-${i}`}
@@ -281,6 +311,20 @@ export default function HomeScreen() {
               onPress: () => pressCreate(),
             },
             {
+              key: "share",
+              title: "Share live",
+              icon: icons.navigate,
+              a11yHint: "Start a room that only shares your location",
+              testID: "home-share-live",
+              onPress: () =>
+                guardedPush(() =>
+                  router.push({
+                    pathname: "/create",
+                    params: { mode: "solo", limit: "10", duration: "4" },
+                  }),
+                ),
+            },
+            {
               key: "later",
               title: "Plan later",
               icon: icons.clock,
@@ -290,6 +334,12 @@ export default function HomeScreen() {
             },
           ]}
         />
+
+        <SectionHeader title="Ideas for your next trip" />
+        <IdeaCarousel onSelect={startFromIdea} />
+
+        <SectionHeader title="Private by design" />
+        <PrivacyRow />
 
         <TabBarClearance />
       </TabScrollView>
