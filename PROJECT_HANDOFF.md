@@ -265,7 +265,7 @@ npm install
 # Supabase (one-time)
 npx supabase login
 npx supabase link --project-ref <your-project-ref>
-npx supabase db push                 # applies migrations 0001..0009
+npx supabase db push                 # applies migrations 0001..0010
 # then enable Authentication -> Sign In/Up -> Anonymous in the dashboard
 cp .env.example .env                  # fill in URL + anon key
 

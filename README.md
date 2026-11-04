@@ -42,7 +42,7 @@ the Docker stack on this laptop as long as both are on the same Wi-Fi.
 
 ```bash
 npx supabase start          # local stack (ports remapped to 5433x, see config.toml)
-npx supabase db reset       # applies migrations 0001..0009 fresh
+npx supabase db reset       # applies migrations 0001..0010 fresh
 ```
 
 Then point `.env` at this laptop's LAN IP (not `localhost` — that means the
