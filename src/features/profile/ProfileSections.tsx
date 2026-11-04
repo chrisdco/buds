@@ -43,7 +43,7 @@ export function QuickTiles({ tiles }: { tiles: QuickTile[] }) {
  * People you've shared rooms with, most trips first. Faces ringed in the
  * same hue they get on the map, so a bud looks the same everywhere.
  */
-export function BudsRow({ buds }: { buds: Bud[] }) {
+export function BudsRow({ buds, onSelect }: { buds: Bud[]; onSelect: (bud: Bud) => void }) {
   return (
     <ScrollView
       horizontal
@@ -52,11 +52,13 @@ export function BudsRow({ buds }: { buds: Bud[] }) {
       contentContainerStyle={styles.budsRow}
     >
       {buds.map((b) => (
-        <View
+        <Pressable
           key={b.userId}
-          style={styles.bud}
-          accessible
+          style={({ pressed }) => [styles.bud, pressed && styles.pressed]}
+          accessibilityRole="button"
           accessibilityLabel={`${b.name}, ${b.trips} ${b.trips === 1 ? "trip" : "trips"} together`}
+          testID={`profile-bud-${b.userId}`}
+          onPress={() => onSelect(b)}
         >
           <View style={[styles.budRing, { borderColor: colorForUser(b.userId) }]}>
             <PeepAvatar seed={b.userId} size={56} />
@@ -67,7 +69,7 @@ export function BudsRow({ buds }: { buds: Bud[] }) {
           <Text style={ts.meta}>
             {b.trips} {b.trips === 1 ? "trip" : "trips"}
           </Text>
-        </View>
+        </Pressable>
       ))}
     </ScrollView>
   );
