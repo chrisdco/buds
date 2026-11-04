@@ -100,6 +100,17 @@ export function destCreateParams(dest: { lat: number; lng: number; label: string
   };
 }
 
+/** /create params for "go to this place together" (saved, recent, planned). */
+export function placeCreateParams(place: { lat: number; lng: number; name: string }): Record<string, string> {
+  return {
+    mode: "converge",
+    limit: "10",
+    duration: "12",
+    name: place.name.slice(0, 60),
+    ...destCreateParams({ lat: place.lat, lng: place.lng, label: place.name }),
+  };
+}
+
 /** Validate/coerce /create params; anything unknown falls back to defaults. */
 export function parseCreateParams(params: {
   mode?: string | string[];

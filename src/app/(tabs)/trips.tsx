@@ -9,7 +9,7 @@ import { AppSymbol, icons } from "@/components/Symbol";
 import { colors, space } from "@/constants/theme";
 import { typeScale } from "@/constants/typography";
 import { countdownLabel } from "@/lib/planned";
-import { destCreateParams } from "@/lib/tripPresets";
+import { placeCreateParams } from "@/lib/tripPresets";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { setActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
@@ -49,18 +49,8 @@ export default function TripsScreen() {
   );
 
   // A planned trip starts like a search pick: create around its place.
-  const startPlanned = (place: { lat: number; lng: number; name: string }) => {
-    router.push({
-      pathname: "/create",
-      params: {
-        mode: "converge",
-        limit: "10",
-        duration: "12",
-        name: place.name.slice(0, 60),
-        ...destCreateParams({ lat: place.lat, lng: place.lng, label: place.name }),
-      },
-    });
-  };
+  const startPlanned = (place: { lat: number; lng: number; name: string }) =>
+    router.push({ pathname: "/create", params: placeCreateParams(place) });
 
   const forgetTrip = (ref: ActiveRoomRef) => {
     void useRecentsStore.getState().remove(ref.id);
@@ -220,39 +210,6 @@ export default function TripsScreen() {
         )}
         <ErrorText>{error}</ErrorText>
 
-        {past.length > 0 && (
-          <>
-            <SectionHeader title="Plan your next" />
-            <GroupedCard>
-              <ListRow
-                icon={icons.plus}
-                title="New room"
-                sub="Pick a mode and share the code"
-                chevron
-                divider
-                testID="trips-new"
-                onPress={() => router.push("/create")}
-              />
-              <ListRow
-                icon={icons.code}
-                title="Join with a code"
-                sub="Six letters from a friend"
-                chevron
-                divider
-                testID="trips-join"
-                onPress={() => router.push("/join")}
-              />
-              <ListRow
-                icon={icons.calendar}
-                title="Plan for later"
-                sub="Pick a place, get a reminder"
-                chevron
-                testID="trips-later"
-                onPress={() => router.push({ pathname: "/search", params: { when: "later" } })}
-              />
-            </GroupedCard>
-          </>
-        )}
         <TabBarClearance />
       </TabScrollView>
     </Screen>

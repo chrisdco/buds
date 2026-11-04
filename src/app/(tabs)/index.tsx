@@ -20,7 +20,7 @@ import { TabScrollView } from "@/features/nav/TabScrollView";
 import { clearActiveRoom, getActiveRoom, type ActiveRoomRef } from "@/lib/activeRoom";
 import { isTerminalJoinError, rejoinErrorMessage } from "@/lib/joinErrors";
 import { countdownLabel } from "@/lib/planned";
-import { TRIP_PRESETS, destCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
+import { TRIP_PRESETS, placeCreateParams, presetCreateParams, type TripPresetId } from "@/lib/tripPresets";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { usePlacesStore } from "@/stores/placesStore";
 import { usePlannedStore } from "@/stores/plannedStore";
@@ -30,7 +30,8 @@ import { useUiStore } from "@/stores/uiStore";
 // Uber home grammar (ref: Uber Home): the "Where to?" box is the one primary
 // entry with Later nested inside it; one grouped card holds the live room +
 // recent places + planned trips; "For you" is a circle grid of trip presets
-// and shortcuts (join, scan, new room). No form fields here — your name is
+// and shortcuts (join, new room, share live); each action has one home
+// here (Later only in the box, scanning inside Join). No form fields; your name is
 // asked where it's needed (create / join).
 export default function HomeScreen() {
   const router = useRouter();
@@ -86,8 +87,7 @@ export default function HomeScreen() {
   };
 
   const pressCreate = () => guardedPush(() => router.push("/create"));
-  const pressJoin = (scan = false) =>
-    guardedPush(() => router.push(scan ? { pathname: "/join", params: { scan: "1" } } : "/join"));
+  const pressJoin = () => guardedPush(() => router.push("/join"));
 
   const startFromPreset = (presetId: TripPresetId) => {
     const preset = TRIP_PRESETS.find((p) => p.id === presetId);
@@ -98,18 +98,8 @@ export default function HomeScreen() {
   const startFromIdea = (idea: TripIdea) =>
     guardedPush(() => router.push({ pathname: "/create", params: ideaCreateParams(idea, displayName) }));
 
-  const planToPlace = (place: { lat: number; lng: number; name: string }) => {
-    router.push({
-      pathname: "/create",
-      params: {
-        mode: "converge",
-        limit: "10",
-        duration: "12",
-        name: place.name.slice(0, 60),
-        ...destCreateParams({ lat: place.lat, lng: place.lng, label: place.name }),
-      },
-    });
-  };
+  const planToPlace = (place: { lat: number; lng: number; name: string }) =>
+    router.push({ pathname: "/create", params: placeCreateParams(place) });
 
   const rejoin = async () => {
     // Same double-tap guard as create/join: the RPC round-trip outlives the
@@ -290,17 +280,9 @@ export default function HomeScreen() {
               key: "join",
               title: "Join",
               icon: icons.code,
-              a11yHint: "Enter a 6-letter room code",
+              a11yHint: "Enter a room code or scan an invite",
               testID: "home-join",
               onPress: () => pressJoin(),
-            },
-            {
-              key: "scan",
-              title: "Scan QR",
-              icon: icons.qr,
-              a11yHint: "Join by scanning an invite code",
-              testID: "home-scan",
-              onPress: () => pressJoin(true),
             },
             {
               key: "new",
@@ -323,14 +305,6 @@ export default function HomeScreen() {
                     params: { mode: "solo", limit: "10", duration: "4" },
                   }),
                 ),
-            },
-            {
-              key: "later",
-              title: "Plan later",
-              icon: icons.clock,
-              a11yHint: "Pick a place and get a reminder",
-              testID: "home-plan-later",
-              onPress: () => router.push({ pathname: "/search", params: { when: "later" } }),
             },
           ]}
         />
