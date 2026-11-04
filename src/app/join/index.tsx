@@ -88,7 +88,7 @@ export default function JoinRoomScreen() {
     setScanning(true);
   };
 
-  // Home's "Scan QR" tile opens straight into the camera. Deferred to a
+  // A ?scan=1 link opens straight into the camera. Deferred to a
   // microtask: setting state synchronously in an effect is a cascading-render
   // hazard (same rule as the room screen's destDraft hand-off).
   useEffect(() => {
