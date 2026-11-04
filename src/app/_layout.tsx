@@ -6,7 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { Asset } from "expo-asset";
 import { useCallback, useEffect, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -18,6 +18,7 @@ import { appFonts } from "@/constants/fonts";
 import { colors } from "@/constants/theme";
 import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
+import { supabaseConfigured } from "@/lib/supabaseClient";
 import { destCreateParams } from "@/lib/tripPresets";
 import { getPlannedTrips } from "@/lib/planned";
 import { setupNotifications } from "@/services/notifications";
@@ -29,6 +30,30 @@ import { useSessionStore } from "@/stores/sessionStore";
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  return supabaseConfigured ? <AppRoot /> : <MissingConfig />;
+}
+
+/**
+ * Build without backend config: say so on screen instead of crashing.
+ * Nothing else mounts (session init would only fail against a placeholder).
+ */
+function MissingConfig() {
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+  return (
+    <View style={styles.loading}>
+      <StatusBar style="light" />
+      <Text style={styles.configTitle}>This build isn&apos;t configured</Text>
+      <Text style={styles.configBody}>
+        It was built without the Supabase URL and key. Set EXPO_PUBLIC_SUPABASE_URL and
+        EXPO_PUBLIC_SUPABASE_ANON_KEY for this build profile, then rebuild.
+      </Text>
+    </View>
+  );
+}
+
+function AppRoot() {
   const ready = useSessionStore((s) => s.ready);
   const router = useRouter();
   const [fontsLoaded] = useFonts(appFonts);
@@ -163,5 +188,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
+    padding: 32,
   },
+  configTitle: { color: colors.text, fontSize: 22, textAlign: "center", marginBottom: 12 },
+  configBody: { color: colors.textDim, fontSize: 16, lineHeight: 22, textAlign: "center" },
 });
