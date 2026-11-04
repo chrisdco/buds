@@ -198,7 +198,7 @@ export function Row({ children, style }: { children: ReactNode; style?: ViewStyl
 export function LoadingView({ label, testID }: { label?: string; testID?: string }) {
   return (
     <View style={styles.loadingView} testID={testID}>
-      <ActivityIndicator size="large" color={colors.accent} />
+      <ActivityIndicator size="large" color={colors.textDim} />
       {label ? <Text style={styles.loadingViewText}>{label}</Text> : null}
     </View>
   );
@@ -234,7 +234,8 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    // Transparent until focus so the field doesn't shift when it lights up.
+    borderColor: "transparent",
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: 14,
@@ -264,11 +265,7 @@ const styles = StyleSheet.create({
   // Uber polarity flip for dark mode: primary CTA is white ink on canvas.
   btnPrimary: { backgroundColor: colors.primary },
   btnDanger: { backgroundColor: colors.danger },
-  btnGhost: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  btnGhost: { backgroundColor: colors.surfaceAlt },
   btnDisabled: { opacity: 0.5 },
   btnPressed: { opacity: 0.85 },
   btnCompact: { paddingVertical: 10, minHeight: 44 },
@@ -281,19 +278,14 @@ const styles = StyleSheet.create({
   btnTextGhost: { color: colors.text },
   chip: {
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceAlt,
     paddingHorizontal: 14,
     paddingVertical: 8,
     ...pressTransition,
   },
   chipOuter: { marginRight: 8, marginBottom: 8 },
   chipPressed: { transform: [{ scale: 0.97 }] },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
+  chipSelected: { backgroundColor: colors.primary },
   chipText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
   chipTextSelected: { color: colors.onPrimary },
   row: { flexDirection: "row", alignItems: "center" },

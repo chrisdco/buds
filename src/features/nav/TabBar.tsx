@@ -110,9 +110,7 @@ const styles = StyleSheet.create({
   },
   barGlass: { overflow: "hidden" },
   barSolid: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceAlt,
     // Elevated above content like Uber's floating bar (Android shadow).
     // elevation is the whole shadow on Android: the legacy shadow* props
     // are iOS-only no-ops here, so they stay out (native-ui skill).

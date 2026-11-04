@@ -254,8 +254,7 @@ const styles = StyleSheet.create({
   retry: {
     marginTop: 12,
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
     paddingHorizontal: 16,
     paddingVertical: 10,
     alignSelf: "flex-start",

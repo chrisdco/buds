@@ -2,13 +2,17 @@ export const colors = {
   // Uber duet adapted to our dark product: ink black canvas, white primary
   // CTAs, neutral grays. Blue survives ONLY as information color (live
   // codes, ETAs, links) — never decoration. Member hues are wayfinding.
-  bg: "#000000",
-  surface: "#111111",
-  surfaceAlt: "#1A1A1A",
+  // Canvas sits just off pure black so surfaces can step up from it; each
+  // step is fill, not outline (critique §1.1). Borders are hairline
+  // dividers only, and 2px white means "selected".
+  bg: "#0B0B0C",
+  surface: "#18181A",
+  surfaceAlt: "#232326",
   /** Raised selected surfaces (tab pill) — one step above surfaceAlt so the
   focused tab reads instantly, Uber's lighter-pill language. */
-  raised: "#262626",
-  border: "#2A2A2A",
+  raised: "#2E2E32",
+  /** Hairline dividers between rows. Never a box outline. */
+  border: "#2C2C2F",
   text: "#FFFFFF",
   textDim: "#A8A8A8",
   /** Primary CTA surface (Uber polarity flip for dark mode). */

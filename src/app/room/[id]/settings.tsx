@@ -200,7 +200,7 @@ export default function RoomSettingsScreen() {
                 value={me.sharing}
                 testID="settings-sharing"
                 onValueChange={(sharing) => void roomsRpc.setSharing(room.id, sharing)}
-                trackColor={{ true: colors.accent, false: colors.border }}
+                trackColor={{ true: colors.success, false: colors.raised }}
                 thumbColor={colors.text}
               />
             </View>
@@ -213,7 +213,7 @@ export default function RoomSettingsScreen() {
                 value={backgroundSharing}
                 testID="settings-background"
                 onValueChange={(enabled) => void toggleBackgroundSharing(enabled)}
-                trackColor={{ true: colors.accent, false: colors.border }}
+                trackColor={{ true: colors.success, false: colors.raised }}
                 thumbColor={colors.text}
               />
             </View>
@@ -235,7 +235,7 @@ export default function RoomSettingsScreen() {
             disabled={!isHost}
             testID="settings-lock"
             onValueChange={(locked) => void guard(() => roomsRpc.lockRoom(room.id, locked))}
-            trackColor={{ true: colors.accent, false: colors.border }}
+            trackColor={{ true: colors.success, false: colors.raised }}
             thumbColor={colors.text}
           />
         </View>
@@ -353,8 +353,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
+    // Always 2px so selecting a row doesn't nudge its content.
+    borderColor: "transparent",
+    borderWidth: 2,
     borderRadius: radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -366,8 +367,8 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: colors.textDim,
     alignItems: "center",
     justifyContent: "center",
   },
