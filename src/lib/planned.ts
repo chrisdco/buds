@@ -47,27 +47,57 @@ function dayWord(atMs: number, nowMs: number): "Today" | "Tomorrow" | null {
   return diffDays === 0 ? "Today" : diffDays === 1 ? "Tomorrow" : null;
 }
 
+/** Earliest a plan may be set for, and how far ahead (reminders past a month are noise). */
+export const MIN_LEAD_MS = 5 * 60_000;
+export const MAX_AHEAD_MS = 30 * 86_400_000;
+
 /**
- * Fixed reminder slots (no custom picker — one fewer native dependency,
- * and four presets cover the real intents). All strictly future; a slot
- * already past today rolls to tomorrow.
+ * Smart presets for "Later": the common intents in one tap, all strictly
+ * future. Presets that make no sense right now drop out (no "Tonight" at
+ * 11 PM, no "This weekend" when it already is). Anything else goes through
+ * the custom date + time picker.
  */
 export function timeSlots(nowMs: number): TimeSlot[] {
   const now = new Date(nowMs);
-  const in1h = nowMs + 3_600_000;
-  const in3h = nowMs + 3 * 3_600_000;
-  let am = atHour(now, 8).getTime();
-  if (am <= nowMs + 30 * 60_000) am += 86_400_000;
-  let pm = atHour(now, 18).getTime();
-  if (pm <= nowMs + 30 * 60_000) pm += 86_400_000;
-  return [
-    { id: "1h", label: `In 1 hour · ${fmtTime(in1h)}`, atMs: in1h },
-    { id: "3h", label: `In 3 hours · ${fmtTime(in3h)}`, atMs: in3h },
-    // Labels come from the calendar day: at 9 PM the 8 AM slot is
-    // tomorrow's even though it is only 11 hours away.
-    { id: "tomorrow-am", label: `${dayWord(am, nowMs)} 8 AM`, atMs: am },
-    { id: "tomorrow-pm", label: `${dayWord(pm, nowMs)} 6 PM`, atMs: pm },
+  const slots: TimeSlot[] = [
+    { id: "30m", label: "In 30 min", atMs: nowMs + 30 * 60_000 },
+    { id: "1h", label: "In 1 hour", atMs: nowMs + 3_600_000 },
   ];
+  const tonight = atHour(now, 19).getTime();
+  if (tonight > nowMs + 60 * 60_000) slots.push({ id: "tonight", label: "Tonight 7 PM", atMs: tonight });
+  let am = atHour(now, 9).getTime();
+  if (am <= nowMs + 30 * 60_000) am += 86_400_000;
+  // Labels come from the calendar day: at 9 PM the 9 AM slot is
+  // tomorrow's even though it is only 12 hours away.
+  slots.push({ id: "morning", label: `${dayWord(am, nowMs)} 9 AM`, atMs: am });
+  const dow = now.getDay(); // 0 Sun .. 6 Sat
+  if (dow >= 1 && dow <= 5) {
+    const sat = atHour(new Date(nowMs + (6 - dow) * 86_400_000), 10).getTime();
+    slots.push({ id: "weekend", label: "Saturday 10 AM", atMs: sat });
+  }
+  return slots;
+}
+
+/** "Today 7:00 PM", "Tomorrow 9:00 AM", or "Sat 8 Nov, 10:00 AM". */
+export function whenLabel(atMs: number, nowMs: number): string {
+  const day = dayWord(atMs, nowMs);
+  if (day) return `${day} ${fmtTime(atMs)}`;
+  const date = new Date(atMs).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+  return `${date}, ${fmtTime(atMs)}`;
+}
+
+/** Why a picked time can't be used, or null when it's fine. */
+export function planTimeError(atMs: number, nowMs: number): string | null {
+  if (atMs < nowMs + MIN_LEAD_MS) return "Pick a time at least 5 minutes from now.";
+  if (atMs > nowMs + MAX_AHEAD_MS) return "Plans can be up to 30 days ahead.";
+  return null;
+}
+
+/** A picked calendar day + clock time as one instant (local time). */
+export function combineDateTime(day: Date, time: Date): number {
+  const d = new Date(day);
+  d.setHours(time.getHours(), time.getMinutes(), 0, 0);
+  return d.getTime();
 }
 
 /** "In 45m" / "In 3h" / "Tomorrow 8:00 AM" countdown for rows. */
