@@ -155,9 +155,17 @@ npm test             # 177 unit tests: geo, throttle, jitter filter, alert engin
                      # join-error policy
 ```
 
-Routing uses OSRM's public demo server by default; for better quality and
-quota, grab a free [OpenRouteService key](https://openrouteservice.org) and add
-`EXPO_PUBLIC_ORS_API_KEY=...` to `.env`.
+Routing goes through the `route` Edge Function (`supabase/functions/route`)
+first: provider keys, a shared route cache (`route_cache`) and per-user rate
+limits live server-side. Set provider secrets there, not in the app:
+`ORS_API_KEY` for OpenRouteService, `OSRM_URL_DRIVE` / `_WALK` / `_CYCLE` for
+self-hosted OSRM. If the function fails, the app falls back to its direct
+chain (`EXPO_PUBLIC_ORS_API_KEY` if set, then the OSRM demo, then a dashed
+straight line). The `routing.proxy` row in `app_config` switches the proxy
+off without a release.
+
+Deploy after editing the function:
+`npx supabase functions deploy route --project-ref <ref>`.
 
 ## Roadmap
 

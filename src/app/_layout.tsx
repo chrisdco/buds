@@ -18,6 +18,7 @@ import { appFonts } from "@/constants/fonts";
 import { colors } from "@/constants/theme";
 import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
+import { loadAppConfig } from "@/lib/appConfig";
 import { supabaseConfigured } from "@/lib/supabaseClient";
 import { destCreateParams } from "@/lib/tripPresets";
 import { getPlannedTrips } from "@/lib/planned";
@@ -60,6 +61,7 @@ function AppRoot() {
 
   useEffect(() => {
     void useSessionStore.getState().init();
+    void loadAppConfig();
     void setupNotifications();
     // Resident recents: load once so tab screens paint rows on first commit
     // instead of empty-then-populated on every focus.
