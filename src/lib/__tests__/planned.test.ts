@@ -1,25 +1,51 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { addPlannedTrip, countdownLabel, timeSlots, type PlannedTrip } from "@/lib/planned";
+import {
+  addPlannedTrip,
+  combineDateTime,
+  countdownLabel,
+  planTimeError,
+  timeSlots,
+  whenLabel,
+  type PlannedTrip,
+} from "@/lib/planned";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
   jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 
 describe("timeSlots", () => {
-  it("returns four strictly-future slots", () => {
-    const now = new Date("2026-10-01T10:00:00").getTime();
+  it("offers soon, tonight, morning and weekend on a weekday morning", () => {
+    const now = new Date("2026-10-01T10:00:00").getTime(); // Thursday
     const slots = timeSlots(now);
-    expect(slots).toHaveLength(4);
-    expect(slots.map((s) => s.id)).toEqual(["1h", "3h", "tomorrow-am", "tomorrow-pm"]);
+    expect(slots.map((s) => s.id)).toEqual(["30m", "1h", "tonight", "morning", "weekend"]);
     for (const s of slots) expect(s.atMs).toBeGreaterThan(now);
+    expect(new Date(slots.find((s) => s.id === "weekend")!.atMs).getDay()).toBe(6);
   });
 
-  it("rolls morning slots past their time to tomorrow", () => {
-    const morning = new Date("2026-10-01T09:00:00").getTime();
-    const am = timeSlots(morning).find((s) => s.id === "tomorrow-am")!;
-    expect(am.label).toBe("Tomorrow 8 AM");
-    expect(new Date(am.atMs).getDate()).toBe(2);
+  it("drops tonight once evening is near and skips weekend on weekends", () => {
+    const satEvening = new Date("2026-10-03T18:30:00").getTime();
+    expect(timeSlots(satEvening).map((s) => s.id)).toEqual(["30m", "1h", "morning"]);
+  });
+});
+
+describe("whenLabel / planTimeError / combineDateTime", () => {
+  const now = new Date("2026-10-01T10:00:00").getTime();
+
+  it("labels by calendar day, then by date", () => {
+    expect(whenLabel(new Date("2026-10-02T09:00:00").getTime(), now)).toMatch(/^Tomorrow /);
+    expect(whenLabel(new Date("2026-10-05T09:00:00").getTime(), now)).toMatch(/Oct/);
+  });
+
+  it("rejects too soon and too far, accepts in between", () => {
+    expect(planTimeError(now + 60_000, now)).toMatch(/5 minutes/);
+    expect(planTimeError(now + 40 * 86_400_000, now)).toMatch(/30 days/);
+    expect(planTimeError(now + 3_600_000, now)).toBeNull();
+  });
+
+  it("joins a day and a clock time", () => {
+    const at = combineDateTime(new Date("2026-10-04T00:00:00"), new Date("2000-01-01T18:45:30"));
+    expect(new Date(at).toISOString()).toBe(new Date("2026-10-04T18:45:00").toISOString());
   });
 });
 
@@ -33,19 +59,13 @@ describe("countdownLabel", () => {
 });
 
 describe("slot day labels", () => {
-  it("labels by calendar day, not by hours away", () => {
-    // 9 PM: 8 AM is only 11h away but it is tomorrow's.
-    const evening = new Date("2026-10-01T21:00:00").getTime();
-    const slots = timeSlots(evening);
-    expect(slots.find((s) => s.id === "tomorrow-am")!.label).toBe("Tomorrow 8 AM");
-    expect(slots.find((s) => s.id === "tomorrow-pm")!.label).toBe("Tomorrow 6 PM");
-  });
-
-  it("keeps same-day slots as today", () => {
-    const early = new Date("2026-10-01T06:00:00").getTime();
-    const slots = timeSlots(early);
-    expect(slots.find((s) => s.id === "tomorrow-am")!.label).toBe("Today 8 AM");
-    expect(slots.find((s) => s.id === "tomorrow-pm")!.label).toBe("Today 6 PM");
+  it("labels the morning slot by calendar day", () => {
+    expect(timeSlots(new Date("2026-10-01T21:00:00").getTime()).find((s) => s.id === "morning")!.label).toBe(
+      "Tomorrow 9 AM",
+    );
+    expect(timeSlots(new Date("2026-10-01T06:00:00").getTime()).find((s) => s.id === "morning")!.label).toBe(
+      "Today 9 AM",
+    );
   });
 
   it("names the day on far countdowns", () => {

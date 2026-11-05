@@ -2,12 +2,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, SelectableRow, StickyFooter } from "@/components/layout";
+import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, StickyFooter } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button, Screen } from "@/components/ui";
 import { colors, space } from "@/constants/theme";
 import { typeScale as ts } from "@/constants/typography";
-import { countdownLabel, timeSlots } from "@/lib/planned";
+import { countdownLabel, whenLabel } from "@/lib/planned";
+import { WhenPicker } from "@/features/planned/WhenPicker";
 import { placeCreateParams } from "@/lib/tripPresets";
 import { usePlannedStore } from "@/stores/plannedStore";
 
@@ -20,7 +21,6 @@ export default function PlannedTripScreen() {
   const id = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
   const trip = usePlannedStore((s) => s.planned?.find((t) => t.id === id));
   const [nowMs] = useState(() => Date.now());
-  const [slots] = useState(() => timeSlots(Date.now()));
   const [busy, setBusy] = useState(false);
 
   if (!trip) {
@@ -35,11 +35,7 @@ export default function PlannedTripScreen() {
     );
   }
 
-  const when = new Date(trip.atMs).toLocaleString([], {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const when = whenLabel(trip.atMs, nowMs);
 
   const move = (atMs: number) => {
     if (busy) return;
@@ -88,17 +84,7 @@ export default function PlannedTripScreen() {
         </GroupedCard>
 
         <SectionHeader title="Change time" />
-        <GroupedCard>
-          {slots.map((s) => (
-            <SelectableRow
-              key={s.id}
-              title={s.label}
-              selected={Math.abs(s.atMs - trip.atMs) < 60_000}
-              testID={`planned-slot-${s.id}`}
-              onPress={() => move(s.atMs)}
-            />
-          ))}
-        </GroupedCard>
+        <WhenPicker atMs={trip.atMs} testID="planned-when" onChange={move} />
 
         <GroupedCard style={styles.cancelCard}>
           <ListRow icon={icons.trash} title="Cancel plan" destructive testID="planned-cancel" onPress={cancel} />

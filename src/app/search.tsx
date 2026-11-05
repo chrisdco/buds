@@ -12,7 +12,8 @@ import { fontFamily } from "@/constants/fonts";
 import { typeScale } from "@/constants/typography";
 import { formatDistanceM } from "@/lib/geo";
 import { destCreateParams } from "@/lib/tripPresets";
-import { timeSlots, type TimeSlot } from "@/lib/planned";
+import { planTimeError, whenLabel } from "@/lib/planned";
+import { WhenPicker } from "@/features/planned/WhenPicker";
 import type { PlaceRef } from "@/lib/places";
 import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
 import { usePlacesStore } from "@/stores/placesStore";
@@ -46,18 +47,16 @@ export default function PlanTripScreen() {
   const saveOnly = saveParam === "home" || saveParam === "work" ? saveParam : null;
   const [saveSlot, setSaveSlot] = useState<"home" | "work" | null>(saveOnly);
   const [later, setLater] = useState(whenParam === "later");
-  const [slotId, setSlotId] = useState<string>("1h");
+  // Later's instant. Defaults to an hour out the moment Later is armed, so
+  // picking a place always has a time; WhenPicker changes it.
+  const [laterAt, setLaterAt] = useState<number | null>(() =>
+    whenParam === "later" ? Date.now() + 3_600_000 : null,
+  );
+  // Day words ("Today"/"Tomorrow") are read against screen open time.
+  const [mountMs] = useState(() => Date.now());
   // "Later" from Home arrives with the time picker already open.
   const [whenOpen, setWhenOpen] = useState(whenParam === "later");
   const [fieldFocused, setFieldFocused] = useState(false);
-  // Slots snapshot when Later arms, deferred to a microtask: consuming
-  // the clock synchronously in an effect is a cascading-render hazard
-  // (same rule as the room screen's destDraft handoff).
-  const [slots, setSlots] = useState<TimeSlot[]>([]);
-  useEffect(() => {
-    if (!later) return;
-    queueMicrotask(() => setSlots(timeSlots(Date.now())));
-  }, [later]);
   const requestId = useRef(0);
   const inFlight = useRef<AbortController | null>(null);
   const userCancelled = useRef(false);
@@ -143,12 +142,17 @@ export default function PlanTripScreen() {
     void usePlacesStore.getState().addRecent(ref);
     if (later) {
       // Later: save a planned trip + reminder, back to Home's countdown.
-      const slot = slots.find((s) => s.id === slotId) ?? slots[0];
-      if (!slot) return;
+      const atMs = laterAt;
+      // A preset picked minutes ago ("In 30 min") can go stale before a
+      // place is chosen: ask again rather than save a past reminder.
+      if (atMs == null || planTimeError(atMs, Date.now())) {
+        setWhenOpen(true);
+        return;
+      }
       void (async () => {
         const trip = await usePlannedStore.getState().plan(
           { name: place.name, address: place.address, lat: place.lat, lng: place.lng },
-          slot.atMs,
+          atMs,
         );
         if (trip) {
           useUiStore.getState().pushAlerts([
@@ -156,7 +160,7 @@ export default function PlanTripScreen() {
               id: `planned-${trip.id}`,
               severity: "info",
               title: trip.notifId
-                ? `Reminder set — ${slot.label}`
+                ? `Reminder set — ${whenLabel(atMs, Date.now())}`
                 : "Saved — reminders are off, enable them in Settings",
             },
           ]);
@@ -179,7 +183,7 @@ export default function PlanTripScreen() {
 
   const pickSaved = (ref: PlaceRef) => pick({ ...ref, id: `saved-${ref.lat}-${ref.lng}`, distanceM: null });
 
-  const slotLabel = later ? (slots.find((s) => s.id === slotId)?.label ?? "Later") : "Now";
+  const slotLabel = later && laterAt != null ? whenLabel(laterAt, mountMs) : "Now";
   const clearQuery = () => {
     requestId.current += 1;
     setQuery("");
@@ -231,21 +235,23 @@ export default function PlanTripScreen() {
               selected={later}
               testID="plan-when-later"
               a11yLabel="Schedule for later"
-              onPress={() => setLater(true)}
+              onPress={() => {
+                setLater(true);
+                setLaterAt((t) => t ?? Date.now() + 3_600_000);
+              }}
             />
-            {later &&
-              slots.map((s) => (
-                <Chip
-                  key={s.id}
-                  label={s.label}
-                  selected={s.id === slotId}
-                  testID={`plan-slot-${s.id}`}
-                  onPress={() => {
-                    setSlotId(s.id);
-                    setWhenOpen(false);
-                  }}
-                />
-              ))}
+          </View>
+        )}
+        {whenOpen && later && (
+          <View style={styles.whenPicker}>
+            <WhenPicker
+              atMs={laterAt}
+              testID="plan-when"
+              onChange={(at) => {
+                setLaterAt(at);
+                setWhenOpen(false);
+              }}
+            />
           </View>
         )}
 
@@ -480,6 +486,7 @@ const styles = StyleSheet.create({
   },
   whenText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   slotRow: { flexDirection: "row", flexWrap: "wrap", marginTop: space.md },
+  whenPicker: { marginTop: space.md },
   arming: { marginTop: space.md, color: colors.text },
   field: {
     flexDirection: "row",
