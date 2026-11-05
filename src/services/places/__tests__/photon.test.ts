@@ -1,4 +1,4 @@
-import { isAbortError, parsePhoton, SEARCH_TIMEOUT_MS, searchPlaces } from "@/services/places/photon";
+import { isAbortError, parsePhoton, rankPlaces, SEARCH_TIMEOUT_MS, searchPlaces } from "@/services/places/photon";
 
 const BERLIN = { lat: 52.52, lng: 13.405 };
 
@@ -31,7 +31,8 @@ describe("parsePhoton", () => {
     );
     expect(r.id).toBe("N7");
     expect(r.name).toBe("Cafe Mitte");
-    expect(r.address).toBe("Torstr 101, Berlin, Germany");
+    // Nearby: country is noise and dropped.
+    expect(r.address).toBe("Torstr 101, Berlin");
     expect(r.lat).toBe(52.525);
     expect(r.lng).toBe(13.41);
     expect(r.distanceM).toBeGreaterThan(400);
@@ -50,6 +51,53 @@ describe("parsePhoton", () => {
     expect(r.name).toBe("Torstr 101");
     expect(r.address).toBe("Berlin");
     expect(r.distanceM).toBeNull();
+  });
+});
+
+describe("parsePhoton addresses", () => {
+  it("uses neighbourhood + city, keeps country when unbiased, labels kind", () => {
+    const [r] = parsePhoton({
+      features: [
+        {
+          geometry: { coordinates: [77.64, 12.97] },
+          properties: { name: "Toit", district: "Indiranagar", city: "Bengaluru", country: "India", osm_value: "pub" },
+        },
+      ],
+    });
+    expect(r.address).toBe("Indiranagar, Bengaluru, India");
+    expect(r.kind).toBe("Pub");
+  });
+
+  it("hides vague kinds", () => {
+    const [r] = parsePhoton({
+      features: [{ geometry: { coordinates: [1, 1] }, properties: { name: "X", osm_value: "yes" } }],
+    });
+    expect(r.kind).toBeNull();
+  });
+});
+
+describe("rankPlaces", () => {
+  const p = (id: string, name: string, lat: number, distanceM: number | null) => ({
+    id,
+    name,
+    address: "",
+    lat,
+    lng: 0,
+    distanceM,
+  });
+
+  it("drops same-name results within 150 m", () => {
+    expect(rankPlaces([p("a", "Mall", 0, null), p("b", "mall", 0.0005, null)]).map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("lets a near result pass a far namesake", () => {
+    const far = p("far", "Central", 1, 900_000);
+    const near = p("near", "Central", 2, 1_000);
+    expect(rankPlaces([far, near]).map((r) => r.id)).toEqual(["near", "far"]);
+  });
+
+  it("keeps Photon order when distances are close", () => {
+    expect(rankPlaces([p("a", "A", 0, 3_000), p("b", "B", 1, 1_000)]).map((r) => r.id)).toEqual(["a", "b"]);
   });
 });
 

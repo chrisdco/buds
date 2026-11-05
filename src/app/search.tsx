@@ -74,8 +74,18 @@ export default function PlanTripScreen() {
       try {
         const last = await Location.getLastKnownPositionAsync();
         if (last) setOrigin({ lat: last.coords.latitude, lng: last.coords.longitude });
+        // A stale or missing cached fix biases results to the wrong city.
+        // When permission is already granted (never prompt here), take one
+        // quick coarse fix; it replaces the cached one when it lands.
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted) return;
+        const fresh = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 4_000)),
+        ]);
+        if (fresh) setOrigin({ lat: fresh.coords.latitude, lng: fresh.coords.longitude });
       } catch {
-        // No cached fix — distances stay hidden.
+        // No fix — distances stay hidden, search still works unbiased.
       }
     })();
   }, []);
@@ -356,7 +366,7 @@ export default function PlanTripScreen() {
               />
             }
             title={r.name}
-            sub={r.address || null}
+            sub={[r.kind, r.address].filter(Boolean).join(" · ") || null}
             divider
             a11yLabel={`Plan a trip to ${r.name}`}
             testID={`plan-search-result-${i}`}
