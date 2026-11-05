@@ -71,10 +71,6 @@ export function AdjustPin({
 
 export function RoomFabs(props: {
   bottom: number;
-  /** "Following Ana" / "Focusing 3", or null when nothing is focused. */
-  focusLabel: string | null;
-  focusA11y: string;
-  onClearFocus: () => void;
   autoCamera: boolean;
   onRecenter: () => void;
   /** Null hides the SOS button (spectators just watch). */
@@ -82,19 +78,6 @@ export function RoomFabs(props: {
 }) {
   return (
     <View style={[styles.fabColumn, { bottom: props.bottom }]} pointerEvents="box-none">
-      {props.focusLabel && (
-        <Pressable
-          style={({ pressed }) => [styles.fab, styles.fabWide, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel={props.focusA11y}
-          testID="focus-chip"
-          onPress={props.onClearFocus}
-        >
-          <Text style={styles.fabText} numberOfLines={1}>
-            {props.focusLabel}
-          </Text>
-        </Pressable>
-      )}
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
         accessibilityRole="button"

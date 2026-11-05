@@ -10,9 +10,12 @@ import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
 import { LoadingView } from "@/components/ui";
 import { openExternalNavigation } from "@/lib/nav";
+import { colorForUser } from "@/constants/theme";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
+import { LensChips } from "@/features/map/LensChips";
 import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { RoomMap } from "@/features/map/RoomMap";
+import { buildRouteFeatures, nearestIndex } from "@/features/map/routeFeatures";
 import { RouteLines } from "@/features/map/RouteLines";
 import { ExpiryBanner } from "@/features/room/ExpiryBanner";
 import { MemberList } from "@/features/room/MemberList";
@@ -31,9 +34,10 @@ import { Toasts } from "@/features/room/Toasts";
 import { useDestinationPicker } from "@/features/room/useDestinationPicker";
 import { useRoomCamera } from "@/features/room/useRoomCamera";
 import { useRoomSos } from "@/features/room/useRoomSos";
+import { assignTiers, effectiveLens, LENS_LABEL as LENS_NAME, legendCounts, lensesFor, type Lens } from "@/modes/lenses";
 import { modeRegistry } from "@/modes/registry";
 import { travelers } from "@/modes/shared";
-import { DEFAULT_ARRIVAL_RADIUS_M, type ClientSnapshot } from "@/modes/types";
+import { DEFAULT_ARRIVAL_RADIUS_M, type CameraTarget, type ClientSnapshot } from "@/modes/types";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -88,6 +92,82 @@ export default function RoomScreen() {
         : { headline: null, perMember: {} },
     [snap, strategy, myUserId],
   );
+  // Route view lens (docs/route-view.md section 5): who's emphasized.
+  const lensChoice = useUiStore((s) => s.lens);
+  const focusIds = useUiStore((s) => s.focusUserIds);
+  const mode = room?.mode ?? "solo";
+  const lenses = lensesFor(mode);
+  const lens = effectiveLens(mode, lensChoice);
+  const travelerList = useMemo(() => (snap ? travelers(snap) : []), [snap]);
+  const tiers = useMemo(
+    () =>
+      assignTiers({
+        people: travelerList.map((m) => ({
+          userId: m.userId,
+          etaS: insights.perMember[m.userId]?.etaS ?? null,
+          arrived: m.arrivedAt != null,
+        })),
+        myUserId,
+        lens,
+        focusIds,
+      }),
+    [travelerList, insights, myUserId, lens, focusIds],
+  );
+  // Progress trim: start each drawn route at the vertex nearest its person.
+  // Keyed as a string so the source only updates when an index moves, not
+  // on every position tick.
+  const trimKey = useMemo(() => {
+    const parts: string[] = [];
+    for (const [uid, route] of Object.entries(routes)) {
+      const p = membersMap[uid]?.pos;
+      if (p && route.coords.length > 2) parts.push(`${uid}:${nearestIndex(route.coords, p.lng, p.lat)}`);
+    }
+    return parts.join("|");
+  }, [routes, membersMap]);
+  const lateKey = useMemo(
+    () =>
+      Object.values(insights.perMember)
+        .filter((i) => i.outsideRadius)
+        .map((i) => i.userId)
+        .sort()
+        .join("|"),
+    [insights],
+  );
+  const routeFeatures = useMemo(() => {
+    const trimFrom: Record<string, number> = {};
+    for (const part of trimKey ? trimKey.split("|") : []) {
+      const [uid, idx] = part.split(":");
+      trimFrom[uid] = Number(idx);
+    }
+    return buildRouteFeatures({
+      routes,
+      tiers,
+      myUserId,
+      colorFor: colorForUser,
+      trimFrom,
+      late: new Set(lateKey ? lateKey.split("|") : []),
+    });
+  }, [routes, tiers, myUserId, trimKey, lateKey]);
+  // The lens frames the camera too: Me follows you, Stragglers frames the
+  // emphasized routes; Everyone and Arrivals keep the mode's default.
+  const lensTarget = useMemo<CameraTarget | null>(() => {
+    if (lens === "me") return myUserId && membersMap[myUserId]?.pos ? { kind: "follow", userId: myUserId } : null;
+    if (lens === "stragglers") {
+      const ids = Object.entries(tiers)
+        .filter(([uid, t]) => (t === "primary" || t === "secondary") && membersMap[uid]?.pos)
+        .map(([uid]) => uid)
+        .sort();
+      return ids.length > 0 ? { kind: "fitUsers", userIds: ids } : null;
+    }
+    return null;
+  }, [lens, tiers, myUserId, membersMap]);
+  const pickLens = useCallback((l: Lens) => {
+    const ui = useUiStore.getState();
+    ui.setFocusUserIds([]);
+    ui.setLens(l);
+    ui.setCameraMode("auto");
+  }, []);
+
   const myDest = useMemo(
     () => (snap && myUserId ? strategy.effectiveDestinationFor(snap, myUserId) : null),
     [snap, strategy, myUserId],
@@ -128,6 +208,7 @@ export default function RoomScreen() {
     padBottom: Math.round(sheetVisibleHeight(detent, H, peekH) + 40),
     nowMs,
     suspended: adjust != null,
+    lensTarget,
   });
   const sos = useRoomSos({ roomId: room?.id, myUserId, isTraveler, membersMap, nowMs });
 
@@ -213,16 +294,19 @@ export default function RoomScreen() {
   const showConnBanner = connection !== "connected";
   const expiry = expiryInfo(room?.expires_at ?? null, nowMs);
   const expiryLabel = expiry && !expiry.expired ? expiry.label : null;
-  const focusedName =
-    focusUserIds.length === 1 ? (membersMap[focusUserIds[0]]?.name ?? null) : null;
   const focusLabel =
-    cameraMode !== "auto"
+    focusUserIds.length === 0
       ? null
-      : focusUserIds.length > 1
-        ? `Focusing ${focusUserIds.length}`
-        : focusedName
-          ? `Following ${focusedName}`
-          : null;
+      : focusUserIds.length === 1
+        ? (membersMap[focusUserIds[0]]?.name ?? "1 person")
+        : `${focusUserIds.length} people`;
+  const legend = (() => {
+    if (travelerList.length < 2) return null;
+    if (lens === "arrivals" && focusUserIds.length === 0) return "Arrival order in the list";
+    const { shown, total } = legendCounts(tiers, travelerList.length);
+    const name = focusUserIds.length > 0 ? "Focus" : (LENS_NAME[lens] ?? lens);
+    return `Showing ${shown} of ${total} · ${name}`;
+  })();
 
   // Who may set the destination under this mode (the sheet hides the search
   // row otherwise — Uber hides what you can't do).
@@ -261,11 +345,16 @@ export default function RoomScreen() {
   const meta = [strategy.label, expiryLabel, `${members.length} in room`].filter(Boolean).join(" · ");
   const etaByUser = useMemo(() => {
     const out: Record<string, number> = {};
+    // ETA chips ride on emphasized faces only (and on everyone in the
+    // Arrivals lens, which is about who gets there when).
+    const showAll = lens === "arrivals" && focusIds.length === 0;
     for (const [uid, i] of Object.entries(insights.perMember)) {
-      if (i.etaS != null && i.arrivedRank == null) out[uid] = i.etaS;
+      const t = tiers[uid];
+      const emphasized = t === "primary" || t === "secondary";
+      if (i.etaS != null && i.arrivedRank == null && (showAll || emphasized)) out[uid] = i.etaS;
     }
     return out;
-  }, [insights]);
+  }, [insights, tiers, lens, focusIds]);
 
   // Top stack, Uber-minimal: back circle on its own row, then banners,
   // then the adjust card, then toasts — each starts below the last.
@@ -294,7 +383,7 @@ export default function RoomScreen() {
         onRegionChange={picker.onRegionChange}
         ornamentPosition={{ top: insets.top + 12, right: 12 }}
       >
-        <RouteLines routes={routes} myUserId={myUserId} />
+        <RouteLines features={routeFeatures} />
         <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
         <MemberMarkers
           members={positioned}
@@ -351,16 +440,21 @@ export default function RoomScreen() {
       {detent !== "full" && (
         <RoomFabs
           bottom={fabBottom}
-          focusLabel={focusLabel}
-          focusA11y={
-            focusUserIds.length > 1
-              ? `Clear focus on ${focusUserIds.length} members`
-              : `Unfollow ${focusedName}`
-          }
-          onClearFocus={() => useUiStore.getState().setFocusUserIds([])}
           autoCamera={cameraMode === "auto"}
           onRecenter={recenter}
           sos={isTraveler ? { active: sos.mySosActive, onPress: sos.mySosActive ? sos.cancel : sos.send } : null}
+        />
+      )}
+
+      {detent !== "full" && !adjust && (
+        <LensChips
+          bottom={fabBottom}
+          lenses={lenses}
+          lens={lens}
+          onLens={pickLens}
+          focusLabel={focusLabel}
+          onClearFocus={() => useUiStore.getState().setFocusUserIds([])}
+          legend={legend}
         />
       )}
 

@@ -18,8 +18,12 @@ export function useRoomCamera(args: {
   padBottom: number;
   nowMs: number;
   suspended: boolean;
+  /** The lens's own framing (Me follows you, Stragglers frames the late
+  ones); null = the strategy default. Focus still wins over both. */
+  lensTarget: CameraTarget | null;
 }) {
-  const { cameraRef, snap, strategy, myUserId, padBottom, nowMs, suspended } = args;
+  const { cameraRef, snap, strategy, myUserId, padBottom, nowMs, suspended, lensTarget } = args;
+  const lensKey = lensTarget ? JSON.stringify(lensTarget) : "";
   const cameraMode = useUiStore((s) => s.cameraMode);
   const focusUserIds = useUiStore((s) => s.focusUserIds);
 
@@ -63,8 +67,8 @@ export function useRoomCamera(args: {
   const recenter = useCallback(() => {
     useUiStore.getState().setFocusUserIds([]);
     useUiStore.getState().setCameraMode("auto");
-    if (snap && myUserId) apply(strategy.cameraTarget(snap, myUserId));
-  }, [snap, myUserId, strategy, apply]);
+    if (snap && myUserId) apply(lensTarget ?? strategy.cameraTarget(snap, myUserId));
+  }, [snap, myUserId, strategy, apply, lensTarget]);
 
   // Auto camera follows the strategy's policy until the user pans — unless
   // members are focused (marker toggle / detail Follow). Deliberately keyed
@@ -78,10 +82,10 @@ export function useRoomCamera(args: {
         ? { kind: "follow", userId: focused[0] }
         : focused.length > 1
           ? { kind: "fitUsers", userIds: focused }
-          : strategy.cameraTarget(snap, myUserId),
+          : (lensTarget ?? strategy.cameraTarget(snap, myUserId)),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nowMs, cameraMode, suspended, snap?.room.mode, focusUserIds, padBottom]);
+  }, [nowMs, cameraMode, suspended, snap?.room.mode, focusUserIds, padBottom, lensKey]);
 
   return { cameraMode, focusUserIds, recenter };
 }
