@@ -213,6 +213,16 @@ entry and an `OPTIONS` entry in `src/features/profile/AppIconPicker.tsx`.
 Icons only change on device after a native rebuild; switching on Android
 swaps the launcher entry and can close the app once.
 
+## Type identity (Nov 2026)
+
+Headings (`display`, `section`, `sheetTitle`) are Geist Serif Regular, the
+icon's typeface, so the app reads as Buds rather than an Uber clone. Rows,
+buttons and meta stay Inter. Geist Serif ships one weight, so headings are
+a size step larger than the old Inter Bold ones instead of heavier. The
+font is `assets/fonts/GeistSerif-Regular.ttf` (SIL OFL, license alongside),
+converted from the `geist` npm package's woff2. Revert in one line: set
+`HEADING` in `src/constants/typography.ts` back to Inter Bold.
+
 ## Future review (optional): screen transitions
 
 Deferred until the app has moved (post-device-verification / weekly tester

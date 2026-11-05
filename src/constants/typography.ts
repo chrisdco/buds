@@ -3,19 +3,25 @@ import type { TextStyle } from "react-native";
 import { fontFamily } from "@/constants/fonts";
 import { colors } from "@/constants/theme";
 
+// Headings use the Geist Serif of the app icon (our identity, not Uber's
+// bold grotesque); everything you read in rows stays Inter. Serif has one
+// weight, so heads lean on size, not boldness. To go back to all-Inter set
+// HEADING to { fontFamily: fontFamily.bold }.
+const HEADING = { fontFamily: fontFamily.serif, letterSpacing: -0.3 } satisfies TextStyle;
+
 // Named type scale (docs/ui-critique.md §4), read off the Uber references:
 // bold sentence-case heads, a centered nav title on pushed screens, large
 // secondary text (dimmer, not smaller), and the deciding value as the
 // biggest text in a row. Nothing below 12pt off the map.
 export const typeScale = {
   /** Tab roots ("Trips", "Account"). */
-  display: { color: colors.text, fontSize: 28, lineHeight: 34, fontFamily: fontFamily.bold },
+  display: { color: colors.text, fontSize: 30, lineHeight: 36, ...HEADING },
   /** Centered title in NavHeader ("Plan your trip"). */
   navTitle: { color: colors.text, fontSize: 18, fontFamily: fontFamily.semiBold },
   /** Section heads ("For you", "Recent"). */
-  section: { color: colors.text, fontSize: 20, lineHeight: 26, fontFamily: fontFamily.bold },
+  section: { color: colors.text, fontSize: 22, lineHeight: 28, ...HEADING },
   /** Bottom-sheet title ("Choose a trip"). */
-  sheetTitle: { color: colors.text, fontSize: 20, lineHeight: 26, fontFamily: fontFamily.bold },
+  sheetTitle: { color: colors.text, fontSize: 22, lineHeight: 28, ...HEADING },
   /** List-row primary line. */
   rowTitle: { color: colors.text, fontSize: 16, lineHeight: 21, fontFamily: fontFamily.semiBold },
   /** List-row secondary line: as large as readable, only dimmer. */
