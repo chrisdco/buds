@@ -1,7 +1,8 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 
 import { Marker } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { colorForUser, colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
@@ -13,6 +14,29 @@ interface DestinationMarkersProps {
   members: Record<string, MemberLive>; // keyed by user_id, for pin colors
 }
 
+/**
+ * Teardrop map pin with a white rim, drawn as one SVG path so the point is
+ * exact (anchor="bottom" lands the tip on the coordinate). `inner` sits in
+ * the round head.
+ */
+function Pin({ size, color, inner }: { size: number; color: string; inner?: ReactNode }) {
+  const h = size * 1.3;
+  return (
+    <View style={{ width: size, height: h }}>
+      <Svg width={size} height={h} viewBox="0 0 40 52">
+        <Path
+          d="M20 51C20 51 37.5 32.5 37.5 19.5C37.5 9.8 29.7 2 20 2C10.3 2 2.5 9.8 2.5 19.5C2.5 32.5 20 51 20 51Z"
+          fill={color}
+          stroke={colors.text}
+          strokeWidth={2.5}
+        />
+        {inner ? null : <Circle cx={20} cy={19.5} r={6} fill={colors.text} />}
+      </Svg>
+      {inner ? <View style={[styles.inner, { width: size, height: size }]}>{inner}</View> : null}
+    </View>
+  );
+}
+
 // Memoized: destinations change rarely; membersMap churns per accepted tick,
 // so this skips re-render unless a dest actually changed or membership did.
 // (Members affect pin colors via owner lookup — keyed comparison stays cheap
@@ -22,22 +46,24 @@ export const DestinationMarkers = memo(function DestinationMarkers({
   destByMember,
   members,
 }: DestinationMarkersProps) {
-  const memberByMemberId = new Map(
-    Object.values(members).map((m) => [m.memberId, m]),
-  );
+  const memberByMemberId = new Map(Object.values(members).map((m) => [m.memberId, m]));
   return (
     <>
       {destRoom && (
         <Marker id="dest-room" lngLat={[destRoom.lng, destRoom.lat]} anchor="bottom">
           <View style={styles.wrap}>
-            <Text style={styles.label} numberOfLines={2}>
-              {destRoom.label}
-            </Text>
-            <View style={[styles.pin, { backgroundColor: colors.accent }]}>
-              {/* U+FE0E forces monochrome text presentation cross-platform. */}
-              <Text style={styles.pinGlyph}>{"\u2691\uFE0E"}</Text>
+            <View style={styles.label}>
+              <Text style={styles.labelKicker}>Heading to</Text>
+              <Text style={styles.labelText} numberOfLines={2}>
+                {destRoom.label}
+              </Text>
             </View>
-            <View style={[styles.tip, { borderTopColor: colors.accent }]} />
+            <Pin
+              size={40}
+              color={colors.accent}
+              // U+FE0E forces monochrome text presentation cross-platform.
+              inner={<Text style={styles.flag}>{"⚑︎"}</Text>}
+            />
           </View>
         </Marker>
       )}
@@ -48,15 +74,11 @@ export const DestinationMarkers = memo(function DestinationMarkers({
         return (
           <Marker key={d.id} id={`dest-${d.id}`} lngLat={[d.lng, d.lat]} anchor="bottom">
             <View style={styles.wrap}>
-              {owner && (
-                <Text style={styles.memberLabel} numberOfLines={1}>
-                  {owner.name}
-                </Text>
-              )}
-              <View style={[styles.pin, styles.pinSmall, { backgroundColor: color }]}>
-                <Text style={styles.pinGlyphSmall}>●</Text>
-              </View>
-              <View style={[styles.tip, { borderTopColor: color }]} />
+              <Pin
+                size={28}
+                color={color}
+                inner={owner ? <Text style={styles.initial}>{owner.name.slice(0, 1).toUpperCase()}</Text> : undefined}
+              />
             </View>
           </Marker>
         );
@@ -67,52 +89,19 @@ export const DestinationMarkers = memo(function DestinationMarkers({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: "center" },
-  // Uber map callout: a square-cornered black box with real-size text.
+  inner: { position: "absolute", top: 0, left: 0, alignItems: "center", justifyContent: "center", paddingTop: 1 },
   label: {
-    color: colors.text,
-    backgroundColor: "#000000",
-    borderRadius: 2,
-    paddingHorizontal: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    fontSize: 15,
-    lineHeight: 19,
-    fontFamily: fontFamily.semiBold,
-    marginBottom: 4,
+    marginBottom: 6,
     maxWidth: 200,
-    overflow: "hidden",
-  },
-  memberLabel: {
-    color: colors.text,
-    backgroundColor: "#000000",
-    borderRadius: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    fontSize: 13,
-    fontFamily: fontFamily.semiBold,
-    marginBottom: 3,
-    maxWidth: 140,
-    overflow: "hidden",
-  },
-  pin: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: colors.text,
+    elevation: 4,
   },
-  pinSmall: { width: 22, height: 22, borderRadius: 11 },
-  pinGlyph: { color: colors.text, fontSize: 13, fontFamily: fontFamily.bold },
-  pinGlyphSmall: { color: colors.text, fontSize: 9 },
-  tip: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderTopWidth: 7,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    marginTop: -1,
-  },
+  labelKicker: { color: colors.textDim, fontSize: 10, fontFamily: fontFamily.semiBold, letterSpacing: 0.4 },
+  labelText: { color: colors.text, fontSize: 14, lineHeight: 18, fontFamily: fontFamily.semiBold, textAlign: "center" },
+  flag: { color: colors.text, fontSize: 15, fontFamily: fontFamily.bold },
+  initial: { color: colors.text, fontSize: 12, fontFamily: fontFamily.bold },
 });
