@@ -147,7 +147,7 @@ export default function DestSearchScreen() {
         )}
 
         {results.map((r, i) => {
-          const sub = [r.address, r.distanceM != null ? formatDistanceM(r.distanceM, units) : null]
+          const sub = [r.kind, r.address, r.distanceM != null ? formatDistanceM(r.distanceM, units) : null]
             .filter(Boolean)
             .join(" · ");
           const distLabel = r.distanceM != null ? formatDistanceM(r.distanceM, units) : null;
