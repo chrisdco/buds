@@ -1,6 +1,9 @@
+import { getAppConfig } from "@/lib/appConfig";
 import { haversineMeters, round5 } from "@/lib/geo";
+import { supabaseConfigured } from "@/lib/supabaseClient";
 import { fetchOrsRoute, orsApiKey } from "@/services/routing/ors";
 import { fetchOsrmRoute } from "@/services/routing/osrm";
+import { fetchProxyRoute } from "@/services/routing/proxy";
 import type { LatLng, RouteFetcher } from "@/services/routing/types";
 import type { RouteResult } from "@/types/contracts";
 
@@ -54,14 +57,21 @@ async function withTimeout(
 }
 
 /**
- * The routing chain: ORS (if a key is configured) -> OSRM demo ->
+ * The routing chain: our `route` proxy (unless switched off in app_config)
+ * -> ORS (if a key is configured) -> OSRM demo ->
  * straight-line estimate. Never rejects — the worst case is a dashed
  * straight line labeled as an estimate.
  */
 export async function fetchRoute(
   from: LatLng,
   to: LatLng,
-  deps: { ors?: RouteFetcher; osrm?: RouteFetcher; hasOrsKey?: boolean } = {},
+  deps: {
+    ors?: RouteFetcher;
+    osrm?: RouteFetcher;
+    proxy?: RouteFetcher;
+    hasOrsKey?: boolean;
+    useProxy?: boolean;
+  } = {},
 ): Promise<RouteResult> {
   const key = cacheKey(from, to);
   const hit = routeCache.get(key);
@@ -70,7 +80,12 @@ export async function fetchRoute(
   }
 
   const hasKey = deps.hasOrsKey ?? orsApiKey() != null;
+  const useProxy = deps.useProxy ?? (supabaseConfigured && getAppConfig().routing.proxy);
   const chain: { fetcher: RouteFetcher; source: "ors" | "osrm" }[] = [];
+  // The proxy's answer comes from ORS or OSRM server-side; it is labelled
+  // "osrm" here only for the dashed/solid distinction, which is all
+  // `source` drives.
+  if (useProxy) chain.push({ fetcher: deps.proxy ?? fetchProxyRoute, source: "osrm" });
   if (hasKey) chain.push({ fetcher: deps.ors ?? fetchOrsRoute, source: "ors" });
   chain.push({ fetcher: deps.osrm ?? fetchOsrmRoute, source: "osrm" });
 

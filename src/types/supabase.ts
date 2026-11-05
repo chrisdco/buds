@@ -34,6 +34,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       destinations: {
         Row: {
           created_at: string
@@ -192,6 +210,24 @@ export type Database = {
           settings?: Json
           status?: string
           traveler_limit?: number
+        }
+        Relationships: []
+      }
+      route_cache: {
+        Row: {
+          expires_at: string
+          key: string
+          route: Json
+        }
+        Insert: {
+          expires_at: string
+          key: string
+          route: Json
+        }
+        Update: {
+          expires_at?: string
+          key?: string
+          route?: Json
         }
         Relationships: []
       }

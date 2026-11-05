@@ -1,6 +1,11 @@
 import { clearRouteCache, fetchRoute, straightLineRoute } from "@/services/routing/router";
 import type { RouteFetcher } from "@/services/routing/types";
 
+jest.mock("@react-native-async-storage/async-storage", () =>
+  jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"),
+);
+jest.mock("@/lib/supabaseClient", () => ({ supabase: {}, supabaseConfigured: false }));
+
 const A = { lat: 48.2, lng: 16.37 };
 const B = { lat: 48.21, lng: 16.38 };
 
@@ -102,5 +107,22 @@ describe("straightLineRoute", () => {
     expect(route.distanceM).toBeGreaterThan(1_000);
     expect(route.distanceM).toBeLessThan(1_600);
     expect(route.source).toBe("straightline");
+  });
+
+  it("tries the proxy first when enabled, then falls through", async () => {
+    clearRouteCache();
+    const route = await fetchRoute(A, B, { useProxy: true, proxy: ok(7), hasOrsKey: true, ors: ok(1), osrm: ok(2) });
+    expect(route.distanceM).toBe(7);
+    clearRouteCache();
+    const fallback = await fetchRoute(A, B, { useProxy: true, proxy: fail, hasOrsKey: false, osrm: ok(2) });
+    expect(fallback.distanceM).toBe(2);
+  });
+
+  it("skips the proxy when switched off", async () => {
+    clearRouteCache();
+    const proxySpy = jest.fn(ok(7));
+    const route = await fetchRoute(A, B, { useProxy: false, proxy: proxySpy, hasOrsKey: false, osrm: ok(2) });
+    expect(proxySpy).not.toHaveBeenCalled();
+    expect(route.distanceM).toBe(2);
   });
 });
