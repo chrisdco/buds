@@ -129,14 +129,17 @@ as one native `<Image>` — a thousand-node SVG tree costs a thousand native
 views on mount, a PNG costs one. Vectors (`react-native-svg`) stay for icons,
 peep avatars, and small spots (<100 nodes). Node budget for any future scene:
 ~150 nodes or it gets rasterized, no exceptions.
-- **unDraw scenes** (no attribution, commercial OK, decorative use): home hero
-  (`share-location`), join (`location-search`), preset cards (`destination`,
-  `order-ride`, `travel-together`), all with primary `#6c63ff` → `colors.accent`
-  `#4F8EF7` baked at raster time. Sources live in
-  `assets/illustrations/src/` so swaps stay reproducible. Dark-theme note:
-  near-black shapes (`#2f2e41`) read as night shading on ink — verified
-  on-device, not assumed. Dead slugs are common (CDN 404s); old art lives
-  under `/illustrations/`, new under `/illustration/`.
+- **Open Doodles scenes** (Nov 2026, CC0, by Pablo Stanley, same hand as our
+  Open Peeps avatars): convoy / follow leader (`order-ride` <- roller-skating),
+  venue / meet up (`destination` <- dancing), hike / stay together
+  (`travel-together` <- strolling), pick up (`location-search` <- running),
+  get home safe (`share-location` <- chilling). Raster time flips ink
+  `#000000` -> `#FFFFFF` and pink `#FF5678` -> `colors.accent`, then crops
+  the 1024x768 artboard to content. Sources in `assets/illustrations/src/`
+  from `opendoodles.s3-us-west-1.amazonaws.com/<name>.svg`. Group scenes are
+  the gap (every doodle is one person); fill with Open Peeps before reaching
+  for a third set. Bundled art budget: ~10 scenes / ~500 KB; anything past
+  that is served remotely.
 
 - **unDraw scenes** (no attribution, commercial OK, decorative use):
   home hero (`ShareLocationArt`, primary `#6c63ff` → `colors.accent`
