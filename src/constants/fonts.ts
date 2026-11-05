@@ -15,6 +15,8 @@ export const fontFamily = {
   semiBold: "Inter_600SemiBold",
   bold: "Inter_700Bold",
   extraBold: "Inter_800ExtraBold",
+  /** Geist Serif (SIL OFL, assets/fonts): headings only, one weight. */
+  serif: "GeistSerif_400Regular",
 } as const;
 
 export const appFonts = {
@@ -23,4 +25,5 @@ export const appFonts = {
   Inter_600SemiBold,
   Inter_700Bold,
   Inter_800ExtraBold,
+  GeistSerif_400Regular: require("../../assets/fonts/GeistSerif-Regular.ttf"),
 };
