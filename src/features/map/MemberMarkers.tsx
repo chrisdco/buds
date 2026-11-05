@@ -1,6 +1,8 @@
 import { Marker } from "@maplibre/maplibre-react-native";
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { PeepAvatar } from "@/components/PeepAvatar";
 import { colorForUser, colors } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { presenceOf } from "@/stores/membersStore";
@@ -9,15 +11,26 @@ import type { MemberLive } from "@/types/contracts";
 interface MemberMarkersProps {
   members: MemberLive[];
   nowMs: number;
-  /** Self marker gets the Maps-style treatment (accent ring). */
+  /** Self marker gets the Maps-style treatment (accent halo). */
   myUserId?: string | null;
   /** Focused members get a bright ring (subset-focus set). */
   selectedIds?: string[];
   /** Toggles focus membership; omitted = markers not tappable. */
   onToggleFocus?: (userId: string) => void;
-  /** Route ETA (seconds) per member: Uber's "1 MIN" box beside the label. */
+  /** Route ETA (seconds) per member, shown as a chip in the name pill. */
   etaByUser?: Record<string, number>;
 }
+
+const FACE = 30;
+const RING = 3;
+const DOT = FACE + RING * 2 + 4; // face + color ring + white edge
+
+// The same Open Peeps face a member has in every list, ringed in their map
+// color so face, ring and route line all say "this is Asha". Memoized: the
+// face SVG is heavy and only depends on who it is, not on position ticks.
+const Face = memo(function Face({ userId }: { userId: string }) {
+  return <PeepAvatar seed={userId} size={FACE} />;
+});
 
 export function MemberMarkers({
   members,
@@ -36,6 +49,9 @@ export function MemberMarkers({
           const state = presenceOf(m, nowMs);
           const faded = state === "offline" || state === "reconnecting";
           const isSelf = myUserId != null && m.userId === myUserId;
+          const color = colorForUser(m.userId);
+          const etaS = etaByUser?.[m.userId];
+          const heading = m.pos!.heading;
           return (
             <Marker
               key={m.userId}
@@ -45,38 +61,35 @@ export function MemberMarkers({
               onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
             >
               <View style={[styles.wrap, faded && styles.faded]}>
-                {m.pos!.heading != null && state === "moving" && (
-                  <View
-                    style={[
-                      styles.headingArrow,
-                      { transform: [{ rotate: `${Math.round(m.pos!.heading)}deg` }] },
-                    ]}
-                  >
-                    <View style={[styles.arrowTip, { borderBottomColor: colorForUser(m.userId) }]} />
-                  </View>
-                )}
-                <View
-                  style={[
-                    styles.avatar,
-                    { backgroundColor: colorForUser(m.userId) },
-                    isSelf && styles.selfAvatar,
-                    !isSelf && selected.has(m.userId) && styles.selectedAvatar,
-                  ]}
-                >
-                  <Text style={styles.initial}>{m.name.slice(0, 1).toUpperCase()}</Text>
-                </View>
-                <View style={styles.callout}>
-                  {etaByUser?.[m.userId] != null && (
-                    <View style={styles.etaBox}>
-                      <Text style={styles.etaNum}>
-                        {Math.max(1, Math.round(etaByUser[m.userId] / 60))}
-                      </Text>
-                      <Text style={styles.etaUnit}>MIN</Text>
+                <View style={styles.dotArea}>
+                  {isSelf && <View style={styles.selfHalo} />}
+                  {/* Heading cone: a wedge riding the ring's edge, rotated
+                  with the device bearing, only while actually moving. */}
+                  {heading != null && state === "moving" && (
+                    <View style={[styles.cone, { transform: [{ rotate: `${Math.round(heading)}deg` }] }]}>
+                      <View style={[styles.coneTip, { borderBottomColor: color }]} />
                     </View>
                   )}
+                  <View
+                    style={[
+                      styles.dot,
+                      { backgroundColor: color },
+                      (isSelf || selected.has(m.userId)) && styles.dotEmphasis,
+                    ]}
+                  >
+                    <Face userId={m.userId} />
+                  </View>
+                </View>
+                <View style={styles.pill}>
                   <Text style={styles.name} numberOfLines={1}>
                     {isSelf ? "You" : m.name}
                   </Text>
+                  {etaS != null && (
+                    <View style={[styles.eta, { backgroundColor: color }]}>
+                      <Text style={styles.etaText}>{Math.max(1, Math.round(etaS / 60))} min</Text>
+                    </View>
+                  )}
+                  {faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>}
                 </View>
               </View>
             </Marker>
@@ -88,63 +101,59 @@ export function MemberMarkers({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: "center", width: 150 },
-  faded: { opacity: 0.45 },
-  headingArrow: {
+  faded: { opacity: 0.5 },
+  dotArea: { width: DOT + 16, height: DOT + 16, alignItems: "center", justifyContent: "center" },
+  // Self: soft accent halo (Maps blue-dot language) behind the face.
+  selfHalo: {
     position: "absolute",
-    top: -2,
-    width: 44,
-    height: 44,
-    alignItems: "center",
+    width: DOT + 16,
+    height: DOT + 16,
+    borderRadius: (DOT + 16) / 2,
+    backgroundColor: "rgba(79,142,247,0.22)",
   },
-  arrowTip: {
+  cone: { position: "absolute", width: DOT + 14, height: DOT + 14, alignItems: "center" },
+  coneTip: {
     width: 0,
     height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderBottomWidth: 9,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 10,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
   },
-  avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  dot: {
+    width: DOT,
+    height: DOT,
+    borderRadius: DOT / 2,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: colors.text,
     elevation: 4,
   },
-  /** Self marker: accent ring instead of white (Maps blue-dot language). */
-  selfAvatar: { borderColor: colors.accent, borderWidth: 3 },
-  /** Focused member: bright ring so the camera set reads on the map. */
-  selectedAvatar: { borderColor: colors.text, borderWidth: 3 },
-  initial: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 15 },
-  // Uber callout: square black box; the ETA box (white, number over MIN)
-  // sits on its leading edge like the pickup label in the references.
-  callout: {
-    marginTop: 3,
+  dotEmphasis: { borderWidth: 3 },
+  // Rounded name pill: our own callout, softer than Uber's square box.
+  pill: {
+    marginTop: -2,
     flexDirection: "row",
-    alignItems: "stretch",
-    backgroundColor: "#000000",
-    borderRadius: 2,
-    overflow: "hidden",
-    maxWidth: 150,
-  },
-  etaBox: {
-    backgroundColor: colors.text,
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
+    gap: 5,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 999,
+    paddingLeft: 9,
+    paddingRight: 4,
+    paddingVertical: 3,
+    maxWidth: 150,
+    elevation: 3,
   },
-  etaNum: { color: colors.onPrimary, fontSize: 13, lineHeight: 15, fontFamily: fontFamily.bold },
-  etaUnit: { color: colors.onPrimary, fontSize: 8, lineHeight: 10, fontFamily: fontFamily.semiBold },
   name: {
     color: colors.text,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fontFamily.semiBold,
     flexShrink: 1,
+    paddingRight: 5,
   },
+  eta: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
+  etaText: { color: colors.onPrimary, fontSize: 11, fontFamily: fontFamily.bold, fontVariant: ["tabular-nums"] },
+  offline: { color: colors.textDim, fontSize: 11, fontFamily: fontFamily.medium, paddingRight: 5 },
 });
