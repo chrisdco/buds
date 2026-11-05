@@ -252,18 +252,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingLeft: space.md,
     paddingRight: space.xs,
-    minHeight: 64,
+    minHeight: 56,
   },
   codeInput: {
     flex: 1,
     color: colors.text,
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fontFamily.medium,
     paddingVertical: 14,
   },
   // Typed code reads like a ticket number; the placeholder stays plain.
   codeInputFilled: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: fontFamily.bold,
     letterSpacing: 6,
     fontVariant: ["tabular-nums"],

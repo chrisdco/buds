@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.surfaceAlt,
     paddingHorizontal: space.md,
-    minHeight: 60,
+    minHeight: 52,
   },
   fieldFocused: { borderColor: colors.text },
   fieldInput: {

@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: space.md,
   },
-  settingRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 64 },
+  settingRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 56 },
   settingText: { flex: 1, flexShrink: 1, gap: 2 },
   stepper: { flexDirection: "row", alignItems: "center", gap: space.sm },
   stepBtn: {

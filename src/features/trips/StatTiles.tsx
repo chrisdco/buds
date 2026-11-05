@@ -36,5 +36,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     gap: 2,
   },
-  value: { ...ts.value, fontSize: 26, lineHeight: 32 },
+  value: { ...ts.value, fontSize: 24, lineHeight: 30 },
 });

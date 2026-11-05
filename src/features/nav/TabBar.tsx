@@ -23,6 +23,9 @@ const TABS = {
 
 const glass = isLiquidGlassAvailable();
 const BAR_MARGIN = 8;
+// Uber-reference proportions: a compact capsule sized to its tabs and
+// centered, not a full-width slab.
+const TAB_W = 84;
 
 export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const [barH, setBarH] = useState(80);
@@ -65,7 +68,7 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
           <AppSymbol
             name={{ ios: tab.icon.ios, android: tab.icon.android }}
             fallback={tab.icon.fallback}
-            size={26}
+            size={22}
             tintColor={selected ? colors.text : colors.textDim}
           />
           <Text style={[styles.label, selected && styles.labelSelected]}>{tab.label}</Text>
@@ -100,13 +103,11 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  wrap: { position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" },
   bar: {
     flexDirection: "row",
-    borderRadius: 30,
-    marginHorizontal: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
+    borderRadius: radius.full,
+    padding: 4,
   },
   barGlass: { overflow: "hidden" },
   barSolid: {
@@ -116,14 +117,14 @@ const styles = StyleSheet.create({
     // are iOS-only no-ops here, so they stay out (native-ui skill).
     elevation: 8,
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 58 },
+  tab: { width: TAB_W, alignItems: "center", justifyContent: "center", minHeight: 50 },
   tabPressed: { opacity: 0.7 },
   pill: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    paddingHorizontal: 26,
-    paddingVertical: 7,
+    gap: 2,
+    width: TAB_W - 4,
+    paddingVertical: 6,
     borderRadius: radius.full,
     backgroundColor: "transparent",
   },
@@ -138,6 +139,6 @@ const styles = StyleSheet.create({
   },
   // On glass a solid fill would punch a hole; a light wash reads as selected.
   pillFillGlass: { backgroundColor: "rgba(255,255,255,0.14)" },
-  label: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.medium },
+  label: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.medium },
   labelSelected: { color: colors.text, fontFamily: fontFamily.semiBold },
 });
