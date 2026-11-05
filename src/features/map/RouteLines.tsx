@@ -1,68 +1,106 @@
 import { memo } from "react";
 
 import { GeoJSONSource, Layer } from "@maplibre/maplibre-react-native";
+import type { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
 
-import { colorForUser } from "@/constants/theme";
-import type { RouteResult } from "@/types/contracts";
+import { colors } from "@/constants/theme";
+import type { RouteFeatureCollection } from "@/features/map/routeFeatures";
 
-function lineFeature(coords: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
-  return {
-    type: "Feature",
-    properties: {},
-    geometry: { type: "LineString", coordinates: coords },
-  };
-}
+// Single-source route renderer (docs/route-view.md 4.1, 9.1): every route
+// is one feature, every visual is a data-driven expression on its tier.
+// Switching lens or focus only swaps feature properties — no layers mount
+// or unmount, no native view churn — so it costs one source update.
 
-interface RouteLinesProps {
-  routes: Record<string, RouteResult>;
-  myUserId: string | null;
-}
+const byTier = (primary: number, secondary: number, context: number): ExpressionSpecification => [
+  "match",
+  ["get", "tier"],
+  "primary",
+  primary,
+  "secondary",
+  secondary,
+  context,
+];
 
-// Memoized: the routes record only changes identity on fetch/clear, so map
-// re-renders from the presence tick or camera moves skip all route layers.
-export const RouteLines = memo(function RouteLines({ routes, myUserId }: RouteLinesProps) {
+// Widths thin by 30% when zoomed out to city scale so ten routes don't
+// become a hairball.
+const width = (primary: number, secondary: number, context: number): ExpressionSpecification => [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  10,
+  byTier(primary * 0.7, secondary * 0.7, context * 0.7),
+  13,
+  byTier(primary, secondary, context),
+];
+
+// Context lines fade out entirely below zoom 11 (section 4.1).
+const coreOpacity: ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  10.5,
+  byTier(0.95, 0.7, 0),
+  11.5,
+  byTier(0.95, 0.7, 0.3),
+];
+
+const solid: ExpressionSpecification = ["!", ["get", "dashed"]];
+const dashed: ExpressionSpecification = ["get", "dashed"];
+const cased: ExpressionSpecification = ["all", solid, ["!=", ["get", "tier"], "context"]];
+
+const lineLayout: {
+  "line-cap": "round";
+  "line-join": "round";
+  "line-sort-key": ExpressionSpecification;
+} = {
+  "line-cap": "round",
+  "line-join": "round",
+  "line-sort-key": ["get", "sortKey"],
+};
+
+export const RouteLines = memo(function RouteLines({ features }: { features: RouteFeatureCollection }) {
   return (
-    <>
-      {Object.entries(routes).map(([userId, route]) => {
-        if (route.coords.length < 2) return null;
-        const self = userId === myUserId;
-        const coreWidth = self ? 5 : 3;
-        const dashed =
-          route.source === "straightline" ? { "line-dasharray": [1.5, 2] } : {};
-        return (
-          <GeoJSONSource
-            key={userId}
-            id={`route-${userId}`}
-            data={lineFeature(route.coords)}
-          >
-            {/* Uber-style casing: a soft light halo under the route so it
-            reads on the dark tiles at a glance. Same dash as the core. */}
-            <Layer
-              type="line"
-              id={`route-casing-${userId}`}
-              layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{
-                "line-color": "#FFFFFF",
-                "line-width": coreWidth + 4.5,
-                "line-opacity": self ? 0.32 : 0.18,
-                ...dashed,
-              }}
-            />
-            <Layer
-              type="line"
-              id={`route-line-${userId}`}
-              layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{
-                "line-color": colorForUser(userId),
-                "line-width": coreWidth,
-                "line-opacity": self ? 0.9 : 0.55,
-                // dashed = straight-line estimate, not a road route
-                ...dashed,
-              }}
-            />
-          </GeoJSONSource>
-        );
-      })}
-    </>
+    <GeoJSONSource id="routes" data={features}>
+      {/* Casing: a light halo (amber when late / off route) so a route
+      reads on dark tiles. Context lines go without. */}
+      <Layer
+        type="line"
+        id="route-casing"
+        filter={cased}
+        layout={lineLayout}
+        paint={{
+          "line-color": ["case", ["get", "late"], colors.warning, "#FFFFFF"],
+          "line-width": width(9.5, 7.5, 0),
+          "line-opacity": ["case", ["get", "late"], 0.85, byTier(0.3, 0.16, 0)],
+          "line-offset": ["get", "offset"],
+        }}
+      />
+      <Layer
+        type="line"
+        id="route-core"
+        filter={solid}
+        layout={lineLayout}
+        paint={{
+          "line-color": ["get", "color"],
+          "line-width": width(5, 3.5, 2),
+          "line-opacity": coreOpacity,
+          "line-offset": ["get", "offset"],
+        }}
+      />
+      {/* Dashed = straight-line estimate, never a road route. */}
+      <Layer
+        type="line"
+        id="route-estimate"
+        filter={dashed}
+        layout={lineLayout}
+        paint={{
+          "line-color": ["get", "color"],
+          "line-width": width(3.5, 2.5, 1.5),
+          "line-opacity": coreOpacity,
+          "line-dasharray": [1.5, 2],
+          "line-offset": ["get", "offset"],
+        }}
+      />
+    </GeoJSONSource>
   );
 });

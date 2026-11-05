@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import type { LocalAlert } from "@/events/alertEngine";
+import type { Lens } from "@/modes/lenses";
 
 export interface ToastItem extends LocalAlert {
   key: string;
@@ -31,6 +32,8 @@ interface UiState {
   /** Camera focus set: members the map frames. Empty = strategy default;
   one = follow; several = fit. Toggled from map markers, set from detail. */
   focusUserIds: string[];
+  /** Route-view lens picked in this room; null = the mode default. */
+  lens: Lens | null;
   /** Active native confirm dialog (ConfirmSheet); null when closed. */
   confirm: ConfirmRequest | null;
   /** Search/long-press pick waiting for adjust + confirm; null when idle. */
@@ -40,6 +43,7 @@ interface UiState {
   dismissToast: (key: string) => void;
   setCameraMode: (mode: CameraMode) => void;
   setFocusUserIds: (userIds: string[]) => void;
+  setLens: (lens: Lens | null) => void;
   toggleFocusUserId: (userId: string) => void;
   /**
    * Native replacement for Alert.alert confirms. Resolves true on confirm,
@@ -57,6 +61,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   toasts: [],
   cameraMode: "auto",
   focusUserIds: [],
+  lens: null,
   confirm: null,
   destDraft: null,
 
@@ -74,6 +79,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setCameraMode: (cameraMode) => set({ cameraMode }),
 
   setFocusUserIds: (focusUserIds) => set({ focusUserIds }),
+
+  setLens: (lens) => set({ lens }),
 
   toggleFocusUserId: (userId) =>
     set((state) => ({
@@ -101,6 +108,6 @@ export const useUiStore = create<UiState>()((set, get) => ({
   reset: () => {
     confirmResolve?.(false);
     confirmResolve = null;
-    set({ toasts: [], cameraMode: "auto", focusUserIds: [], confirm: null, destDraft: null });
+    set({ toasts: [], cameraMode: "auto", focusUserIds: [], lens: null, confirm: null, destDraft: null });
   },
 }));
