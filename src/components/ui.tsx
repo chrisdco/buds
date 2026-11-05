@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   // Uber CTA: a tall rounded rectangle (not a stadium pill), 56dp.
   btn: {
     borderRadius: radius.md,
-    minHeight: 56,
+    minHeight: 52,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   btnTextCompact: { fontSize: 14 },
   // Primary/danger labels sit on filled ink: black/white respectively.
   // Ghost labels are plain white text (was accent blue).
-  btnText: { fontSize: 17, fontFamily: fontFamily.semiBold },
+  btnText: { fontSize: 16, fontFamily: fontFamily.semiBold },
   btnTextPrimary: { color: colors.onPrimary },
   btnTextDanger: { color: colors.text },
   btnTextGhost: { color: colors.text },

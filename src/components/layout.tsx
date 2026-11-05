@@ -289,7 +289,7 @@ export function TabBarClearance() {
 
 const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
-  nav: { flexDirection: "row", alignItems: "center", height: 56, marginBottom: space.sm },
+  nav: { flexDirection: "row", alignItems: "center", height: 52, marginBottom: space.sm },
   navSide: { width: 44, height: 44, justifyContent: "center" },
   navRight: { alignItems: "flex-end" },
   navTitle: { flex: 1, textAlign: "center" },
@@ -297,8 +297,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: space.xl,
-    marginBottom: space.md,
+    marginTop: 28,
+    marginBottom: 12,
   },
   moreBtn: {
     width: 40,
@@ -309,15 +309,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tile: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
-  tileRound: { borderRadius: 22 },
-  row: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 64 },
+  tileRound: { borderRadius: 20 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56 },
   rowPressed: { opacity: 0.7 },
   rowText: {
     flex: 1,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     alignSelf: "stretch",
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   rowTextInner: { flex: 1, flexShrink: 1, gap: 2 },
   rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   optionSelected: { borderColor: colors.text },
   optionBody: { flex: 1, flexShrink: 1, gap: 2 },
-  optionTitle: { ...ts.rowTitle, fontSize: 18 },
+  optionTitle: { ...ts.rowTitle, fontSize: 17 },
   optionValue: { marginLeft: 8 },
   badge: {
     alignSelf: "flex-start",
@@ -366,5 +366,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   footerSummary: { textAlign: "center", marginTop: space.xs },
-  tabClearance: { height: 110 },
+  tabClearance: { height: 92 },
 });

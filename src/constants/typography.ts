@@ -9,24 +9,24 @@ import { colors } from "@/constants/theme";
 // biggest text in a row. Nothing below 12pt off the map.
 export const typeScale = {
   /** Tab roots ("Trips", "Account"). */
-  display: { color: colors.text, fontSize: 30, lineHeight: 36, fontFamily: fontFamily.bold },
+  display: { color: colors.text, fontSize: 28, lineHeight: 34, fontFamily: fontFamily.bold },
   /** Centered title in NavHeader ("Plan your trip"). */
-  navTitle: { color: colors.text, fontSize: 20, fontFamily: fontFamily.semiBold },
+  navTitle: { color: colors.text, fontSize: 18, fontFamily: fontFamily.semiBold },
   /** Section heads ("For you", "Recent"). */
-  section: { color: colors.text, fontSize: 22, lineHeight: 28, fontFamily: fontFamily.bold },
+  section: { color: colors.text, fontSize: 20, lineHeight: 26, fontFamily: fontFamily.bold },
   /** Bottom-sheet title ("Choose a trip"). */
-  sheetTitle: { color: colors.text, fontSize: 22, lineHeight: 28, fontFamily: fontFamily.bold },
+  sheetTitle: { color: colors.text, fontSize: 20, lineHeight: 26, fontFamily: fontFamily.bold },
   /** List-row primary line. */
-  rowTitle: { color: colors.text, fontSize: 17, lineHeight: 22, fontFamily: fontFamily.semiBold },
+  rowTitle: { color: colors.text, fontSize: 16, lineHeight: 21, fontFamily: fontFamily.semiBold },
   /** List-row secondary line: as large as readable, only dimmer. */
-  rowSub: { color: colors.textDim, fontSize: 15, lineHeight: 20, fontFamily: fontFamily.regular },
+  rowSub: { color: colors.textDim, fontSize: 14, lineHeight: 19, fontFamily: fontFamily.regular },
   /** The deciding number in a row (Uber's price slot): ETA, count. */
   value: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: fontFamily.semiBold,
     fontVariant: ["tabular-nums"],
   },
-  body: { color: colors.text, fontSize: 16, lineHeight: 22, fontFamily: fontFamily.regular },
+  body: { color: colors.text, fontSize: 15, lineHeight: 21, fontFamily: fontFamily.regular },
   meta: { color: colors.textDim, fontSize: 13, lineHeight: 18, fontFamily: fontFamily.medium },
 } satisfies Record<string, TextStyle>;
