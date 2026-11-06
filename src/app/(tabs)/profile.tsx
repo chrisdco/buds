@@ -26,6 +26,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const units = useSessionStore((s) => s.units);
+  const focusShowsMe = useSessionStore((s) => s.focusShowsMe);
   const deviceId = useSessionStore((s) => s.deviceId);
   const avatar = useSessionStore((s) => s.avatar);
   const setAvatar = useSessionStore((s) => s.setAvatar);
@@ -183,6 +184,16 @@ export default function ProfileScreen() {
             a11yLabel={`Distance units, ${units === "km" ? "kilometers" : "miles"}. Tap to switch.`}
             testID={units === "km" ? "profile-units-km" : "profile-units-mi"}
             onPress={() => useSessionStore.getState().setUnits(units === "km" ? "mi" : "km")}
+          />
+          <ListRow
+            icon={icons.trips}
+            title="Your route in Focus"
+            sub={focusShowsMe ? "Drawn faintly while you focus on others" : "Hidden while you focus on others"}
+            value={focusShowsMe ? "On" : "Off"}
+            divider
+            a11yLabel={`Your route in Focus, ${focusShowsMe ? "on" : "off"}. Tap to switch.`}
+            testID="profile-focus-me"
+            onPress={() => useSessionStore.getState().setFocusShowsMe(!focusShowsMe)}
           />
           <ListRow
             icon={icons.settings}
