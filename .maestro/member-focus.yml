@@ -1,0 +1,29 @@
+# Member focus: from the detail screen, from a long-press, and clearing it.
+# Assumes an active room with at least self positioned (mock location set).
+appId: com.buds.app
+---
+- launchApp
+# Detail screen -> Focus on map shows the Focus chip back on the map.
+- tapOn: "Maestro \(you\)"
+- assertVisible: "Focus on map"
+- tapOn:
+    id: "member-follow"
+- assertVisible:
+    id: "lens-focus"
+# Re-center releases focus.
+- tapOn:
+    id: "room-recenter"
+- assertNotVisible:
+    id: "lens-focus"
+# Long-press your row -> member menu -> Only them.
+- longPressOn: "Maestro \(you\)"
+- assertVisible:
+    id: "member-actions"
+- tapOn: "Only them"
+- assertVisible:
+    id: "lens-focus"
+# The Focus chip's x clears it again.
+- tapOn:
+    id: "lens-focus"
+- assertNotVisible:
+    id: "lens-focus"

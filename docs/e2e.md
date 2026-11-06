@@ -23,7 +23,7 @@ and target `testID`s (see `src/components/ui.tsx` — `Button`/`Chip` accept
    ```bash
    maestro test .maestro/home-create-room.yml
    maestro test .maestro/destination-route.yml
-   maestro test .maestro/member-sheet-follow.yml
+   maestro test .maestro/member-focus.yml
    ```
 
 ## Known limits (verified against Maestro docs)

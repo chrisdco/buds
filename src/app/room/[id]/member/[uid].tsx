@@ -18,9 +18,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 
 // Per-member detail + focus sheet (issue #16): live presence, route ETA /
-// remaining distance, navigate-to-them, and camera follow. Pure reads off the
-// existing stores — no backend changes. Unverified on device (blind build):
-// confirm marker/list taps land here and the follow camera feels right.
+// remaining distance, navigate-to-them, and map focus (frames them and their
+// route). Pure reads off the existing stores — no backend changes.
 export default function MemberDetailScreen() {
   const router = useRouter();
   const { uid: rawUid } = useLocalSearchParams<{ uid: string }>();
@@ -134,7 +133,7 @@ export default function MemberDetailScreen() {
             />
           )}
           <Button
-            label={isFocused ? "Unfollow" : "Follow on map"}
+            label={isFocused ? "Stop focusing" : "Focus on map"}
             variant="ghost"
             testID="member-follow"
             onPress={toggleFollow}

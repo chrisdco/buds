@@ -62,6 +62,7 @@
     "android": "expo run:android",
     "android:local": "node scripts/android-local.mjs",
     "art": "node scripts/rasterize-art.mjs",
+    "map-icons": "node scripts/rasterize-map-icons.mjs",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "update:preview": "eas update --channel preview --environment preview",

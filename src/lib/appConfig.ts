@@ -15,8 +15,14 @@ const RoutingSchema = z.object({
   proxy: z.boolean().catch(true),
 });
 
+const RouteViewSchema = z.object({
+  /** Phase 1 lenses: chips, tiers by lens, lens camera (route-view 10). */
+  lenses: z.boolean().catch(true),
+});
+
 const AppConfigSchema = z.object({
   routing: RoutingSchema.catch({ proxy: true }),
+  routeView: RouteViewSchema.catch({ lenses: true }),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -25,7 +31,7 @@ const CACHE_KEY = "app_config_v1";
 
 export function parseAppConfig(raw: unknown): AppConfig {
   const obj = raw && typeof raw === "object" ? raw : {};
-  return AppConfigSchema.parse({ routing: {}, ...obj });
+  return AppConfigSchema.parse({ routing: {}, routeView: {}, ...obj });
 }
 
 let current: AppConfig = parseAppConfig({});

@@ -1,6 +1,6 @@
 import { Marker } from "@maplibre/maplibre-react-native";
 import { memo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { colorForUser, colors } from "@/constants/theme";
@@ -17,6 +17,10 @@ interface MemberMarkersProps {
   selectedIds?: string[];
   /** Toggles focus membership; omitted = markers not tappable. */
   onToggleFocus?: (userId: string) => void;
+  /** Long-press: the member menu ("Only them", navigate, details). */
+  onLongPressMember?: (userId: string) => void;
+  /** Faces the lens hides: kept on the map, dimmed (route-view 4.1). */
+  dimmedIds?: ReadonlySet<string>;
   /** Route ETA (seconds) per member, shown as a chip in the name pill. */
   etaByUser?: Record<string, number>;
 }
@@ -38,6 +42,8 @@ export function MemberMarkers({
   myUserId,
   selectedIds,
   onToggleFocus,
+  onLongPressMember,
+  dimmedIds,
   etaByUser,
 }: MemberMarkersProps) {
   const selected = new Set(selectedIds ?? []);
@@ -52,15 +58,24 @@ export function MemberMarkers({
           const color = colorForUser(m.userId);
           const etaS = etaByUser?.[m.userId];
           const heading = m.pos!.heading;
+          const isSelected = selected.has(m.userId);
+          const dimmed = !isSelected && (dimmedIds?.has(m.userId) ?? false);
+          const label = isSelf ? "You" : m.name;
           return (
-            <Marker
-              key={m.userId}
-              id={m.userId}
-              lngLat={[m.pos!.lng, m.pos!.lat]}
-              anchor="center"
-              onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
-            >
-              <View style={[styles.wrap, faded && styles.faded]}>
+            <Marker key={m.userId} id={m.userId} lngLat={[m.pos!.lng, m.pos!.lat]} anchor="center">
+              {/* Pressable (not Marker onPress) so a face takes long-press too. */}
+              <Pressable
+                style={[styles.wrap, faded ? styles.faded : dimmed && styles.dimmed]}
+                disabled={!onToggleFocus && !onLongPressMember}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: isSelected }}
+                accessibilityHint="Tap to focus their route, long-press for more"
+                testID={`marker-${m.userId}`}
+                delayLongPress={350}
+                onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
+                onLongPress={onLongPressMember ? () => onLongPressMember(m.userId) : undefined}
+              >
                 <View style={styles.dotArea}>
                   {isSelf && <View style={styles.selfHalo} />}
                   {/* Heading cone: a wedge riding the ring's edge, rotated
@@ -74,7 +89,7 @@ export function MemberMarkers({
                     style={[
                       styles.dot,
                       { backgroundColor: color },
-                      (isSelf || selected.has(m.userId)) && styles.dotEmphasis,
+                      (isSelf || isSelected) && styles.dotEmphasis,
                     ]}
                   >
                     <Face userId={m.userId} />
@@ -82,7 +97,7 @@ export function MemberMarkers({
                 </View>
                 <View style={styles.pill}>
                   <Text style={styles.name} numberOfLines={1}>
-                    {isSelf ? "You" : m.name}
+                    {label}
                   </Text>
                   {etaS != null && (
                     <View style={[styles.eta, { backgroundColor: color }]}>
@@ -91,7 +106,7 @@ export function MemberMarkers({
                   )}
                   {faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>}
                 </View>
-              </View>
+              </Pressable>
             </Marker>
           );
         })}
@@ -102,6 +117,7 @@ export function MemberMarkers({
 const styles = StyleSheet.create({
   wrap: { alignItems: "center", width: 150 },
   faded: { opacity: 0.5 },
+  dimmed: { opacity: 0.6 },
   dotArea: { width: DOT + 16, height: DOT + 16, alignItems: "center", justifyContent: "center" },
   // Self: soft accent halo (Maps blue-dot language) behind the face.
   selfHalo: {

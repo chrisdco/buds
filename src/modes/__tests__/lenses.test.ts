@@ -1,4 +1,12 @@
-import { assignTiers, effectiveLens, legendCounts, lensesFor, type PersonForTier } from "@/modes/lenses";
+import {
+  assignTiers,
+  effectiveLens,
+  etaRangeLabel,
+  legendCounts,
+  lensesFor,
+  suggestStragglers,
+  type PersonForTier,
+} from "@/modes/lenses";
 
 const people = (n: number): PersonForTier[] =>
   Array.from({ length: n }, (_, i) => ({ userId: `u${i}`, etaS: (i + 1) * 60, arrived: false }));
@@ -8,6 +16,8 @@ describe("lenses per mode", () => {
     expect(lensesFor("converge")[0]).toBe("everyone");
     expect(lensesFor("multitrack")[0]).toBe("me");
     expect(lensesFor("solo")).toEqual([]);
+    // Own way: different destinations, so "latest" means nothing.
+    expect(lensesFor("multitrack")).not.toContain("stragglers");
   });
 
   it("falls back to the default when the chosen lens isn't offered", () => {
@@ -60,9 +70,19 @@ describe("assignTiers", () => {
     expect(Object.values(t)).toEqual(["hidden", "hidden", "hidden"]);
   });
 
-  it("Focus overrides the lens and keeps your own line faint", () => {
+  it("Focus overrides the lens; everyone else (you too) is hidden", () => {
     const t = assignTiers({ people: people(5), myUserId: "u0", lens: "me", focusIds: ["u3"] });
-    expect(t).toEqual({ u0: "context", u1: "hidden", u2: "hidden", u3: "primary", u4: "hidden" });
+    expect(t).toEqual({ u0: "hidden", u1: "hidden", u2: "hidden", u3: "primary", u4: "hidden" });
+  });
+
+  it("Stragglers grows its primary set with the group: 1, 2, then 3", () => {
+    const primaries = (n: number) =>
+      Object.values(assignTiers({ people: people(n), myUserId: "u0", lens: "stragglers", focusIds: [] })).filter(
+        (t) => t === "primary",
+      ).length;
+    expect([primaries(3), primaries(4), primaries(5), primaries(7), primaries(8), primaries(10)]).toEqual([
+      1, 1, 2, 2, 3, 3,
+    ]);
   });
 
   it("Focus past the primary cap demotes to secondary", () => {
@@ -89,6 +109,21 @@ describe("assignTiers", () => {
       { userId: "c", etaS: 900, arrived: false },
     ];
     const t = assignTiers({ people: ps, myUserId: null, lens: "stragglers", focusIds: [] });
-    expect(t).toEqual({ c: "primary", b: "primary", a: "secondary" });
+    expect(t).toEqual({ c: "primary", b: "secondary", a: "secondary" });
+  });
+});
+
+describe("big-group helpers", () => {
+  it("suggests Stragglers from 8 travelers, unless it's on or focus is", () => {
+    expect(suggestStragglers(7, "everyone", false)).toBe(false);
+    expect(suggestStragglers(8, "everyone", false)).toBe(true);
+    expect(suggestStragglers(8, "stragglers", false)).toBe(false);
+    expect(suggestStragglers(9, "everyone", true)).toBe(false);
+  });
+
+  it("labels the ETA spread in minutes", () => {
+    expect(etaRangeLabel([720, null, 1860, 900])).toBe("12–31 min");
+    expect(etaRangeLabel([600, 610])).toBe("10 min");
+    expect(etaRangeLabel([600, undefined])).toBeNull();
   });
 });

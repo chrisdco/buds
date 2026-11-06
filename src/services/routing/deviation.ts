@@ -2,6 +2,9 @@ import { distToPolylineM } from "@/lib/geo";
 
 import type { RouteResult } from "@/types/contracts";
 
+/** Farther than this from your own route counts as off route. */
+export const DEVIATION_THRESHOLD_M = 120;
+
 /** Perpendicular-ish distance from a position to the route polyline, meters. */
 export function distanceFromRouteM(
   route: RouteResult,
