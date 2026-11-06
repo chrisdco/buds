@@ -17,6 +17,7 @@ const PRIMED_BACKGROUND_KEY = "buds.primedBackground";
 const UNITS_KEY = "buds.units";
 const NOTIFY_PREFS_KEY = "buds.notifyPrefs";
 const AVATAR_KEY = "buds.avatar";
+const FOCUS_SHOWS_ME_KEY = "buds.focusShowsMe";
 
 export const ALL_NOTIFY_CATEGORIES: Exclude<NotifyCategory, "other">[] = [
   "arrivals",
@@ -36,6 +37,8 @@ interface SessionState {
   primedNotifications: boolean;
   primedBackground: boolean;
   units: DistanceUnit;
+  /** Route view Focus keeps your own route, drawn faintly (default on). */
+  focusShowsMe: boolean;
   /** Background OS notifications per alert category (foreground toasts always show). */
   notifyPrefs: Record<Exclude<NotifyCategory, "other">, boolean>;
   /**
@@ -52,6 +55,7 @@ interface SessionState {
   setBackgroundSharing: (enabled: boolean) => void;
   setPrimed: (key: "location" | "notifications" | "background") => void;
   setUnits: (units: DistanceUnit) => void;
+  setFocusShowsMe: (on: boolean) => void;
   setNotifyPref: (category: NotifyCategory, enabled: boolean) => void;
   /** Fresh anonymous identity, keeps name + prefs. */
   resetIdentity: () => Promise<void>;
@@ -74,6 +78,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   primedNotifications: false,
   primedBackground: false,
   units: "km",
+  focusShowsMe: true,
   notifyPrefs: { arrivals: true, separation: true, detours: true, reconnections: true },
   avatar: null,
   ready: false,
@@ -84,7 +89,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     initPromise ??= (async () => {
       set({ error: null });
       try {
-      const [storedName, storedDevice, storedBg, primedLoc, primedNotif, primedBg, units, prefs, storedAvatar] =
+      const [storedName, storedDevice, storedBg, primedLoc, primedNotif, primedBg, units, prefs, storedAvatar, focusMe] =
         await Promise.all([
           AsyncStorage.getItem(NAME_KEY),
           AsyncStorage.getItem(DEVICE_KEY),
@@ -95,6 +100,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           AsyncStorage.getItem(UNITS_KEY),
           AsyncStorage.getItem(NOTIFY_PREFS_KEY),
           AsyncStorage.getItem(AVATAR_KEY),
+          AsyncStorage.getItem(FOCUS_SHOWS_ME_KEY),
         ]);
 
       let deviceId = storedDevice;
@@ -147,6 +153,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         primedNotifications: primedNotif === "1",
         primedBackground: primedBg === "1",
         units: units === "mi" ? "mi" : "km",
+        focusShowsMe: focusMe !== "0",
         notifyPrefs,
         avatar,
         ready: true,
@@ -197,6 +204,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   setUnits: (units) => {
     set({ units });
     void AsyncStorage.setItem(UNITS_KEY, units);
+  },
+
+  setFocusShowsMe: (focusShowsMe) => {
+    set({ focusShowsMe });
+    void AsyncStorage.setItem(FOCUS_SHOWS_ME_KEY, focusShowsMe ? "1" : "0");
   },
 
   setNotifyPref: (category, enabled) => {

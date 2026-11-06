@@ -40,9 +40,10 @@ import {
   assignTiers,
   effectiveLens,
   etaRangeLabel,
-  LENS_LABEL as LENS_NAME,
+  lensLabel,
   legendCounts,
   lensesFor,
+  stragglerRank,
   suggestStragglers,
   type Lens,
 } from "@/modes/lenses";
@@ -114,6 +115,13 @@ export default function RoomScreen() {
   const lenses = lensesOn ? lensesFor(mode) : [];
   const lens: Lens = lensesOn ? effectiveLens(mode, lensChoice) : "everyone";
   const travelerList = useMemo(() => (snap ? travelers(snap) : []), [snap]);
+  const focusShowsMe = useSessionStore((s) => s.focusShowsMe);
+  // Late or off route (amber casing; Own way's "Off route" lens ranks by
+  // it). String-keyed so tiers and sources don't rebuild per position tick.
+  const lateKey = useMemo(
+    () => (snap ? [...lateUserIds(snap, insights)].sort().join("|") : ""),
+    [snap, insights],
+  );
   const tiers = useMemo(
     () =>
       assignTiers({
@@ -125,8 +133,11 @@ export default function RoomScreen() {
         myUserId,
         lens,
         focusIds,
+        focusShowsMe,
+        stragglerRank: stragglerRank(mode),
+        late: new Set(lateKey ? lateKey.split("|") : []),
       }),
-    [travelerList, insights, myUserId, lens, focusIds],
+    [travelerList, insights, myUserId, lens, focusIds, focusShowsMe, mode, lateKey],
   );
   // The route manager paces peers' refetches by these tiers.
   useEffect(() => {
@@ -146,11 +157,6 @@ export default function RoomScreen() {
     }
     return parts.join("|");
   }, [routes, membersMap, tiers]);
-  // Late or off route (amber casing), also string-keyed.
-  const lateKey = useMemo(
-    () => (snap ? [...lateUserIds(snap, insights)].sort().join("|") : ""),
-    [snap, insights],
-  );
   const { routeFeatures, routeLabels } = useMemo(() => {
     const trimFrom: Record<string, number> = {};
     for (const part of trimKey ? trimKey.split("|") : []) {
@@ -347,7 +353,10 @@ export default function RoomScreen() {
   const legend = (() => {
     if (!lensesOn || travelerTotal < 2) return null;
     if (lens === "arrivals" && !focusing) return "Arrival order in the list";
-    const name = focusing ? "Focus" : (LENS_NAME[lens] ?? lens);
+    const name = focusing ? "Focus" : lensLabel(lens, mode);
+    if (!focusing && lens === "stragglers" && stragglerRank(mode) === "late" && shownCount === 0) {
+      return "Everyone's on route · Off route";
+    }
     const range =
       lens === "everyone" && !focusing && travelerTotal >= 8
         ? etaRangeLabel(travelerList.filter((m) => m.arrivedAt == null).map((m) => insights.perMember[m.userId]?.etaS))
@@ -361,7 +370,14 @@ export default function RoomScreen() {
     setChipScrollKey((k) => k + 1);
   };
   const suggest =
-    lenses.includes("stragglers") && suggestStragglers(travelerTotal, lens, focusing) ? "stragglers" : null;
+    lenses.includes("stragglers") && stragglerRank(mode) === "eta" && suggestStragglers(travelerTotal, lens, focusing)
+      ? "stragglers"
+      : null;
+  // "You" chip while focusing: only when you have a route to show.
+  const meInFocus =
+    focusing && isTraveler && myUserId && !focusUserIds.includes(myUserId) && routes[myUserId] && me?.arrivedAt == null
+      ? { on: focusShowsMe, onToggle: () => useSessionStore.getState().setFocusShowsMe(!focusShowsMe) }
+      : null;
 
   // Who may set the destination under this mode (the sheet hides the search
   // row otherwise — Uber hides what you can't do).
@@ -521,6 +537,8 @@ export default function RoomScreen() {
           onClearFocus={() => useUiStore.getState().setFocusUserIds([])}
           recenter={recenterHint && cameraMode !== "auto" ? recenter : null}
           scrollToStartKey={chipScrollKey}
+          labelFor={(l) => lensLabel(l, mode)}
+          meInFocus={meInFocus}
         />
       )}
 

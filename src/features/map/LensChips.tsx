@@ -10,7 +10,9 @@ import { LENS_LABEL, type Lens } from "@/modes/lenses";
 // column, over the live map. The selected chip carries its count
 // ("Everyone 8"); a Focus chip appears while faces are picked and clears
 // with one tap; a Re-center pill leads the row when a lens switch left the
-// camera alone because you had just panned. The legend line lives in the
+// camera alone because you had just panned. While focusing, a "You" chip
+// next to Focus shows or hides your own faint route in one tap (the same
+// setting as Profile > Your route in Focus). The legend line lives in the
 // sheet header.
 
 export function LensChips({
@@ -24,6 +26,8 @@ export function LensChips({
   onClearFocus,
   recenter,
   scrollToStartKey,
+  labelFor = (l) => LENS_LABEL[l],
+  meInFocus = null,
 }: {
   bottom: number;
   lenses: Lens[];
@@ -40,6 +44,10 @@ export function LensChips({
   recenter: (() => void) | null;
   /** Bumped by the legend tap: scroll the row back to its start. */
   scrollToStartKey: number;
+  /** Chip names per mode (Own way calls Stragglers "Off route"). */
+  labelFor?: (lens: Lens) => string;
+  /** The "You" toggle while focusing; null hides it. */
+  meInFocus?: { on: boolean; onToggle: () => void } | null;
 }) {
   const scroll = useRef<ScrollView>(null);
   useEffect(() => {
@@ -84,18 +92,33 @@ export function LensChips({
             <Text style={[styles.text, styles.textOn, styles.close]}>{"✕"}</Text>
           </Pressable>
         )}
+        {focusing && meInFocus && (
+          <Pressable
+            style={({ pressed }) => [styles.chip, meInFocus.on && styles.chipOutline, pressed && styles.pressed]}
+            accessibilityRole="switch"
+            accessibilityLabel="Show your route while focusing"
+            accessibilityState={{ checked: meInFocus.on }}
+            testID="lens-focus-me"
+            hitSlop={6}
+            onPress={meInFocus.onToggle}
+          >
+            <Text style={[styles.text, !meInFocus.on && styles.textDim]}>You</Text>
+            <Text style={[styles.text, styles.close, !meInFocus.on && styles.textDim]}>{meInFocus.on ? "✓" : "+"}</Text>
+          </Pressable>
+        )}
         {lenses.length >= 2 &&
           lenses.map((l) => {
             const on = !focusing && l === lens;
             const dot = l === suggest;
-            const label = on && count != null ? `${LENS_LABEL[l]} ${count}` : LENS_LABEL[l];
+            const name = labelFor(l);
+            const label = on && count != null ? `${name} ${count}` : name;
             return (
               <Pressable
                 key={l}
                 style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && styles.pressed]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                accessibilityLabel={`Show ${LENS_LABEL[l]}${on && count != null ? `, ${count} routes` : ""}${dot ? ", suggested" : ""}`}
+                accessibilityLabel={`Show ${name}${on && count != null ? `, ${count} routes` : ""}${dot ? ", suggested" : ""}`}
                 testID={`lens-${l}`}
                 hitSlop={6}
                 onPress={() => onLens(l)}
@@ -126,9 +149,12 @@ const styles = StyleSheet.create({
   },
   chipOn: { backgroundColor: colors.text },
   chipAccent: { backgroundColor: colors.accent },
+  // On-state for a toggle chip: outlined, so it never reads as the lens.
+  chipOutline: { borderWidth: 1.5, borderColor: colors.text },
   text: { color: colors.text, fontSize: 14, fontFamily: fontFamily.semiBold },
   textOn: { color: colors.bg },
   textAccent: { color: colors.onPrimary },
+  textDim: { color: colors.textDim },
   close: { fontSize: 12 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
   pressed: { opacity: 0.75 },

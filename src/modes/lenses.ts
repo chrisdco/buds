@@ -21,10 +21,23 @@ const LENSES_BY_MODE: Record<RoomMode, Lens[]> = {
   leader: ["everyone", "me", "stragglers"],
   formation: ["everyone", "me"],
   // Own way: everyone heads somewhere different, so "latest" across
-  // different destinations means nothing; Stragglers isn't offered.
-  multitrack: ["me", "everyone"],
+  // different destinations means nothing. Stragglers stays on offer, last,
+  // as "Off route": it ranks by who left their route instead of by ETA.
+  multitrack: ["me", "everyone", "stragglers"],
   solo: [],
 };
+
+/** How Stragglers decides who's behind: by ETA, or by who's off route. */
+export type StragglerRank = "eta" | "late";
+
+export function stragglerRank(mode: RoomMode): StragglerRank {
+  return mode === "multitrack" ? "late" : "eta";
+}
+
+/** Chip / legend name; Stragglers reads "Off route" where it ranks that way. */
+export function lensLabel(lens: Lens, mode: RoomMode): string {
+  return lens === "stragglers" && stragglerRank(mode) === "late" ? "Off route" : LENS_LABEL[lens];
+}
 
 export function lensesFor(mode: RoomMode): Lens[] {
   return LENSES_BY_MODE[mode];
@@ -60,6 +73,12 @@ export interface TierInput {
   /** Non-empty = the Focus override (tapped faces), whatever the lens. */
   focusIds: string[];
   caps?: TierCaps;
+  /** Focus keeps your own route, faint (personal pref, default true). */
+  focusShowsMe?: boolean;
+  /** Stragglers ranking; "late" uses `late` instead of ETAs. */
+  stragglerRank?: StragglerRank;
+  /** Late / off-route people (modes/routeSignals). */
+  late?: ReadonlySet<string>;
 }
 
 const TIER_RANK: Record<Tier, number> = { hidden: 0, context: 1, secondary: 2, primary: 3 };
@@ -114,7 +133,10 @@ export function assignTiers(input: TierInput): Record<string, Tier> {
     focus.forEach((id, i) => {
       out[id] = i < caps.primary ? "primary" : "secondary";
     });
-    return out; // everyone else hidden (faces stay, dimmed)
+    // Your own line stays, faint, so you still know where you are —
+    // unless you turned that off. Everyone else is hidden (faces dimmed).
+    if ((input.focusShowsMe ?? true) && self && meActive && !focus.includes(self)) out[self] = "context";
+    return out;
   }
 
   switch (input.lens) {
@@ -124,6 +146,23 @@ export function assignTiers(input: TierInput): Record<string, Tier> {
     case "arrivals":
       return out; // no lines; the list carries the order
     case "stragglers": {
+      if (input.stragglerRank === "late") {
+        // Off route: the people who left their route, in stable order;
+        // everyone else stays as context so the picture isn't empty.
+        let n = 0;
+        for (const p of [...active].sort((a, b) => a.userId.localeCompare(b.userId))) {
+          const isLate = input.late?.has(p.userId) ?? false;
+          out[p.userId] = !isLate
+            ? "context"
+            : n < caps.primary
+              ? "primary"
+              : n < caps.primary + caps.secondary
+                ? "secondary"
+                : "context";
+          if (isLate) n++;
+        }
+        return out;
+      }
       const ranked = [...active].sort(byLatest);
       const primaryN = Math.min(stragglersPrimaryCount(active.length), caps.primary);
       ranked.forEach((p, i) => {

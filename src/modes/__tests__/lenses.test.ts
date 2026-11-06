@@ -4,6 +4,8 @@ import {
   etaRangeLabel,
   legendCounts,
   lensesFor,
+  lensLabel,
+  stragglerRank,
   suggestStragglers,
   type PersonForTier,
 } from "@/modes/lenses";
@@ -16,8 +18,12 @@ describe("lenses per mode", () => {
     expect(lensesFor("converge")[0]).toBe("everyone");
     expect(lensesFor("multitrack")[0]).toBe("me");
     expect(lensesFor("solo")).toEqual([]);
-    // Own way: different destinations, so "latest" means nothing.
-    expect(lensesFor("multitrack")).not.toContain("stragglers");
+    // Own way: Stragglers stays, last, ranked by who's off route.
+    expect(lensesFor("multitrack")).toEqual(["me", "everyone", "stragglers"]);
+    expect(stragglerRank("multitrack")).toBe("late");
+    expect(stragglerRank("converge")).toBe("eta");
+    expect(lensLabel("stragglers", "multitrack")).toBe("Off route");
+    expect(lensLabel("stragglers", "converge")).toBe("Stragglers");
   });
 
   it("falls back to the default when the chosen lens isn't offered", () => {
@@ -70,9 +76,35 @@ describe("assignTiers", () => {
     expect(Object.values(t)).toEqual(["hidden", "hidden", "hidden"]);
   });
 
-  it("Focus overrides the lens; everyone else (you too) is hidden", () => {
+  it("Focus overrides the lens and keeps your own line faint by default", () => {
     const t = assignTiers({ people: people(5), myUserId: "u0", lens: "me", focusIds: ["u3"] });
+    expect(t).toEqual({ u0: "context", u1: "hidden", u2: "hidden", u3: "primary", u4: "hidden" });
+  });
+
+  it("Focus hides your line too when you turned that off", () => {
+    const t = assignTiers({ people: people(5), myUserId: "u0", lens: "me", focusIds: ["u3"], focusShowsMe: false });
     expect(t).toEqual({ u0: "hidden", u1: "hidden", u2: "hidden", u3: "primary", u4: "hidden" });
+  });
+
+  it("Off route (Own way Stragglers): the off-route people up front, the rest as context", () => {
+    const t = assignTiers({
+      people: people(6),
+      myUserId: "u0",
+      lens: "stragglers",
+      focusIds: [],
+      stragglerRank: "late",
+      late: new Set(["u2", "u4"]),
+    });
+    expect(t).toEqual({
+      u0: "context",
+      u1: "context",
+      u2: "primary",
+      u3: "context",
+      u4: "primary",
+      u5: "context",
+    });
+    const none = assignTiers({ people: people(3), myUserId: "u0", lens: "stragglers", focusIds: [], stragglerRank: "late" });
+    expect(legendCounts(none, 3).shown).toBe(0);
   });
 
   it("Stragglers grows its primary set with the group: 1, 2, then 3", () => {

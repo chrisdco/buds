@@ -111,7 +111,7 @@ faces so they stay distinguishable.
 | **Everyone** | you | up to 4 latest | rest | — |
 | **Me** | you | — | — | everyone else (faces stay) |
 | **Stragglers** | latest 1-3 | next 2 | rest | — |
-| **Focus** | the people you picked | — | — | rest |
+| **Focus** | the people you picked | — | you (toggle: "You" chip / Profile) | rest |
 | **Arrivals** | none (no lines) | — | — | all; list sorted by ETA, faces show chips |
 
 Modes pick the default lens and which lenses are offered:
@@ -121,7 +121,7 @@ Modes pick the default lens and which lenses are offered:
 | Meet up | Everyone | Everyone, Me, Stragglers, Focus, Arrivals |
 | Follow leader | "Convoy" (leader primary, gap labels; see 6.2) | Convoy, Me, Stragglers, Focus |
 | Stay together | "Group" (no long routes; see 6.3) | Group, Focus |
-| Own way | Me | Me, Everyone, Focus |
+| Own way | Me | Me, Everyone, Focus, "Off route" (Stragglers ranked by who left their route, last chip) |
 | Get home safe | Me (or "Them" for watchers) | single lens, no switcher |
 
 ### 5.2 How you switch (in order of how often people will do it)
@@ -500,7 +500,7 @@ camera; the single-source renderer stays.
 
 | Spec item | Where |
 |---|---|
-| Tiers, caps, group-size rules (4.1, 5.1, 5.3) | `modes/lenses.ts` `assignTiers`; Stragglers primary 1 / 2 / 3 by size; Focus hides everyone else |
+| Tiers, caps, group-size rules (4.1, 5.1, 5.3) | `modes/lenses.ts` `assignTiers`; Stragglers primary 1 / 2 / 3 by size; Focus keeps your own route as context unless turned off (`sessionStore.focusShowsMe`, "You" chip while focusing, Profile > Your route in Focus); Own way's Stragglers is "Off route": off-route people primary/secondary, the rest context, legend "Everyone's on route" when none |
 | Line meaning (4.2): solid, dashed estimate, dotted last 200 m, amber casing, chevrons on primary every 150 px, progress trim | `features/map/routeFeatures.ts` + `RouteLines.tsx` (casing, core, core dash-dot, final dots, estimate, chevrons) |
 | "Late or off route" | `modes/routeSignals.ts`: > 120 m off own road route; formation outside radius; leader beyond separation alert; meet up ETA >= median + max(10 min, 50%) with 3+ ETAs |
 | Time bubbles (4.3) | `buildRouteLabels` -> `route-labels` symbol source, Noto Sans Bold from the basemap glyphs, native collision |
