@@ -15,10 +15,12 @@ import { DestinationMarkers } from "@/features/map/DestinationMarkers";
 import { LensChips } from "@/features/map/LensChips";
 import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { RoomMap } from "@/features/map/RoomMap";
-import { buildRouteFeatures, nearestIndex } from "@/features/map/routeFeatures";
+import { buildRouteFeatures, buildRouteLabels, nearestIndex } from "@/features/map/routeFeatures";
 import { RouteLines } from "@/features/map/RouteLines";
 import { ExpiryBanner } from "@/features/room/ExpiryBanner";
+import { MemberActionSheet } from "@/features/room/MemberActionSheet";
 import { MemberList } from "@/features/room/MemberList";
+import { getAppConfig } from "@/lib/appConfig";
 import { AdjustPin, BackCircle, RoomFabs } from "@/features/room/RoomOverlays";
 import { RoomSheet, sheetVisibleHeight, type SheetDetent } from "@/features/room/RoomSheet";
 import {
@@ -34,8 +36,18 @@ import { Toasts } from "@/features/room/Toasts";
 import { useDestinationPicker } from "@/features/room/useDestinationPicker";
 import { useRoomCamera } from "@/features/room/useRoomCamera";
 import { useRoomSos } from "@/features/room/useRoomSos";
-import { assignTiers, effectiveLens, LENS_LABEL as LENS_NAME, legendCounts, lensesFor, type Lens } from "@/modes/lenses";
+import {
+  assignTiers,
+  effectiveLens,
+  etaRangeLabel,
+  LENS_LABEL as LENS_NAME,
+  legendCounts,
+  lensesFor,
+  suggestStragglers,
+  type Lens,
+} from "@/modes/lenses";
 import { modeRegistry } from "@/modes/registry";
+import { lateUserIds } from "@/modes/routeSignals";
 import { travelers } from "@/modes/shared";
 import { DEFAULT_ARRIVAL_RADIUS_M, type CameraTarget, type ClientSnapshot } from "@/modes/types";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -96,8 +108,11 @@ export default function RoomScreen() {
   const lensChoice = useUiStore((s) => s.lens);
   const focusIds = useUiStore((s) => s.focusUserIds);
   const mode = room?.mode ?? "solo";
-  const lenses = lensesFor(mode);
-  const lens = effectiveLens(mode, lensChoice);
+  // Remote kill switch (app_config routeView.lenses): off = no chips, the
+  // plain Everyone view, the mode's own camera.
+  const lensesOn = getAppConfig().routeView.lenses;
+  const lenses = lensesOn ? lensesFor(mode) : [];
+  const lens: Lens = lensesOn ? effectiveLens(mode, lensChoice) : "everyone";
   const travelerList = useMemo(() => (snap ? travelers(snap) : []), [snap]);
   const tiers = useMemo(
     () =>
@@ -113,60 +128,85 @@ export default function RoomScreen() {
       }),
     [travelerList, insights, myUserId, lens, focusIds],
   );
+  // The route manager paces peers' refetches by these tiers.
+  useEffect(() => {
+    useRouteStore.getState().setTiers(tiers);
+  }, [tiers]);
   // Progress trim: start each drawn route at the vertex nearest its person.
-  // Keyed as a string so the source only updates when an index moves, not
-  // on every position tick.
+  // Keyed as a string so the sources only update when an index moves, not
+  // on every position tick; hidden routes aren't drawn, so aren't scanned.
   const trimKey = useMemo(() => {
     const parts: string[] = [];
     for (const [uid, route] of Object.entries(routes)) {
       const p = membersMap[uid]?.pos;
-      if (p && route.coords.length > 2) parts.push(`${uid}:${nearestIndex(route.coords, p.lng, p.lat)}`);
+      const t = tiers[uid];
+      if (p && t && t !== "hidden" && route.coords.length > 2) {
+        parts.push(`${uid}:${nearestIndex(route.coords, p.lng, p.lat)}`);
+      }
     }
     return parts.join("|");
-  }, [routes, membersMap]);
+  }, [routes, membersMap, tiers]);
+  // Late or off route (amber casing), also string-keyed.
   const lateKey = useMemo(
-    () =>
-      Object.values(insights.perMember)
-        .filter((i) => i.outsideRadius)
-        .map((i) => i.userId)
-        .sort()
-        .join("|"),
-    [insights],
+    () => (snap ? [...lateUserIds(snap, insights)].sort().join("|") : ""),
+    [snap, insights],
   );
-  const routeFeatures = useMemo(() => {
+  const { routeFeatures, routeLabels } = useMemo(() => {
     const trimFrom: Record<string, number> = {};
     for (const part of trimKey ? trimKey.split("|") : []) {
       const [uid, idx] = part.split(":");
       trimFrom[uid] = Number(idx);
     }
-    return buildRouteFeatures({
-      routes,
-      tiers,
-      myUserId,
-      colorFor: colorForUser,
-      trimFrom,
-      late: new Set(lateKey ? lateKey.split("|") : []),
-    });
+    const etas: Record<string, number> = {};
+    for (const [uid, r] of Object.entries(routes)) etas[uid] = r.durationS;
+    return {
+      routeFeatures: buildRouteFeatures({
+        routes,
+        tiers,
+        myUserId,
+        colorFor: colorForUser,
+        trimFrom,
+        late: new Set(lateKey ? lateKey.split("|") : []),
+      }),
+      routeLabels: buildRouteLabels({ routes, tiers, etaByUser: etas, colorFor: colorForUser, trimFrom }),
+    };
   }, [routes, tiers, myUserId, trimKey, lateKey]);
-  // The lens frames the camera too: Me follows you, Stragglers frames the
-  // emphasized routes; Everyone and Arrivals keep the mode's default.
+  // Any drawn route is a straight-line estimate: say so (9.2).
+  const estimating = useMemo(
+    () => Object.entries(routes).some(([uid, r]) => r.source === "straightline" && (tiers[uid] ?? "hidden") !== "hidden"),
+    [routes, tiers],
+  );
+  // The lens frames the camera too (5.2): its primary + secondary people
+  // and their routes. Everyone and Arrivals keep the mode's own framing.
   const lensTarget = useMemo<CameraTarget | null>(() => {
-    if (lens === "me") return myUserId && membersMap[myUserId]?.pos ? { kind: "follow", userId: myUserId } : null;
-    if (lens === "stragglers") {
-      const ids = Object.entries(tiers)
-        .filter(([uid, t]) => (t === "primary" || t === "secondary") && membersMap[uid]?.pos)
-        .map(([uid]) => uid)
-        .sort();
-      return ids.length > 0 ? { kind: "fitUsers", userIds: ids } : null;
-    }
-    return null;
-  }, [lens, tiers, myUserId, membersMap]);
-  const pickLens = useCallback((l: Lens) => {
+    if (!lensesOn || (lens !== "me" && lens !== "stragglers")) return null;
+    const ids = Object.entries(tiers)
+      .filter(([uid, t]) => (t === "primary" || t === "secondary") && membersMap[uid]?.pos)
+      .map(([uid]) => uid)
+      .sort();
+    return ids.length > 0 ? { kind: "fitUsers", userIds: ids, withRoutes: true } : null;
+  }, [lensesOn, lens, tiers, membersMap]);
+  const pickLens = useCallback((l: Lens) => useUiStore.getState().pickLens(l), []);
+  const toggleFocus = useCallback((userId: string) => {
     const ui = useUiStore.getState();
-    ui.setFocusUserIds([]);
-    ui.setLens(l);
+    ui.toggleFocusUserId(userId);
     ui.setCameraMode("auto");
   }, []);
+  const openMemberActions = useCallback((userId: string) => {
+    useUiStore.getState().setMemberActionsFor(userId);
+  }, []);
+  // Faces the view hides stay on the map, dimmed (4.1). Arrivals is about
+  // everyone's timing, so nobody dims there.
+  const dimmedIds = useMemo(() => {
+    const out = new Set<string>();
+    if (lens === "arrivals" && focusIds.length === 0) return out;
+    for (const m of travelerList) {
+      if (m.arrivedAt == null && tiers[m.userId] === "hidden") out.add(m.userId);
+    }
+    return out;
+  }, [lens, focusIds, travelerList, tiers]);
+  const recenterHint = useUiStore((s) => s.recenterHint);
+  const [chipScrollKey, setChipScrollKey] = useState(0);
 
   const myDest = useMemo(
     () => (snap && myUserId ? strategy.effectiveDestinationFor(snap, myUserId) : null),
@@ -300,13 +340,28 @@ export default function RoomScreen() {
       : focusUserIds.length === 1
         ? (membersMap[focusUserIds[0]]?.name ?? "1 person")
         : `${focusUserIds.length} people`;
+  const focusing = focusUserIds.length > 0;
+  const { shown: shownCount, total: travelerTotal } = legendCounts(tiers, travelerList.length);
+  // One line in the sheet header says what the map is showing (5.2); big
+  // groups in Everyone also get the spread of ETAs (5.3).
   const legend = (() => {
-    if (travelerList.length < 2) return null;
-    if (lens === "arrivals" && focusUserIds.length === 0) return "Arrival order in the list";
-    const { shown, total } = legendCounts(tiers, travelerList.length);
-    const name = focusUserIds.length > 0 ? "Focus" : (LENS_NAME[lens] ?? lens);
-    return `Showing ${shown} of ${total} · ${name}`;
+    if (!lensesOn || travelerTotal < 2) return null;
+    if (lens === "arrivals" && !focusing) return "Arrival order in the list";
+    const name = focusing ? "Focus" : (LENS_NAME[lens] ?? lens);
+    const range =
+      lens === "everyone" && !focusing && travelerTotal >= 8
+        ? etaRangeLabel(travelerList.filter((m) => m.arrivedAt == null).map((m) => insights.perMember[m.userId]?.etaS))
+        : null;
+    return [`Showing ${shownCount} of ${travelerTotal}`, name, range ? `ETAs ${range}` : null]
+      .filter(Boolean)
+      .join(" · ");
   })();
+  const onLegend = () => {
+    if (detent === "full") setDetent("half");
+    setChipScrollKey((k) => k + 1);
+  };
+  const suggest =
+    lenses.includes("stragglers") && suggestStragglers(travelerTotal, lens, focusing) ? "stragglers" : null;
 
   // Who may set the destination under this mode (the sheet hides the search
   // row otherwise — Uber hides what you can't do).
@@ -361,6 +416,9 @@ export default function RoomScreen() {
   let y = insets.top + 68;
   const connTop = y;
   if (showConnBanner) y += 40;
+  const estimateTop = y;
+  const showEstimate = estimating && !showConnBanner;
+  if (showEstimate) y += 40;
   const sosTop = y;
   y += sos.items.length * 44;
   const waitingTop = y;
@@ -379,11 +437,11 @@ export default function RoomScreen() {
         cameraRef={cameraRef}
         mapRef={mapRef}
         onLongPress={picker.onLongPress}
-        onUserPan={() => useUiStore.getState().setCameraMode("manual")}
+        onUserPan={() => useUiStore.getState().markUserPan()}
         onRegionChange={picker.onRegionChange}
         ornamentPosition={{ top: insets.top + 12, right: 12 }}
       >
-        <RouteLines features={routeFeatures} />
+        <RouteLines features={routeFeatures} labels={routeLabels} />
         <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
         <MemberMarkers
           members={positioned}
@@ -391,10 +449,9 @@ export default function RoomScreen() {
           myUserId={myUserId}
           selectedIds={focusUserIds}
           etaByUser={etaByUser}
-          onToggleFocus={(userId) => {
-            useUiStore.getState().toggleFocusUserId(userId);
-            useUiStore.getState().setCameraMode("auto");
-          }}
+          dimmedIds={dimmedIds}
+          onToggleFocus={toggleFocus}
+          onLongPressMember={openMemberActions}
         />
       </RoomMap>
 
@@ -412,6 +469,12 @@ export default function RoomScreen() {
           <Text style={styles.connBannerText}>
             {connection === "reconnecting" ? "Reconnecting…" : "Connecting…"}
           </Text>
+        </View>
+      )}
+
+      {showEstimate && (
+        <View style={[styles.connBanner, { top: estimateTop }]} testID="routes-estimate-banner">
+          <Text style={styles.connBannerText}>Routes are estimates right now</Text>
         </View>
       )}
 
@@ -452,11 +515,20 @@ export default function RoomScreen() {
           lenses={lenses}
           lens={lens}
           onLens={pickLens}
+          count={travelerTotal >= 2 && lens !== "arrivals" ? shownCount : null}
+          suggest={suggest}
           focusLabel={focusLabel}
           onClearFocus={() => useUiStore.getState().setFocusUserIds([])}
-          legend={legend}
+          recenter={recenterHint && cameraMode !== "auto" ? recenter : null}
+          scrollToStartKey={chipScrollKey}
         />
       )}
+
+      <MemberActionSheet
+        myUserId={myUserId}
+        onNavigate={(lat, lng) => void openExternalNavigation(lat, lng)}
+        onDetails={onSelectMember}
+      />
 
       {/* Uber "Choose a trip" sheet: title + status, destination, the member
       list (ETA right), and one pinned CTA that follows the trip's state. */}
@@ -470,6 +542,8 @@ export default function RoomScreen() {
             status={status}
             meta={meta}
             progress={tripProgress && tripProgress.total > 1 ? tripProgress : null}
+            legend={legend}
+            onLegend={onLegend}
             onInvite={onInvite}
             onSettings={onSettings}
           />
@@ -488,6 +562,8 @@ export default function RoomScreen() {
               nowMs={nowMs}
               units={units}
               onSelectMember={onSelectMember}
+              onToggleFocus={toggleFocus}
+              onLongPressMember={openMemberActions}
               selectedIds={focusUserIds}
             />
             {d === "full" && room && (

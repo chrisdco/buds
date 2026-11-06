@@ -7,16 +7,23 @@ jest.mock("@/lib/supabaseClient", () => ({ supabase: {}, supabaseConfigured: fal
 
 describe("app config", () => {
   it("defaults when nothing is set", () => {
-    expect(parseAppConfig(undefined)).toEqual({ routing: { proxy: true } });
+    expect(parseAppConfig(undefined)).toEqual({ routing: { proxy: true }, routeView: { lenses: true } });
   });
 
   it("reads valid values", () => {
     expect(parseAppConfig({ routing: { proxy: false } }).routing.proxy).toBe(false);
+    expect(parseAppConfig({ routeView: { lenses: false } }).routeView.lenses).toBe(false);
   });
 
   it("falls back per field on bad values and ignores unknown keys", () => {
-    expect(parseAppConfig({ routing: { proxy: "nope" }, extra: 1 })).toEqual({ routing: { proxy: true } });
-    expect(parseAppConfig({ routing: 42 })).toEqual({ routing: { proxy: true } });
+    expect(parseAppConfig({ routing: { proxy: "nope" }, extra: 1 })).toEqual({
+      routing: { proxy: true },
+      routeView: { lenses: true },
+    });
+    expect(parseAppConfig({ routing: 42, routeView: "x" })).toEqual({
+      routing: { proxy: true },
+      routeView: { lenses: true },
+    });
   });
 
   it("exposes the current config synchronously", () => {

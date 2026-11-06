@@ -67,7 +67,8 @@ export interface AlertCondition {
 
 export type CameraTarget =
   | { kind: "follow"; userId: string }
-  | { kind: "fitUsers"; userIds: string[] }
+  /** withRoutes also frames each person's remaining route. */
+  | { kind: "fitUsers"; userIds: string[]; withRoutes?: boolean }
   | { kind: "fitAll" };
 
 export interface ModeStrategy {

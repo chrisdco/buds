@@ -27,6 +27,10 @@ interface MemberListProps {
   nowMs: number;
   units: DistanceUnit;
   onSelectMember?: (userId: string) => void;
+  /** Tap a face: toggle them in the map focus (route-view 5.2). */
+  onToggleFocus?: (userId: string) => void;
+  /** Long-press a row: the member menu. */
+  onLongPressMember?: (userId: string) => void;
   /** Focus-set members render selected (Uber selected-row border). */
   selectedIds?: string[];
 }
@@ -41,6 +45,8 @@ export function MemberList({
   nowMs,
   units,
   onSelectMember,
+  onToggleFocus,
+  onLongPressMember,
   selectedIds,
 }: MemberListProps) {
   const selected = useMemo(() => new Set(selectedIds ?? []), [selectedIds]);
@@ -75,6 +81,9 @@ export function MemberList({
           })()}
           selected={selected.has(m.userId)}
           onSelectMember={onSelectMember}
+          // Spectators have no route to focus.
+          onToggleFocus={m.role === "traveler" ? onToggleFocus : undefined}
+          onLongPressMember={onLongPressMember}
         />
       ))}
     </View>
@@ -90,6 +99,8 @@ const MemberRow = memo(function MemberRow({
   faded,
   selected,
   onSelectMember,
+  onToggleFocus,
+  onLongPressMember,
 }: {
   member: MemberLive;
   value: string | null;
@@ -99,6 +110,8 @@ const MemberRow = memo(function MemberRow({
   faded: boolean;
   selected: boolean;
   onSelectMember?: (userId: string) => void;
+  onToggleFocus?: (userId: string) => void;
+  onLongPressMember?: (userId: string) => void;
 }) {
   const name = isMe ? `${m.name} (you)` : m.name;
   return (
@@ -109,18 +122,37 @@ const MemberRow = memo(function MemberRow({
         sos && styles.rowSos,
         pressed && onSelectMember && styles.pressed,
       ]}
-      disabled={!onSelectMember}
+      disabled={!onSelectMember && !onLongPressMember}
       accessibilityRole={onSelectMember ? "button" : undefined}
       accessibilityLabel={`${name}, ${meta}${value ? `, ${value}` : ""}`}
-      accessibilityHint={onSelectMember ? "Opens their details" : undefined}
+      accessibilityHint={
+        onSelectMember ? (onLongPressMember ? "Opens their details; long-press for more" : "Opens their details") : undefined
+      }
       accessibilityState={onSelectMember ? { selected } : undefined}
       testID={onSelectMember ? `member-card-${m.userId}` : undefined}
       onPress={onSelectMember ? () => onSelectMember(m.userId) : undefined}
+      delayLongPress={350}
+      onLongPress={onLongPressMember ? () => onLongPressMember(m.userId) : undefined}
     >
-      {/* Ring in the member's map color ties the row to their marker. */}
-      <View style={[styles.avatarRing, { borderColor: colorForUser(m.userId) }, faded && styles.faded]}>
+      {/* Ring in the member's map color ties the row to their marker.
+      Tapping the face toggles them in the map focus, like on the map. */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.avatarRing,
+          { borderColor: colorForUser(m.userId) },
+          faded && styles.faded,
+          pressed && styles.pressed,
+        ]}
+        disabled={!onToggleFocus}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={selected ? `Stop focusing on ${name}` : `Focus on ${name}'s route`}
+        accessibilityState={{ selected }}
+        testID={onToggleFocus ? `member-face-${m.userId}` : undefined}
+        onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
+      >
         <PeepAvatar seed={m.userId} size={40} />
-      </View>
+      </Pressable>
       <View style={styles.body}>
         <Text style={typeScale.rowTitle} numberOfLines={1}>
           {name}

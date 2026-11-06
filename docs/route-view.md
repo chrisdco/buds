@@ -492,6 +492,33 @@ behind the same `app_config` reader.
 Each phase lands behind an `app_config` flag so it can be switched off
 without a release if it misbehaves on device.
 
+### 10.1 Phase 1 as built
+
+Flag: `app_config` row `routeView` = `{"lenses": true}` (missing row =
+on). Off = no chips, no legend, plain Everyone tiers, the mode's own
+camera; the single-source renderer stays.
+
+| Spec item | Where |
+|---|---|
+| Tiers, caps, group-size rules (4.1, 5.1, 5.3) | `modes/lenses.ts` `assignTiers`; Stragglers primary 1 / 2 / 3 by size; Focus hides everyone else |
+| Line meaning (4.2): solid, dashed estimate, dotted last 200 m, amber casing, chevrons on primary every 150 px, progress trim | `features/map/routeFeatures.ts` + `RouteLines.tsx` (casing, core, core dash-dot, final dots, estimate, chevrons) |
+| "Late or off route" | `modes/routeSignals.ts`: > 120 m off own road route; formation outside radius; leader beyond separation alert; meet up ETA >= median + max(10 min, 50%) with 3+ ETAs |
+| Time bubbles (4.3) | `buildRouteLabels` -> `route-labels` symbol source, Noto Sans Bold from the basemap glyphs, native collision |
+| Color safety (4.4) | a solid route whose color is within RGB distance 60 of an earlier one draws dash-dot |
+| Hidden faces dimmed 0.6 | `MemberMarkers` `dimmedIds` (not in Arrivals) |
+| Chips with count, Stragglers dot at 8+, Focus chip (5.2 #1) | `LensChips.tsx` |
+| Tap a face, map or list (5.2 #2) | marker tap / list avatar tap toggle Focus; camera fits them and their routes |
+| Long-press a face or row (5.2 #3) | `MemberActionSheet`: Only them, add/remove from focus, navigate, details |
+| Camera follows the lens, 400 ms, 10 s pan hold + Re-center pill (5.2 #5) | `uiStore.pickLens` / `markUserPan`, `useRoomCamera` |
+| Legend in the sheet header, tap brings chips back; ETA range at 8+ | `SheetHeader` `legend` |
+| Refetch by tier (9.2) | `routeManager`: self 2 min, leader target 1 min, primary/secondary 5 min, context/hidden 10 min |
+| "Routes are estimates right now" banner (9.2) | room screen top stack |
+
+Left to the phase that owns it: Convoy and Group lenses (phases 4, 5),
+walking legs (5, needs travel profiles), matrix ETAs so hidden routes
+stop fetching (3), swipe and haptics (6). Call / ping quick actions wait
+on those features existing; the menu has the actions the app has today.
+
 ## 11. Decisions (Nov 2026 review)
 
 1. **Who picks the final place**: host by default; changeable with the

@@ -2,7 +2,7 @@ import { haversineMeters } from "@/lib/geo";
 import { serverNowMs } from "@/lib/time";
 import type { ClientSnapshot, ModeStrategy } from "@/modes/types";
 import { travelers } from "@/modes/shared";
-import { distanceFromRouteM } from "@/services/routing/deviation";
+import { DEVIATION_THRESHOLD_M, distanceFromRouteM } from "@/services/routing/deviation";
 import { fetchRoute } from "@/services/routing/router";
 import { sendEvt } from "@/services/realtime/roomChannel";
 import { useRouteStore } from "@/stores/routeStore";
@@ -10,13 +10,17 @@ import { useRouteStore } from "@/stores/routeStore";
 // Route refetch policy (plan §M2): deviation or staleness, with quota care —
 // my own route refreshes fastest (drives my ETA + deviation detection),
 // peers' routes slower (display only), leader-chase routes in between
-// (the target moves). Fetches run sequentially with a gap so the OSRM demo
-// server's ~1 req/s courtesy limit is respected even with 9 peers.
+// (the target moves). Peers refresh by how strongly the viewer draws them
+// (docs/route-view.md 9.2): primary/secondary every 5 min, context and
+// hidden every 10 (hidden still needs a fresh-ish ETA for the lenses'
+// ordering until the matrix API lands). Fetches run sequentially with a
+// gap so the OSRM demo server's ~1 req/s courtesy limit is respected even
+// with 9 peers.
 const SELF_STALE_MS = 120_000;
 const OTHERS_STALE_MS = 300_000;
+const BACKGROUND_STALE_MS = 600_000;
 const LEADER_TARGET_STALE_MS = 60_000;
 const DEST_MOVED_REFETCH_M = 50;
-const DEVIATION_THRESHOLD_M = 120;
 // >1000ms keeps us under the OSRM demo ~1 req/s courtesy limit (plus jitter
 // from fetch latency itself); the old 400ms could burst at 2.5 req/s on join.
 const FETCH_GAP_MS = 1_100;
@@ -57,12 +61,15 @@ function collectTasks(
 
     const isSelf = m.userId === myUserId;
     const route = snap.routes[m.userId];
+    const tier = store.tiers[m.userId];
     const staleMs =
       dest.kind === "leader"
         ? LEADER_TARGET_STALE_MS
         : isSelf
           ? SELF_STALE_MS
-          : OTHERS_STALE_MS;
+          : tier === "context" || tier === "hidden"
+            ? BACKGROUND_STALE_MS
+            : OTHERS_STALE_MS;
 
     let needsFetch = false;
     if (!route || route.coords.length < 2) {

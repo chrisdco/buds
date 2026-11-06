@@ -29,6 +29,8 @@ export const SheetHeader = memo(function SheetHeader({
   status,
   meta,
   progress,
+  legend,
+  onLegend,
   onInvite,
   onSettings,
 }: {
@@ -36,6 +38,10 @@ export const SheetHeader = memo(function SheetHeader({
   status: string | null;
   meta: string | null;
   progress: { arrived: number; total: number } | null;
+  /** Route-view legend ("Showing 3 of 8 · Stragglers"); null hides it. */
+  legend?: string | null;
+  /** Legend tap: bring the lens chips back into view. */
+  onLegend?: () => void;
   onInvite: () => void;
   onSettings: () => void;
 }) {
@@ -67,6 +73,23 @@ export const SheetHeader = memo(function SheetHeader({
           <View style={{ flex: 1 - ratio }} />
         </View>
       )}
+      {legend ? (
+        <Pressable
+          style={({ pressed }) => [styles.legend, pressed && styles.legendPressed]}
+          disabled={!onLegend}
+          accessibilityRole="button"
+          accessibilityLabel={legend}
+          accessibilityHint="Shows the map view chips"
+          testID="lens-legend"
+          hitSlop={6}
+          onPress={onLegend}
+        >
+          <View style={styles.legendDot} />
+          <Text style={[typeScale.meta, styles.legendText]} numberOfLines={1}>
+            {legend}
+          </Text>
+        </Pressable>
+      ) : null}
       {meta ? (
         <Text style={[typeScale.meta, styles.meta]} numberOfLines={1}>
           {meta}
@@ -227,6 +250,10 @@ const styles = StyleSheet.create({
   headerText: { flex: 1, flexShrink: 1 },
   status: { marginTop: 2 },
   meta: { marginTop: space.sm },
+  legend: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: space.sm, alignSelf: "flex-start" },
+  legendPressed: { opacity: 0.7 },
+  legendDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  legendText: { color: colors.text },
   circle: {
     width: 40,
     height: 40,

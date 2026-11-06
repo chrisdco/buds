@@ -20,7 +20,9 @@ const LENSES_BY_MODE: Record<RoomMode, Lens[]> = {
   converge: ["everyone", "me", "stragglers", "arrivals"],
   leader: ["everyone", "me", "stragglers"],
   formation: ["everyone", "me"],
-  multitrack: ["me", "everyone", "stragglers"],
+  // Own way: everyone heads somewhere different, so "latest" across
+  // different destinations means nothing; Stragglers isn't offered.
+  multitrack: ["me", "everyone"],
   solo: [],
 };
 
@@ -84,6 +86,13 @@ function everyoneSecondaryCount(travelers: number, cap: number): number {
   return Math.min(cap, 2);
 }
 
+/** Stragglers: the latest 1-3 are primary, more as the group grows. */
+function stragglersPrimaryCount(travelers: number): number {
+  if (travelers <= 4) return 1;
+  if (travelers <= 7) return 2;
+  return 3;
+}
+
 /** Below the secondary cut, Everyone shows context lines up to 7 people. */
 function everyoneRestTier(travelers: number): Tier {
   return travelers <= 7 ? "context" : "hidden";
@@ -105,9 +114,7 @@ export function assignTiers(input: TierInput): Record<string, Tier> {
     focus.forEach((id, i) => {
       out[id] = i < caps.primary ? "primary" : "secondary";
     });
-    // Keep your own line faintly so you still know where you are.
-    if (self && meActive && !focus.includes(self)) out[self] = "context";
-    return out;
+    return out; // everyone else hidden (faces stay, dimmed)
   }
 
   switch (input.lens) {
@@ -118,7 +125,7 @@ export function assignTiers(input: TierInput): Record<string, Tier> {
       return out; // no lines; the list carries the order
     case "stragglers": {
       const ranked = [...active].sort(byLatest);
-      const primaryN = Math.min(2, caps.primary);
+      const primaryN = Math.min(stragglersPrimaryCount(active.length), caps.primary);
       ranked.forEach((p, i) => {
         out[p.userId] =
           i < primaryN ? "primary" : i < primaryN + Math.min(2, caps.secondary) ? "secondary" : "context";
@@ -141,4 +148,18 @@ export function assignTiers(input: TierInput): Record<string, Tier> {
 export function legendCounts(tiers: Record<string, Tier>, travelers: number): { shown: number; total: number } {
   const shown = Object.values(tiers).filter((t) => t === "primary" || t === "secondary").length;
   return { shown, total: travelers };
+}
+
+/** Big groups (8+) get a nudge toward Stragglers: a dot on its chip. */
+export function suggestStragglers(travelers: number, lens: Lens, focusing: boolean): boolean {
+  return travelers >= 8 && lens !== "stragglers" && !focusing;
+}
+
+/** "12-31 min" across travelers still on the way; null when under two ETAs. */
+export function etaRangeLabel(etas: (number | null | undefined)[]): string | null {
+  const known = etas.filter((e): e is number => e != null && Number.isFinite(e));
+  if (known.length < 2) return null;
+  const lo = Math.max(1, Math.round(Math.min(...known) / 60));
+  const hi = Math.max(1, Math.round(Math.max(...known) / 60));
+  return lo === hi ? `${lo} min` : `${lo}–${hi} min`;
 }
