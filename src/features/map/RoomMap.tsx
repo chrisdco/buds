@@ -5,11 +5,10 @@ import {
   type LngLat,
   type MapRef,
 } from "@maplibre/maplibre-react-native";
-import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { StyleSheet } from "react-native";
 
-import { CALM_SOURCE_URL, loadCalmStyle } from "@/services/map/calmStyle";
+import { basemapStyle, type MapScheme } from "@/services/map/basemap";
 
 // Mirrors MapLibre's OrnamentViewPosition (not exported from the package
 // root): exactly one of top/bottom and one of left/right.
@@ -19,10 +18,9 @@ export type OrnamentPosition =
   | { bottom: number; right: number }
   | { bottom: number; left: number };
 
-// OpenFreeMap dark: free vector tiles, no API key, production use allowed.
-// Dark basemap matches the app's night UI (Uber-style) and keeps map chrome
-// legible; markers/routes carry the color. Rendered through the calm pass
-// (muted minor roads, deferred far labels) — raw URL is the fallback.
+// OpenFreeMap vector tiles (free, no API key, production use allowed)
+// painted by our own basemap (services/map/basemap.ts): bundled with the
+// app, so the first frame is already the final style, no fetch or cache.
 
 interface RoomMapProps {
   cameraRef?: RefObject<CameraRef | null>;
@@ -34,6 +32,8 @@ interface RoomMapProps {
   onRegionChange?: () => void;
   /** Keeps the attribution visible above the bottom sheet. */
   ornamentPosition?: OrnamentPosition;
+  /** Basemap palette; follows the app theme. */
+  scheme?: MapScheme;
   children?: ReactNode;
 }
 
@@ -44,24 +44,13 @@ export function RoomMap({
   onUserPan,
   onRegionChange,
   ornamentPosition = { bottom: 8, right: 8 },
+  scheme = "dark",
   children,
 }: RoomMapProps) {
-  // Calmed style object once ready; the raw URL paints first so the map
-  // never waits on the fetch-then-cache round trip.
-  const [mapStyle, setMapStyle] = useState<string | StyleSpecification>(CALM_SOURCE_URL);
-  useEffect(() => {
-    let live = true;
-    void loadCalmStyle().then((s) => {
-      if (live) setMapStyle(s);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
   return (
     <Map
       style={StyleSheet.absoluteFill}
-      mapStyle={mapStyle}
+      mapStyle={basemapStyle(scheme)}
       ref={mapRef}
       // No MapLibre badge: the required tile attribution (OpenMapTiles/OSM)
       // stays as the tappable (i) button, bottom-right out of the map's way.
