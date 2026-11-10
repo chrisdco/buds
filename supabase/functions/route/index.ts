@@ -1,7 +1,7 @@
 // Routing proxy (docs/route-view.md, phase 0).
 //
 // POST { from: {lat,lng}, to: {lat,lng}, profile?: "drive"|"walk"|"cycle" }
-// -> 200 { coords: [lng,lat][], distanceM, durationS, provider }
+// -> 200 { coords: [lng,lat][], distanceM, durationS, provider, steps? }
 // -> 4xx/5xx { error }   (the app then falls back to its direct chain)
 //
 // Why a proxy: provider keys stay server-side, one shared cache serves
@@ -20,12 +20,38 @@ interface LatLng {
   lat: number;
   lng: number;
 }
+interface Step {
+  type: string;
+  modifier?: string;
+  name: string;
+  location: [number, number];
+}
 interface Route {
   coords: [number, number][];
   distanceM: number;
   durationS: number;
   provider: "ors" | "osrm";
+  /** Maneuvers for in-app navigation, OSRM vocabulary. */
+  steps?: Step[];
 }
+
+// ORS instruction types -> OSRM type/modifier.
+const ORS_STEP: Record<number, [string, string?]> = {
+  0: ["turn", "left"],
+  1: ["turn", "right"],
+  2: ["turn", "sharp left"],
+  3: ["turn", "sharp right"],
+  4: ["turn", "slight left"],
+  5: ["turn", "slight right"],
+  6: ["continue", "straight"],
+  7: ["roundabout"],
+  8: ["exit roundabout"],
+  9: ["turn", "uturn"],
+  10: ["arrive"],
+  11: ["depart"],
+  12: ["fork", "slight left"],
+  13: ["fork", "slight right"],
+};
 
 const CACHE_TTL_S = 10 * 60;
 const PROVIDER_TIMEOUT_MS = 7_000;
@@ -76,8 +102,9 @@ function isLatLng(v: unknown): v is LatLng {
 }
 
 const r5 = (n: number) => n.toFixed(5);
+// v2: entries carry steps.
 const cacheKey = (p: Profile, a: LatLng, b: LatLng) =>
-  `${p}:${r5(a.lat)},${r5(a.lng)}>${r5(b.lat)},${r5(b.lng)}`;
+  `v2:${p}:${r5(a.lat)},${r5(a.lng)}>${r5(b.lat)},${r5(b.lng)}`;
 
 /** Douglas-Peucker on lng/lat degrees (fine at route scale). */
 function simplify(points: [number, number][], tol: number): [number, number][] {
@@ -139,11 +166,22 @@ async function viaOrs(p: Profile, a: LatLng, b: LatLng, key: string): Promise<Ro
     const json = await res.json();
     const f = json?.features?.[0];
     if (!f) throw new Error("ORS no route");
+    const coords: [number, number][] = f.geometry.coordinates;
+    const steps: Step[] = [];
+    for (const seg of f.properties?.segments ?? []) {
+      for (const st of seg?.steps ?? []) {
+        const kind = ORS_STEP[st?.type as number];
+        const loc = coords[st?.way_points?.[0]];
+        if (!kind || !loc) continue;
+        steps.push({ type: kind[0], modifier: kind[1], name: st.name === "-" ? "" : (st.name ?? ""), location: loc });
+      }
+    }
     return {
-      coords: f.geometry.coordinates,
+      coords,
       distanceM: f.properties.summary.distance,
       durationS: f.properties.summary.duration,
       provider: "ors",
+      steps: steps.length ? steps : undefined,
     };
   });
 }
@@ -153,18 +191,27 @@ async function viaOsrm(p: Profile, a: LatLng, b: LatLng): Promise<Route> {
   const base = custom || OSRM_DEFAULT[p];
   return withTimeout(async (signal) => {
     const res = await fetch(
-      `${base}/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`,
+      `${base}/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson&steps=true`,
       { signal, headers: { "User-Agent": "buds-routing-proxy" } },
     );
     if (!res.ok) throw new Error(`OSRM ${res.status}`);
     const json = await res.json();
     const r = json?.routes?.[0];
     if (json?.code !== "Ok" || !r) throw new Error(`OSRM ${json?.code ?? "no route"}`);
+    const steps: Step[] = [];
+    for (const leg of r.legs ?? []) {
+      for (const st of leg?.steps ?? []) {
+        const m = st?.maneuver;
+        if (!m?.type || !Array.isArray(m.location)) continue;
+        steps.push({ type: m.type, modifier: m.modifier, name: st.name ?? "", location: m.location });
+      }
+    }
     return {
       coords: r.geometry.coordinates,
       distanceM: r.distance,
       durationS: r.duration,
       provider: "osrm",
+      steps: steps.length ? steps : undefined,
     };
   });
 }

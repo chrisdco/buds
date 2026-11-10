@@ -30,7 +30,7 @@ describe("osrmBase", () => {
 describe("buildOsrmUrl", () => {
   it("builds the driving route URL in lng,lat order", () => {
     expect(buildOsrmUrl(FROM, TO)).toBe(
-      "https://router.project-osrm.org/route/v1/driving/16.37,48.2;16.38,48.21?overview=full&geometries=geojson",
+      "https://router.project-osrm.org/route/v1/driving/16.37,48.2;16.38,48.21?overview=full&geometries=geojson&steps=true",
     );
   });
 

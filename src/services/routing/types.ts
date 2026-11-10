@@ -1,3 +1,5 @@
+import type { RouteStep } from "@/types/contracts";
+
 export interface LatLng {
   lat: number;
   lng: number;
@@ -11,4 +13,5 @@ export type RouteFetcher = (
   coords: [number, number][]; // GeoJSON lnglat order
   distanceM: number;
   durationS: number;
+  steps?: RouteStep[];
 }>;

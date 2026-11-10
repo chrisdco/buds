@@ -157,10 +157,22 @@ export interface SnapshotPayload {
 // Client-side live state
 // --------------------------------------------------------------------------
 
+/** One maneuver (OSRM vocabulary: type "turn"/"arrive"/..., modifier "left"/...). */
+export interface RouteStep {
+  type: string;
+  modifier?: string;
+  /** Road you're on after the maneuver ("" when unnamed). */
+  name: string;
+  /** Where the maneuver happens, [lng, lat]. */
+  location: [number, number];
+}
+
 export interface RouteResult {
   coords: [number, number][]; // GeoJSON lnglat order
   distanceM: number;
   durationS: number;
+  /** Turn-by-turn maneuvers when the provider gave them (in-app navigation). */
+  steps?: RouteStep[];
   source: "ors" | "osrm" | "straightline";
   fetchedAt: number;
 }

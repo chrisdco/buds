@@ -14,6 +14,10 @@ import { useUiStore } from "@/stores/uiStore";
 const LENS_SWITCH_MS = 400;
 const FOLLOW_MS = 700;
 const FIT_MS = 800;
+// Room views are flat and north-up with no padding of their own; this also
+// undoes guidance's tilted, heading-up camera when navigation ends.
+const FLAT = { pitch: 0, bearing: 0 } as const;
+const NO_PAD = { top: 0, bottom: 0, left: 0, right: 0 };
 
 export function useRoomCamera(args: {
   cameraRef: RefObject<CameraRef | null>;
@@ -39,7 +43,7 @@ export function useRoomCamera(args: {
       const posOf = (uid: string) => snap.members[uid]?.pos;
       if (target.kind === "follow") {
         const p = posOf(target.userId);
-        if (p) cameraRef.current?.easeTo({ center: [p.lng, p.lat], duration: fast ? LENS_SWITCH_MS : FOLLOW_MS });
+        if (p) cameraRef.current?.easeTo({ center: [p.lng, p.lat], ...FLAT, padding: NO_PAD, duration: fast ? LENS_SWITCH_MS : FOLLOW_MS });
         return;
       }
       const pool =
@@ -63,14 +67,14 @@ export function useRoomCamera(args: {
       });
       if (points.length === 0) return;
       if (points.length === 1) {
-        cameraRef.current?.easeTo({ center: points[0], zoom: 15, duration: fast ? LENS_SWITCH_MS : FOLLOW_MS });
+        cameraRef.current?.easeTo({ center: points[0], zoom: 15, ...FLAT, padding: NO_PAD, duration: fast ? LENS_SWITCH_MS : FOLLOW_MS });
         return;
       }
       const lngs = points.map((p) => p[0]);
       const lats = points.map((p) => p[1]);
       cameraRef.current?.fitBounds(
         [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
-        { padding: { top: 130, bottom: padBottom, left: 60, right: 60 }, duration: fast ? LENS_SWITCH_MS : FIT_MS },
+        { padding: { top: 130, bottom: padBottom, left: 60, right: 60 }, ...FLAT, duration: fast ? LENS_SWITCH_MS : FIT_MS },
       );
     },
     [snap, cameraRef, padBottom],

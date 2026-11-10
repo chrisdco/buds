@@ -9,7 +9,6 @@ import { PeepAvatar } from "@/components/PeepAvatar";
 import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM, haversineMeters } from "@/lib/geo";
-import { openExternalNavigation } from "@/lib/nav";
 import { formatDurationS } from "@/lib/time";
 import { presenceLabel, presenceOf, useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -125,14 +124,15 @@ export default function MemberDetailScreen() {
         {/* Bottom-anchored: primary action lands in the thumb zone and the
             layout stays balanced instead of top-packing into a void. */}
         <View style={styles.actions}>
-          {member.pos && (
+          {member.pos && member.userId !== myUserId && (
             <Button
               label="Navigate to them"
-              a11yLabel={`Navigate to ${member.name} in external maps`}
+              a11yLabel={`Navigate to ${member.name} on the map`}
               testID="member-navigate"
-              onPress={() =>
-                void openExternalNavigation(member.pos!.lat, member.pos!.lng)
-              }
+              onPress={() => {
+                useUiStore.getState().setNav({ kind: "member", userId: member.userId });
+                router.back();
+              }}
             />
           )}
           <Button
