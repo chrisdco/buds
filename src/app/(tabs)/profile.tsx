@@ -6,11 +6,12 @@ import { Pressable, Share, Text, View } from "react-native";
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { PeepAvatar, PEEP_COUNT, peepIndexFor } from "@/components/PeepAvatar";
 import { icons } from "@/components/Symbol";
-import { Screen, TextField } from "@/components/ui";
+import { Screen, Segmented, TextField } from "@/components/ui";
 import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 
 import { useSessionStore } from "@/stores/sessionStore";
+import { useThemeStore, type ThemePref } from "@/stores/themeStore";
 import { usePlacesStore } from "@/stores/placesStore";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
   const deviceId = useSessionStore((s) => s.deviceId);
   const avatar = useSessionStore((s) => s.avatar);
   const setAvatar = useSessionStore((s) => s.setAvatar);
+  const themePref = useThemeStore((s) => s.pref);
   const [picking, setPicking] = useState(false);
   const saved = usePlacesStore((s) => s.saved);
   const recents = useRecentsStore((s) => s.recents);
@@ -176,6 +178,14 @@ export default function ProfileScreen() {
           />
         </GroupedCard>
 
+        <SectionHeader title="Appearance" />
+        <Segmented<ThemePref>
+          options={THEME_OPTIONS}
+          value={themePref}
+          onChange={(p) => useThemeStore.getState().setPref(p)}
+          testID="profile-theme"
+        />
+
         <SectionHeader title="Preferences" />
         <GroupedCard>
           <ListRow
@@ -233,6 +243,12 @@ export default function ProfileScreen() {
     </Screen>
   );
 }
+
+const THEME_OPTIONS = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const;
 
 function AvatarPick({
   selected,

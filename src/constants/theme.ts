@@ -22,6 +22,8 @@ export interface Palette {
   warning: string;
   /** Dark text on the amber warning surface (banners, countdowns). */
   onWarning: string;
+  /** Text and icons on solid danger / accent / success fills. */
+  onStatus: string;
   /** Map chrome pills/labels floating over tiles. */
   scrim: string;
   /** Selected wash on glass (a solid fill would punch a hole). */
@@ -56,6 +58,7 @@ export const palettes: Record<Scheme, Palette> = {
     success: "#46A758",
     warning: "#F5A623",
     onWarning: "#1A1300",
+    onStatus: "#FFFFFF",
     scrim: "rgba(0,0,0,0.85)",
     wash: "rgba(255,255,255,0.14)",
     accentWash: "rgba(79,142,247,0.2)",
@@ -80,6 +83,7 @@ export const palettes: Record<Scheme, Palette> = {
     success: "#0E8345",
     warning: "#F5A623",
     onWarning: "#1A1300",
+    onStatus: "#FFFFFF",
     scrim: "rgba(255,255,255,0.94)",
     wash: "rgba(0,0,0,0.07)",
     accentWash: "rgba(39,110,241,0.14)",

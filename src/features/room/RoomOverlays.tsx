@@ -115,7 +115,7 @@ export function RoomFabs(props: {
             name={icons.warning}
             fallback={icons.warning.fallback}
             size={22}
-            tintColor={props.sos.active ? colors.text : colors.danger}
+            tintColor={props.sos.active ? colors.onStatus : colors.danger}
           />
         </Pressable>
       )}

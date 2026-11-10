@@ -83,7 +83,7 @@ const useStyles = makeStyles((colors) => ({
     paddingVertical: 8,
   },
   text: {
-    color: colors.text,
+    color: colors.onStatus,
     fontFamily: fontFamily.bold,
     fontSize: 13,
     flexShrink: 1,
@@ -91,9 +91,9 @@ const useStyles = makeStyles((colors) => ({
   nav: {
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.text,
+    borderColor: colors.onStatus,
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
-  navText: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 12 },
+  navText: { color: colors.onStatus, fontFamily: fontFamily.semiBold, fontSize: 12 },
 }));

@@ -65,7 +65,7 @@ export const useRoomScreenStyles = makeStyles((colors) => ({
     borderWidth: 2,
     borderColor: colors.text,
   },
-  pinGlyph: { color: colors.text, fontSize: 14, fontFamily: fontFamily.bold },
+  pinGlyph: { color: colors.onStatus, fontSize: 14, fontFamily: fontFamily.bold },
   pinTip: {
     width: 0,
     height: 0,

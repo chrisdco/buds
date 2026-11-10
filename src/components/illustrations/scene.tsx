@@ -1,6 +1,6 @@
 import { Image, type ImageSourcePropType } from "react-native";
 
-import { useScheme } from "@/theme";
+import { useScheme } from "@/theme/context";
 
 // Pre-rasterized Open Doodles scenes (CC0; see illustration notes in
 // docs/design.md). Sources live in assets/illustrations/src/; regenerate

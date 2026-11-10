@@ -1,9 +1,12 @@
-import { createContext, useContext, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { StyleSheet, useColorScheme } from "react-native";
 
 import { cardTints, palettes, type CardTint, type Palette, type Scheme } from "@/constants/theme";
 import { typeScales, type TypeScale } from "@/constants/typography";
 import { useThemeStore } from "@/stores/themeStore";
+import { SchemeContext, useScheme } from "@/theme/context";
+
+export { useScheme };
 
 // Live theme: one Scheme in context, resolved from the Appearance pref and
 // the phone's setting. Components read colors through hooks so a switch
@@ -11,17 +14,11 @@ import { useThemeStore } from "@/stores/themeStore";
 // built once per scheme and cached, so a hook call is a context read plus
 // a lookup, never a fresh StyleSheet.
 
-const SchemeContext = createContext<Scheme>("dark");
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const pref = useThemeStore((s) => s.pref);
   const system = useColorScheme();
   const scheme: Scheme = pref === "system" ? (system === "light" ? "light" : "dark") : pref;
   return <SchemeContext.Provider value={scheme}>{children}</SchemeContext.Provider>;
-}
-
-export function useScheme(): Scheme {
-  return useContext(SchemeContext);
 }
 
 export function useColors(): Palette {

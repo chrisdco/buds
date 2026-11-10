@@ -197,6 +197,49 @@ export function Chip({
   );
 }
 
+/**
+ * Segmented choice (2-4 options): a filled track with the selected
+ * option in the CTA polarity, like Chip's selected state. One row, equal
+ * widths, every option always visible (no menu to open).
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  testID,
+}: {
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  /** Each option gets `${testID}-${value}`. */
+  testID?: string;
+}) {
+  const styles = useStyles();
+  return (
+    <View style={styles.segTrack} accessibilityRole="radiogroup">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            style={({ pressed }) => [styles.seg, on && styles.segOn, pressed && !on && styles.btnPressed]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={o.label}
+            testID={testID ? `${testID}-${o.value}` : undefined}
+            hitSlop={4}
+            onPress={() => onChange(o.value)}
+          >
+            <Text style={[styles.segText, on && styles.segTextOn]} numberOfLines={1}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function Row({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   const styles = useStyles();
   return <View style={[styles.row, style]}>{children}</View>;
@@ -282,11 +325,11 @@ const useStyles = makeStyles((colors) => ({
   btnPressed: { opacity: 0.85 },
   btnCompact: { paddingVertical: 10, minHeight: 44 },
   btnTextCompact: { fontSize: 14 },
-  // Primary/danger labels sit on filled ink: black/white respectively.
-  // Ghost labels are plain white text (was accent blue).
+  // Primary labels flip with the CTA (black on white, white on black);
+  // danger labels stay white on red; ghost labels are plain text.
   btnText: { fontSize: 16, fontFamily: fontFamily.semiBold },
   btnTextPrimary: { color: colors.onPrimary },
-  btnTextDanger: { color: colors.text },
+  btnTextDanger: { color: colors.onStatus },
   btnTextGhost: { color: colors.text },
   chip: {
     borderRadius: radius.full,
@@ -300,6 +343,24 @@ const useStyles = makeStyles((colors) => ({
   chipSelected: { backgroundColor: colors.primary },
   chipText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
   chipTextSelected: { color: colors.onPrimary },
+  segTrack: {
+    flexDirection: "row",
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    padding: 4,
+    gap: 4,
+  },
+  seg: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: space.sm,
+  },
+  segOn: { backgroundColor: colors.primary },
+  segText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
+  segTextOn: { color: colors.onPrimary },
   row: { flexDirection: "row", alignItems: "center" },
   loadingView: { flex: 1, alignItems: "center", justifyContent: "center" },
   loadingViewText: {

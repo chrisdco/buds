@@ -9,6 +9,7 @@ import type { ReactNode, RefObject } from "react";
 import { StyleSheet } from "react-native";
 
 import { basemapStyle, type MapScheme } from "@/services/map/basemap";
+import { useScheme } from "@/theme";
 
 // Mirrors MapLibre's OrnamentViewPosition (not exported from the package
 // root): exactly one of top/bottom and one of left/right.
@@ -32,7 +33,7 @@ interface RoomMapProps {
   onRegionChange?: () => void;
   /** Keeps the attribution visible above the bottom sheet. */
   ornamentPosition?: OrnamentPosition;
-  /** Basemap palette; follows the app theme. */
+  /** Basemap palette; defaults to the app theme. */
   scheme?: MapScheme;
   children?: ReactNode;
 }
@@ -44,13 +45,14 @@ export function RoomMap({
   onUserPan,
   onRegionChange,
   ornamentPosition = { bottom: 8, right: 8 },
-  scheme = "dark",
+  scheme,
   children,
 }: RoomMapProps) {
+  const appScheme = useScheme();
   return (
     <Map
       style={StyleSheet.absoluteFill}
-      mapStyle={basemapStyle(scheme)}
+      mapStyle={basemapStyle(scheme ?? appScheme)}
       ref={mapRef}
       // No MapLibre badge: the required tile attribution (OpenMapTiles/OSM)
       // stays as the tappable (i) button, bottom-right out of the map's way.

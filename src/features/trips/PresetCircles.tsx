@@ -156,7 +156,7 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  badgeText: { color: colors.text, fontSize: 12, fontFamily: fontFamily.semiBold },
+  badgeText: { color: colors.onStatus, fontSize: 12, fontFamily: fontFamily.semiBold },
   label: {
     color: colors.text,
     fontSize: 15,
