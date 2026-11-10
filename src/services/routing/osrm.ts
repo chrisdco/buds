@@ -1,4 +1,5 @@
 import type { LatLng, RouteFetcher } from "@/services/routing/types";
+import type { RouteStep } from "@/types/contracts";
 
 // OSRM public demo server: no key, ~1 req/s courtesy limit, no SLA.
 // Self-host seam: set EXPO_PUBLIC_OSRM_URL to your own instance
@@ -13,7 +14,7 @@ export function osrmBase(): string {
 /** Pure URL builder (unit-tested); the fetcher below only adds transport. */
 export function buildOsrmUrl(from: LatLng, to: LatLng, base: string = osrmBase()): string {
   return (
-    `${base}/${from.lng},${from.lat};${to.lng},${to.lat}` + `?overview=full&geometries=geojson`
+    `${base}/${from.lng},${from.lat};${to.lng},${to.lat}` + `?overview=full&geometries=geojson&steps=true`
   );
 }
 
@@ -27,6 +28,7 @@ export const fetchOsrmRoute: RouteFetcher = async (from, to, signal) => {
       geometry: { coordinates: [number, number][] };
       distance: number;
       duration: number;
+      legs?: OsrmLeg[];
     }[];
   };
   if (json.code !== "Ok" || !json.routes?.[0]) {
@@ -38,5 +40,27 @@ export const fetchOsrmRoute: RouteFetcher = async (from, to, signal) => {
     coords: route.geometry.coordinates,
     distanceM: route.distance,
     durationS: route.duration,
+    steps: osrmSteps(route.legs),
   };
 };
+
+interface OsrmLeg {
+  steps?: {
+    name?: string;
+    maneuver?: { type?: string; modifier?: string; location?: [number, number] };
+  }[];
+}
+
+/** OSRM legs -> our maneuver list; drops malformed entries. */
+export function osrmSteps(legs: OsrmLeg[] | undefined): RouteStep[] | undefined {
+  const out: RouteStep[] = [];
+  for (const leg of legs ?? []) {
+    for (const s of leg.steps ?? []) {
+      const m = s.maneuver;
+      const loc = m?.location;
+      if (!m?.type || !Array.isArray(loc) || !Number.isFinite(loc[0]) || !Number.isFinite(loc[1])) continue;
+      out.push({ type: m.type, modifier: m.modifier, name: s.name ?? "", location: [loc[0], loc[1]] });
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}

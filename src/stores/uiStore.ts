@@ -26,6 +26,9 @@ export interface DestDraft {
   label: string;
 }
 
+/** In-app guidance target: your destination, or a bud's live position. */
+export type NavTarget = { kind: "dest" } | { kind: "member"; userId: string };
+
 interface UiState {
   toasts: ToastItem[];
   cameraMode: CameraMode;
@@ -45,6 +48,10 @@ interface UiState {
   confirm: ConfirmRequest | null;
   /** Search/long-press pick waiting for adjust + confirm; null when idle. */
   destDraft: DestDraft | null;
+  /** Active in-app navigation; null when not navigating. */
+  nav: NavTarget | null;
+  /** Start (heading-up follow camera) or end in-app navigation. */
+  setNav: (nav: NavTarget | null) => void;
   setDestDraft: (draft: DestDraft | null) => void;
   pushAlerts: (alerts: LocalAlert[]) => void;
   dismissToast: (key: string) => void;
@@ -86,6 +93,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   memberActionsFor: null,
   confirm: null,
   destDraft: null,
+  nav: null,
 
   pushAlerts: (alerts) => {
     if (alerts.length === 0) return;
@@ -130,6 +138,11 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
   setDestDraft: (destDraft) => set({ destDraft }),
 
+  // Starting takes the camera back (auto) and clears focus: guidance owns
+  // the view until you pan or end it.
+  setNav: (nav) =>
+    set(nav ? { nav, cameraMode: "auto", focusUserIds: [], recenterHint: false } : { nav: null, cameraMode: "auto" }),
+
   requestConfirm: (req) =>
     new Promise<boolean>((resolve) => {
       // Never leave a previous caller hanging.
@@ -157,6 +170,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
       memberActionsFor: null,
       confirm: null,
       destDraft: null,
+      nav: null,
     });
   },
 }));

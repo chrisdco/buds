@@ -17,7 +17,8 @@ export function MemberActionSheet({
   onDetails,
 }: {
   myUserId: string | null;
-  onNavigate: (lat: number, lng: number) => void;
+  /** In-app navigation to this member. */
+  onNavigate: (userId: string) => void;
   onDetails: (userId: string) => void;
 }) {
   const colors = useColors();
@@ -82,7 +83,7 @@ export function MemberActionSheet({
             label="Navigate to them"
             variant="text"
             testID="member-actions-navigate"
-            onPress={run(() => onNavigate(member.pos!.lat, member.pos!.lng))}
+            onPress={run(() => onNavigate(member.userId))}
           />
         )}
         {member && (

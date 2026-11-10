@@ -9,7 +9,6 @@ import { clearActiveRoom } from "@/lib/activeRoom";
 import { expiryInfo } from "@/lib/expiry";
 import { haversineMeters } from "@/lib/geo";
 import { LoadingView } from "@/components/ui";
-import { openExternalNavigation } from "@/lib/nav";
 import { colorForUser } from "@/constants/theme";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
 import { LensChips } from "@/features/map/LensChips";
@@ -17,6 +16,9 @@ import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { RoomMap } from "@/features/map/RoomMap";
 import { buildRouteFeatures, buildRouteLabels, nearestIndex } from "@/features/map/routeFeatures";
 import { RouteLines } from "@/features/map/RouteLines";
+import { GUIDANCE_BANNER_H, GuidanceBanner } from "@/features/guidance/GuidanceBanner";
+import { GuidanceLine } from "@/features/guidance/GuidanceLine";
+import { useGuidance, type GuidanceTarget } from "@/features/guidance/useGuidance";
 import { ExpiryBanner } from "@/features/room/ExpiryBanner";
 import { MemberActionSheet } from "@/features/room/MemberActionSheet";
 import { MemberList } from "@/features/room/MemberList";
@@ -56,7 +58,7 @@ import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useRouteStore } from "@/stores/routeStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useUiStore } from "@/stores/uiStore";
+import { useUiStore, type NavTarget } from "@/stores/uiStore";
 
 // The room map screen is a view: it derives what to render from the stores
 // and wires gestures. Behavior lives elsewhere — alerts, routes and arrival in
@@ -158,26 +160,32 @@ export default function RoomScreen() {
     }
     return parts.join("|");
   }, [routes, membersMap, tiers]);
+  const navigating = useUiStore((s) => s.nav != null);
   const { routeFeatures, routeLabels } = useMemo(() => {
+    // Guidance draws your route itself; the group's lines stay.
+    const shown =
+      navigating && myUserId && routes[myUserId]
+        ? Object.fromEntries(Object.entries(routes).filter(([uid]) => uid !== myUserId))
+        : routes;
     const trimFrom: Record<string, number> = {};
     for (const part of trimKey ? trimKey.split("|") : []) {
       const [uid, idx] = part.split(":");
       trimFrom[uid] = Number(idx);
     }
     const etas: Record<string, number> = {};
-    for (const [uid, r] of Object.entries(routes)) etas[uid] = r.durationS;
+    for (const [uid, r] of Object.entries(shown)) etas[uid] = r.durationS;
     return {
       routeFeatures: buildRouteFeatures({
-        routes,
+        routes: shown,
         tiers,
         myUserId,
         colorFor: colorForUser,
         trimFrom,
         late: new Set(lateKey ? lateKey.split("|") : []),
       }),
-      routeLabels: buildRouteLabels({ routes, tiers, etaByUser: etas, colorFor: colorForUser, trimFrom }),
+      routeLabels: buildRouteLabels({ routes: shown, tiers, etaByUser: etas, colorFor: colorForUser, trimFrom }),
     };
-  }, [routes, tiers, myUserId, trimKey, lateKey]);
+  }, [routes, tiers, myUserId, trimKey, lateKey, navigating]);
   // Any drawn route is a straight-line estimate: say so (9.2).
   const estimating = useMemo(
     () => Object.entries(routes).some(([uid, r]) => r.source === "straightline" && (tiers[uid] ?? "hidden") !== "hidden"),
@@ -247,16 +255,66 @@ export default function RoomScreen() {
     setDetent,
   });
   const adjust = picker.adjust;
-  const { cameraMode, focusUserIds, recenter } = useRoomCamera({
+  const nav = useUiStore((s) => s.nav);
+  const { cameraMode, focusUserIds, recenter: roomRecenter } = useRoomCamera({
     cameraRef,
     snap,
     strategy,
     myUserId,
     padBottom: Math.round(sheetVisibleHeight(detent, H, peekH) + 40),
     nowMs,
-    suspended: adjust != null,
+    // Guidance owns the camera while it runs.
+    suspended: adjust != null || nav != null,
     lensTarget,
   });
+
+  // In-app navigation (the default "Navigate"): to your destination or to
+  // a bud's live position. Targets are keyed on their numbers so a members
+  // tick that doesn't move them doesn't re-run guidance.
+  const navMember = nav?.kind === "member" ? membersMap[nav.userId] : undefined;
+  const tLat = nav?.kind === "dest" ? myDest?.lat : navMember?.pos?.lat;
+  const tLng = nav?.kind === "dest" ? myDest?.lng : navMember?.pos?.lng;
+  const tLabel =
+    nav?.kind === "dest"
+      ? myDest && myDest.kind !== "leader"
+        ? (myDest.label ?? "your destination")
+        : "the leader"
+      : (navMember?.name ?? "");
+  const navTarget = useMemo<GuidanceTarget | null>(
+    () => (tLat != null && tLng != null ? { lat: tLat, lng: tLng, label: tLabel } : null),
+    [tLat, tLng, tLabel],
+  );
+  const meLat = me?.pos?.lat;
+  const meLng = me?.pos?.lng;
+  const mePos = useMemo(() => (meLat != null && meLng != null ? { lat: meLat, lng: meLng } : null), [meLat, meLng]);
+  // Target gone (bud left, destination cleared): stop guiding.
+  useEffect(() => {
+    if (nav && !navTarget) useUiStore.getState().setNav(null);
+  }, [nav, navTarget]);
+  const guidanceTop = insets.top + 8;
+  const guide = useGuidance({
+    cameraRef,
+    nav,
+    target: navTarget,
+    me: mePos,
+    cameraMode,
+    padTop: guidanceTop + GUIDANCE_BANNER_H + 120,
+    padBottom: Math.round(sheetVisibleHeight(detent, H, peekH) + 24),
+  });
+  const recenter = useCallback(() => {
+    if (nav) useUiStore.getState().setCameraMode("auto");
+    else roomRecenter();
+  }, [nav, roomRecenter]);
+  const startNav = useCallback((target: NavTarget) => {
+    useUiStore.getState().setNav(target);
+    setDetent("peek");
+  }, []);
+  const navToMember = useCallback(
+    (userId: string) => {
+      if (userId !== myUserId) startNav({ kind: "member", userId });
+    },
+    [startNav, myUserId],
+  );
   const sos = useRoomSos({ roomId: room?.id, myUserId, isTraveler, membersMap, nowMs });
 
   const canCheckIn =
@@ -335,8 +393,8 @@ export default function RoomScreen() {
     router.push(`/room/${room.id}/dest-search`);
   };
   const onNavigateToDest = useCallback(() => {
-    if (myDest) void openExternalNavigation(myDest.lat, myDest.lng);
-  }, [myDest]);
+    if (myDest) startNav({ kind: "dest" });
+  }, [myDest, startNav]);
 
   const showConnBanner = connection !== "connected";
   const expiry = expiryInfo(room?.expires_at ?? null, nowMs);
@@ -430,7 +488,7 @@ export default function RoomScreen() {
 
   // Top stack, Uber-minimal: back circle on its own row, then banners,
   // then the adjust card, then toasts — each starts below the last.
-  let y = insets.top + 68;
+  let y = guide.active ? guidanceTop + GUIDANCE_BANNER_H + 8 : insets.top + 68;
   const connTop = y;
   if (showConnBanner) y += 40;
   const estimateTop = y;
@@ -459,6 +517,7 @@ export default function RoomScreen() {
         ornamentPosition={{ top: insets.top + 12, right: 12 }}
       >
         <RouteLines features={routeFeatures} labels={routeLabels} />
+        {guide.active && <GuidanceLine route={guide.route} from={mePos} />}
         <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
         <MemberMarkers
           members={positioned}
@@ -479,7 +538,20 @@ export default function RoomScreen() {
         </View>
       )}
 
-      <BackCircle top={insets.top + 8} onPress={leave} />
+      {guide.active && navTarget ? (
+        <GuidanceBanner
+          top={guidanceTop}
+          targetLabel={navTarget.label}
+          g={guide.guidance}
+          estimate={guide.route?.source === "straightline"}
+          units={units}
+          nowMs={nowMs}
+          onMaps={guide.openInMaps}
+          onEnd={guide.end}
+        />
+      ) : (
+        <BackCircle top={insets.top + 8} onPress={leave} />
+      )}
 
       {showConnBanner && (
         <View style={[styles.connBanner, { top: connTop }]}>
@@ -500,7 +572,7 @@ export default function RoomScreen() {
           items={sos.items}
           nowMs={sos.sosNowMs}
           top={sosTop}
-          onNavigate={(lat, lng) => void openExternalNavigation(lat, lng)}
+          onNavigate={navToMember}
         />
       )}
 
@@ -526,7 +598,7 @@ export default function RoomScreen() {
         />
       )}
 
-      {detent !== "full" && !adjust && (
+      {detent !== "full" && !adjust && !guide.active && (
         <LensChips
           bottom={fabBottom}
           lenses={lenses}
@@ -545,7 +617,7 @@ export default function RoomScreen() {
 
       <MemberActionSheet
         myUserId={myUserId}
-        onNavigate={(lat, lng) => void openExternalNavigation(lat, lng)}
+        onNavigate={navToMember}
         onDetails={onSelectMember}
       />
 
@@ -600,7 +672,8 @@ export default function RoomScreen() {
           </>
         )}
         renderFooter={
-          action
+          // While guiding to your destination the banner is the control.
+          action && !(guide.active && nav?.kind === "dest" && action === "navigate")
             ? () => (
                 <SheetFooter
                   action={action}

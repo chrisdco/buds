@@ -26,7 +26,8 @@ export function SosBanner({
   items: SosBannerItem[];
   nowMs: number;
   top: number;
-  onNavigate: (lat: number, lng: number) => void;
+  /** In-app navigation to the sender. */
+  onNavigate: (userId: string) => void;
 }) {
   const styles = useStyles();
   if (items.length === 0) return null;
@@ -54,7 +55,7 @@ export function SosBanner({
                 accessibilityRole="button"
                 accessibilityLabel={`Navigate to ${item.name}`}
                 testID="sos-navigate"
-                onPress={() => onNavigate(pos.lat, pos.lng)}
+                onPress={() => onNavigate(item.userId)}
               >
                 <Text style={styles.navText}>Navigate</Text>
               </Pressable>
