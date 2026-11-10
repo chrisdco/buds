@@ -54,7 +54,9 @@ export function AdjustPin({
         <Text style={styles.adjustLabel} numberOfLines={1}>
           {adjust.label}
         </Text>
-        <Text style={styles.adjustHint}>Drag the map to fine-tune the pin</Text>
+        <Text style={styles.adjustHint} numberOfLines={1}>
+          {adjust.address ?? "Drag the map to fine-tune the pin"}
+        </Text>
         <View style={styles.adjustRow}>
           <View style={styles.adjustBtn}>
             <Button label="Cancel" variant="ghost" size="compact" testID="adjust-cancel" onPress={onCancel} />
