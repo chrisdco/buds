@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   addPlannedTrip,
-  combineDateTime,
   countdownLabel,
   planTimeError,
   timeSlots,
@@ -29,7 +28,7 @@ describe("timeSlots", () => {
   });
 });
 
-describe("whenLabel / planTimeError / combineDateTime", () => {
+describe("whenLabel / planTimeError", () => {
   const now = new Date("2026-10-01T10:00:00").getTime();
 
   it("labels by calendar day, then by date", () => {
@@ -41,11 +40,6 @@ describe("whenLabel / planTimeError / combineDateTime", () => {
     expect(planTimeError(now + 60_000, now)).toMatch(/5 minutes/);
     expect(planTimeError(now + 40 * 86_400_000, now)).toMatch(/30 days/);
     expect(planTimeError(now + 3_600_000, now)).toBeNull();
-  });
-
-  it("joins a day and a clock time", () => {
-    const at = combineDateTime(new Date("2026-10-04T00:00:00"), new Date("2000-01-01T18:45:30"));
-    expect(new Date(at).toISOString()).toBe(new Date("2026-10-04T18:45:00").toISOString());
   });
 });
 

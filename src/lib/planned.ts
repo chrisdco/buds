@@ -55,7 +55,7 @@ export const MAX_AHEAD_MS = 30 * 86_400_000;
  * Smart presets for "Later": the common intents in one tap, all strictly
  * future. Presets that make no sense right now drop out (no "Tonight" at
  * 11 PM, no "This weekend" when it already is). Anything else goes through
- * the custom date + time picker.
+ * "Pick a time".
  */
 export function timeSlots(nowMs: number): TimeSlot[] {
   const now = new Date(nowMs);
@@ -91,13 +91,6 @@ export function planTimeError(atMs: number, nowMs: number): string | null {
   if (atMs < nowMs + MIN_LEAD_MS) return "Pick a time at least 5 minutes from now.";
   if (atMs > nowMs + MAX_AHEAD_MS) return "Plans can be up to 30 days ahead.";
   return null;
-}
-
-/** A picked calendar day + clock time as one instant (local time). */
-export function combineDateTime(day: Date, time: Date): number {
-  const d = new Date(day);
-  d.setHours(time.getHours(), time.getMinutes(), 0, 0);
-  return d.getTime();
 }
 
 /** "In 45m" / "In 3h" / "Tomorrow 8:00 AM" countdown for rows. */
@@ -171,4 +164,50 @@ export async function removePlannedTrip(id: string): Promise<PlannedTrip[]> {
 
 export function plannedTripId(): string {
   return `plan-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+/** Local midnight of the day containing `ms`. */
+export function dayStart(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Day pills for the custom picker: every day a plan can still land on. */
+export function dayChoices(nowMs: number): { dayMs: number; label: string }[] {
+  const out: { dayMs: number; label: string }[] = [];
+  const first = dayStart(nowMs);
+  for (let i = 0; i <= 31; i++) {
+    // Noon then back to midnight: steps whole calendar days across DST.
+    const d = new Date(first + i * 86_400_000 + 12 * 3_600_000);
+    d.setHours(0, 0, 0, 0);
+    const dayMs = d.getTime();
+    if (out.some((o) => o.dayMs === dayMs)) continue;
+    // Skip days with no valid time left (late tonight) or past the window.
+    if (validSlots(dayMs, nowMs).length === 0) continue;
+    const word = dayWord(dayMs, nowMs);
+    out.push({
+      dayMs,
+      label: word ?? d.toLocaleDateString([], { weekday: "short", day: "numeric" }),
+    });
+  }
+  return out;
+}
+
+/** Half-hour instants on a day that a plan may use. */
+function validSlots(dayMs: number, nowMs: number): number[] {
+  const out: number[] = [];
+  for (let slot = 0; slot < 48; slot++) {
+    const d = new Date(dayMs);
+    d.setHours(Math.floor(slot / 2), (slot % 2) * 30, 0, 0);
+    const atMs = d.getTime();
+    // setHours stays on this calendar day, DST included.
+    if (planTimeError(atMs, nowMs) == null) out.push(atMs);
+  }
+  return out;
+}
+
+/** Half-hour time pills on a day, only the ones a plan may use. */
+export function timeChoices(dayMs: number, nowMs: number): { atMs: number; label: string }[] {
+  return validSlots(dayMs, nowMs).map((atMs) => ({ atMs, label: fmtTime(atMs) }));
 }
