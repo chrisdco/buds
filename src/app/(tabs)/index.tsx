@@ -27,6 +27,7 @@ import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 import { makeStyles, useColors } from "@/theme";
+import { hasLocationPermission } from "@/services/location/permissions";
 
 // Uber home grammar (ref: Uber Home): the "Where to?" box is the one primary
 // entry with Later nested inside it; one grouped card holds the live room +
@@ -62,10 +63,15 @@ export default function HomeScreen() {
 
   // Location priming (double-prompt): our sheet explains the exchange at the
   // moment of intent; the OS dialog follows later at room join. Either button
-  // proceeds — "Not now" is harmless, never a block.
+  // proceeds — "Not now" is harmless, never a block. Skipped outright when
+  // the phone already allows location: nothing left to explain.
   const primeLocation = async (): Promise<void> => {
     const session = useSessionStore.getState();
     if (session.primedLocation) return;
+    if (await hasLocationPermission("foreground")) {
+      session.setPrimed("location");
+      return;
+    }
     session.setPrimed("location");
     await useUiStore.getState().requestConfirm({
       title: "Share your live location?",

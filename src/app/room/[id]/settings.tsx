@@ -1,6 +1,6 @@
 import * as Linking from "expo-linking";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 
 import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, SelectableRow } from "@/components/layout";
 import { PeepAvatar } from "@/components/PeepAvatar";
@@ -12,7 +12,7 @@ import { extendedExpiryIso } from "@/lib/expiry";
 import { MODE_OPTIONS } from "@/modes/modeOptions";
 import { requestBatteryOptimizationExemption } from "@/services/location/battery";
 import { stopBackgroundUpdates } from "@/services/location/backgroundTask";
-import { ensureBackgroundLocation } from "@/services/location/permissions";
+import { ensureBackgroundLocation, hasLocationPermission } from "@/services/location/permissions";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -73,9 +73,11 @@ export default function RoomSettingsScreen() {
       await stopBackgroundUpdates();
       return;
     }
-    // Prime once: explain the Always ask before the OS dialog appears.
+    // Prime once: explain the Always ask before the OS dialog appears —
+    // unless "Always" is already allowed, then just turn it on.
     const session = useSessionStore.getState();
-    if (!session.primedBackground) {
+    const already = await hasLocationPermission("background");
+    if (!already && !session.primedBackground) {
       session.setPrimed("background");
       const ok = await useUiStore.getState().requestConfirm({
         title: "Share with the screen off?",
@@ -88,14 +90,14 @@ export default function RoomSettingsScreen() {
     }
     const granted = await ensureBackgroundLocation();
     if (!granted) {
-      Alert.alert(
-        "Background location needed",
-        "Allow location 'Always' in settings so Buds can keep sharing with the screen off.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Open Settings", onPress: () => void Linking.openSettings() },
-        ],
-      );
+      const open = await useUiStore.getState().requestConfirm({
+        title: "Background location needed",
+        body: "Allow location \"All the time\" in Settings so Buds can keep sharing with the screen off.",
+        confirmLabel: "Open Settings",
+        cancelLabel: "Not now",
+        destructive: false,
+      });
+      if (open) void Linking.openSettings();
       return;
     }
     useSessionStore.getState().setBackgroundSharing(true);
