@@ -1,15 +1,4 @@
-import { Image } from "react-native";
+import { scene } from "@/components/illustrations/scene";
 
-// LocationSearchArt — pre-rasterized Open Doodles scene (CC0) (see illustration notes in
-// docs/design.md). Source: assets/illustrations/src/location-search.svg;
-// regenerate with `node scripts/rasterize-art.mjs`. One native view.
-export function LocationSearchArt({ width = 240 }: { width?: number }) {
-  return (
-    <Image
-      source={require("../../../assets/illustrations/location-search.png")}
-      style={{ width, aspectRatio: 1000.3 / 687.1 }}
-      resizeMode="contain"
-      accessible={false}
-    />
-  );
-}
+// LocationSearchArt: source assets/illustrations/src/location-search.svg.
+export const LocationSearchArt = scene(require("../../../assets/illustrations/location-search.png"), 1000.3 / 687.1);

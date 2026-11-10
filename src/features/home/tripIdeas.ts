@@ -1,5 +1,4 @@
-import type { ComponentType } from "react";
-
+import type { SceneArt } from "@/components/illustrations/scene";
 import { DestinationArt } from "@/components/illustrations/DestinationArt";
 import { LocationSearchArt } from "@/components/illustrations/LocationSearchArt";
 import { OrderRideArt } from "@/components/illustrations/OrderRideArt";
@@ -17,9 +16,7 @@ export interface TripIdea {
   id: string;
   title: string;
   sub: string;
-  Art: ComponentType<{ width?: number }>;
-  /** Art width as a fraction of the card width (scenes differ in shape). */
-  artScale: number;
+  Art: SceneArt;
   tint: string;
   mode: RoomMode;
   durationHours: number;
@@ -35,7 +32,6 @@ export const TRIP_IDEAS: TripIdea[] = [
     title: "Road trip convoy",
     sub: "Follow the lead car and see who's falling behind",
     Art: OrderRideArt,
-    artScale: 0.78,
     tint: cardTints.blue,
     mode: "leader",
     durationHours: 12,
@@ -46,7 +42,6 @@ export const TRIP_IDEAS: TripIdea[] = [
     title: "Meet at the venue",
     sub: "Everyone heads to one pin, with live ETAs",
     Art: DestinationArt,
-    artScale: 0.52,
     tint: cardTints.violet,
     mode: "converge",
     durationHours: 4,
@@ -57,7 +52,6 @@ export const TRIP_IDEAS: TripIdea[] = [
     title: "Hike as a group",
     sub: "Get an alert when someone drifts off",
     Art: TravelTogetherArt,
-    artScale: 0.42,
     tint: cardTints.green,
     mode: "formation",
     durationHours: 12,
@@ -68,7 +62,6 @@ export const TRIP_IDEAS: TripIdea[] = [
     title: "Pick someone up",
     sub: "Both of you see each other closing in",
     Art: LocationSearchArt,
-    artScale: 0.5,
     tint: cardTints.amber,
     mode: "converge",
     durationHours: 4,
@@ -79,7 +72,6 @@ export const TRIP_IDEAS: TripIdea[] = [
     title: "Get home safe",
     sub: "Friends watch your trip until you arrive",
     Art: ShareLocationArt,
-    artScale: 0.38,
     tint: cardTints.rose,
     mode: "solo",
     durationHours: 4,

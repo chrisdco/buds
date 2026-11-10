@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
+import { fitWidth } from "@/components/illustrations/scene";
 import { AppSymbol, type AppSymbolName } from "@/components/Symbol";
 import { colors, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
@@ -8,7 +9,7 @@ import { TRIP_PRESETS, type TripPreset, type TripPresetId } from "@/lib/tripPres
 
 // Uber "For you" grid: four circles per row, wrapping, one-word label under
 // each and an optional badge overlapping the top edge. Trip presets render
-// their art; shortcut tiles (join, scan, new room…) render an icon. Circles
+// their whole figure, fitted and centered; shortcut tiles (join, scan, new room…) render an icon. Circles
 // size to the screen so four always fit. testIDs stable for Maestro.
 
 const GUTTER = 20; // Screen's horizontal padding
@@ -25,23 +26,17 @@ export interface ForYouTile {
   onPress: () => void;
 }
 
+/** Share of the diameter the figure may fill (the scene PNGs carry a
+ * small built-in margin, so the drawn figure lands near 74%). */
+const ART_FILL = 0.8;
+
 function PresetArtInner({ preset, size }: { preset: TripPreset; size: number }) {
-  const { Art, vbW, vbH, fx, fy, window } = preset.image;
-  const scale = size / window;
-  const w = vbW * scale;
-  const h = vbH * scale;
+  const { art: Art } = preset;
+  const box = size * ART_FILL;
+  const w = fitWidth(Art, box, box);
   return (
-    <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
-      <View
-        style={{
-          width: w,
-          height: h,
-          marginLeft: size / 2 - fx * vbW * scale,
-          marginTop: size / 2 - fy * vbH * scale,
-        }}
-      >
-        <Art width={w} />
-      </View>
+    <View style={[styles.circle, styles.center, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Art width={w} />
     </View>
   );
 }
@@ -131,7 +126,7 @@ export function PresetCircles({
           testID={t.testID}
           onPress={t.onPress}
         >
-          <View style={[styles.circle, styles.iconCircle, { width: size, height: size, borderRadius: size / 2 }]}>
+          <View style={[styles.circle, styles.center, { width: size, height: size, borderRadius: size / 2 }]}>
             <AppSymbol name={t.icon} fallback={t.icon.fallback} size={Math.round(size * 0.36)} tintColor={colors.text} />
           </View>
         </Cell>
@@ -144,9 +139,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", columnGap: GAP, rowGap: space.lg },
   cell: { alignItems: "center" },
   pressed: { opacity: 0.75 },
-  // Fixed circular window; preset scenes render larger and focal-cropped.
   circle: { overflow: "hidden", backgroundColor: colors.surfaceAlt },
-  iconCircle: { alignItems: "center", justifyContent: "center" },
+  center: { alignItems: "center", justifyContent: "center" },
   // Uber's Promo pill: overlaps the circle's top edge, functional red.
   badge: {
     position: "absolute",
