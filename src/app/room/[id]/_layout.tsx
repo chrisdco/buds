@@ -27,6 +27,7 @@ import { resetRouteManager } from "@/services/routing/routeManager";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUiStore } from "@/stores/uiStore";
 import { useColors } from "@/theme";
 
 const EXIT_MESSAGES = {
@@ -95,14 +96,16 @@ export default function RoomLayout() {
           pipelineRunning.current = false;
           // Deny recovery: the banner names the breakage and offers the
           // one-tap Settings path instead of a dead end.
-          Alert.alert(
-            "Location is off",
-            "Without location access your buds can't see you on the map. You can still watch the room.",
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Open Settings", onPress: () => void Linking.openSettings() },
-            ],
-          );
+          void useUiStore
+            .getState()
+            .requestConfirm({
+              title: "Location is off",
+              body: "Without location access your buds can't see you on the map. You can still watch the room.",
+              confirmLabel: "Open Settings",
+              cancelLabel: "Not now",
+              destructive: false,
+            })
+            .then((open) => open && void Linking.openSettings());
           return;
         }
         // Device-wide location services off is a separate failure: permission
@@ -111,14 +114,16 @@ export default function RoomLayout() {
         const servicesOn = await Location.hasServicesEnabledAsync();
         if (!servicesOn) {
           pipelineRunning.current = false;
-          Alert.alert(
-            "Location services are off",
-            "Turn on location services on this device so your buds can see you on the map. You can still watch the room.",
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Open Settings", onPress: () => void Linking.openSettings() },
-            ],
-          );
+          void useUiStore
+            .getState()
+            .requestConfirm({
+              title: "Location services are off",
+              body: "Turn on location on this device so your buds can see you on the map. You can still watch the room.",
+              confirmLabel: "Open Settings",
+              cancelLabel: "Not now",
+              destructive: false,
+            })
+            .then((open) => open && void Linking.openSettings());
           return;
         }
         await startForegroundPipeline(id);

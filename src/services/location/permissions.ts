@@ -1,5 +1,22 @@
 import * as Location from "expo-location";
 
+/**
+ * Already allowed? Never prompts. Priming sheets check this first so a
+ * phone that already granted access is never asked again (in any wording).
+ * Errors read as "not granted": the caller's normal path still works.
+ */
+export async function hasLocationPermission(kind: "foreground" | "background"): Promise<boolean> {
+  try {
+    const p =
+      kind === "foreground"
+        ? await Location.getForegroundPermissionsAsync()
+        : await Location.getBackgroundPermissionsAsync();
+    return p.granted;
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureForegroundLocation(): Promise<boolean> {
   const current = await Location.getForegroundPermissionsAsync();
   if (current.granted) return true;
