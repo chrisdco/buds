@@ -3,7 +3,9 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { SheetDetent } from "@/features/room/RoomSheet";
 import type { ModeStrategy } from "@/modes/types";
+import { haversineMeters } from "@/lib/geo";
 import { ensureTripPack } from "@/services/map/offlinePacks";
+import { reversePlace } from "@/services/places/photon";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useUiStore } from "@/stores/uiStore";
 import type { MemberLive, RoomRow } from "@/types/contracts";
@@ -17,7 +19,14 @@ export interface AdjustDraft {
   lat: number;
   lng: number;
   label: string;
+  /** Second line under the name (street, area); null while unknown. */
+  address: string | null;
+  /** "search": named by the pick until dragged away; "pin": named by what's there. */
+  source: "search" | "pin";
 }
+
+/** Dragging a search pick further than this renames it from the map. */
+const RENAME_AFTER_M = 40;
 
 function setDestinationAndWarm(args: Parameters<typeof roomsRpc.setDestination>[0]): void {
   void roomsRpc.setDestination(args).then((r) => {
@@ -51,15 +60,41 @@ export function useDestinationPicker(args: {
   // Detent to restore when adjust-pin mode ends: adjusting drops the sheet to
   // peek so the screen-centered pin (= the map center) is never covered.
   const detentBeforeAdjust = useRef<SheetDetent | null>(null);
+  // Where a search pick landed: drags within RENAME_AFTER_M keep its name.
+  const searchAnchor = useRef<{ lat: number; lng: number } | null>(null);
+  const lookup = useRef<AbortController | null>(null);
 
-  const begin = (lat: number, lng: number, label: string, zoom?: number) => {
+  // Name the pin from the map (nearest shop / building / street), like a
+  // ride app's "set on map". The newest drag wins; failures keep the name.
+  const nameFromMap = (lat: number, lng: number) => {
+    lookup.current?.abort();
+    const ctrl = new AbortController();
+    lookup.current = ctrl;
+    void reversePlace(lat, lng, ctrl.signal)
+      .then((hit) => {
+        if (ctrl.signal.aborted || !hit) return;
+        setAdjust((prev) =>
+          prev && prev.source === "pin" && prev.lat === lat && prev.lng === lng
+            ? { ...prev, label: hit.name, address: hit.address || null }
+            : prev,
+        );
+      })
+      .catch(() => {});
+  };
+
+  const begin = (lat: number, lng: number, label: string, zoom?: number, source: "search" | "pin" = "pin") => {
     if (detentBeforeAdjust.current == null) detentBeforeAdjust.current = detent;
     setDetent("peek");
     cameraRef.current?.easeTo({ center: [lng, lat], ...(zoom != null ? { zoom } : {}), duration: 600 });
-    setAdjust({ lat, lng, label });
+    searchAnchor.current = source === "search" ? { lat, lng } : null;
+    setAdjust({ lat, lng, label, address: null, source });
+    if (source === "pin") nameFromMap(lat, lng);
   };
 
   const end = () => {
+    lookup.current?.abort();
+    lookup.current = null;
+    searchAnchor.current = null;
     setAdjust(null);
     if (detentBeforeAdjust.current != null) {
       setDetent(detentBeforeAdjust.current);
@@ -116,7 +151,7 @@ export function useDestinationPicker(args: {
     const draft = destDraft;
     queueMicrotask(() => {
       useUiStore.getState().setDestDraft(null);
-      begin(draft.lat, draft.lng, draft.label, 15);
+      begin(draft.lat, draft.lng, draft.label, 15, "search");
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destDraft]);
@@ -128,7 +163,11 @@ export function useDestinationPicker(args: {
     void mapRef.current
       ?.getCenter()
       .then(([lng, lat]) => {
-        setAdjust((prev) => (prev ? { ...prev, lat, lng } : prev));
+        const anchor = searchAnchor.current;
+        const keepName = anchor != null && haversineMeters(anchor.lat, anchor.lng, lat, lng) < RENAME_AFTER_M;
+        if (!keepName) searchAnchor.current = null;
+        setAdjust((prev) => (prev ? { ...prev, lat, lng, source: keepName ? prev.source : "pin" } : prev));
+        if (!keepName) nameFromMap(lat, lng);
       })
       .catch(() => {});
   };
