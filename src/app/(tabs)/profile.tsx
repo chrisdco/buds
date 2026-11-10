@@ -1,45 +1,38 @@
-import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Share, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { PeepAvatar, PEEP_COUNT, peepIndexFor } from "@/components/PeepAvatar";
 import { icons } from "@/components/Symbol";
-import { Screen, Segmented, TextField } from "@/components/ui";
+import { Screen, TextField } from "@/components/ui";
 import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 
 import { useSessionStore } from "@/stores/sessionStore";
-import { useThemeStore, type ThemePref } from "@/stores/themeStore";
 import { usePlacesStore } from "@/stores/placesStore";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
-import { AppIconPicker } from "@/features/profile/AppIconPicker";
 import { BudsRow, QuickTiles } from "@/features/profile/ProfileSections";
 import { frequentBuds } from "@/lib/tripHistory";
 import { makeStyles, useTypeScale } from "@/theme";
 
 // Profile tab in Uber Account grammar: big name + avatar header, three
-// square shortcuts, your buds, then grouped rows (name, places, prefs).
-// Anonymous identity stays: profile = name + prefs + what this device has
-// seen, and the door to Settings (notifications, privacy, support).
+// square shortcuts, your buds, your name and saved places. Only what is
+// "you" lives here; every preference (look, units, alerts, data) is in
+// Settings, one tap away on the Settings tile.
 export default function ProfileScreen() {
   const styles = useStyles();
   const typeScale = useTypeScale();
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
-  const units = useSessionStore((s) => s.units);
-  const focusShowsMe = useSessionStore((s) => s.focusShowsMe);
   const deviceId = useSessionStore((s) => s.deviceId);
   const avatar = useSessionStore((s) => s.avatar);
   const setAvatar = useSessionStore((s) => s.setAvatar);
-  const themePref = useThemeStore((s) => s.pref);
   const [picking, setPicking] = useState(false);
   const saved = usePlacesStore((s) => s.saved);
   const recents = useRecentsStore((s) => s.recents);
   const buds = frequentBuds(recents ?? []);
-  const version = Constants.expoConfig?.version ?? "dev";
   const initial = (displayName.trim().slice(0, 1) || "?").toUpperCase();
   const effectiveFace = avatar === "initial" ? -1 : (avatar ?? peepIndexFor(deviceId || "you"));
 
@@ -178,77 +171,11 @@ export default function ProfileScreen() {
           />
         </GroupedCard>
 
-        <SectionHeader title="Appearance" />
-        <Segmented<ThemePref>
-          options={THEME_OPTIONS}
-          value={themePref}
-          onChange={(p) => useThemeStore.getState().setPref(p)}
-          testID="profile-theme"
-        />
-
-        <SectionHeader title="Preferences" />
-        <GroupedCard>
-          <ListRow
-            icon={icons.navigate}
-            title="Distance units"
-            sub={units === "km" ? "Kilometers" : "Miles"}
-            value={units === "km" ? "km" : "mi"}
-            divider
-            a11yLabel={`Distance units, ${units === "km" ? "kilometers" : "miles"}. Tap to switch.`}
-            testID={units === "km" ? "profile-units-km" : "profile-units-mi"}
-            onPress={() => useSessionStore.getState().setUnits(units === "km" ? "mi" : "km")}
-          />
-          <ListRow
-            icon={icons.trips}
-            title="Your route in Focus"
-            sub={focusShowsMe ? "Drawn faintly while you focus on others" : "Hidden while you focus on others"}
-            value={focusShowsMe ? "On" : "Off"}
-            divider
-            a11yLabel={`Your route in Focus, ${focusShowsMe ? "on" : "off"}. Tap to switch.`}
-            testID="profile-focus-me"
-            onPress={() => useSessionStore.getState().setFocusShowsMe(!focusShowsMe)}
-          />
-          <ListRow
-            icon={icons.settings}
-            title="Settings"
-            sub="Notifications, privacy, help"
-            chevron
-            a11yLabel="Open app settings"
-            testID="profile-settings"
-            onPress={() => router.push("/settings")}
-          />
-        </GroupedCard>
-
-        <SectionHeader title="App icon" />
-        <AppIconPicker />
-
-        <SectionHeader title="Spread the word" />
-        <GroupedCard>
-          <ListRow
-            icon={icons.share}
-            title="Tell a friend about Buds"
-            sub="Live location for group trips, no account"
-            chevron
-            testID="profile-share-app"
-            onPress={() =>
-              void Share.share({
-                message: "I use Buds to see my group live on one map during trips: https://github.com/chrisdco/buds",
-              })
-            }
-          />
-        </GroupedCard>
-        <Text style={[typeScale.meta, styles.version]}>Buds {version}</Text>
         <TabBarClearance />
       </TabScrollView>
     </Screen>
   );
 }
-
-const THEME_OPTIONS = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-] as const;
 
 function AvatarPick({
   selected,
@@ -300,5 +227,4 @@ const useStyles = makeStyles((colors) => ({
   pick: { padding: 2, borderRadius: 26, borderWidth: 2, borderColor: "transparent" },
   pickSelected: { borderColor: colors.text },
   hint: { marginTop: space.sm },
-  version: { textAlign: "center", marginTop: space.lg },
 }));

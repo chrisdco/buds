@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { supportsAlternateIcons } from "expo-alternate-app-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
@@ -7,24 +8,29 @@ import { ScrollView, Share, Switch, Text } from "react-native";
 
 import { GroupedCard, ListRow, NavHeader, SectionHeader } from "@/components/layout";
 import { icons } from "@/components/Symbol";
-import { ErrorText, Screen } from "@/components/ui";
+import { ErrorText, Screen, Segmented } from "@/components/ui";
 import { space } from "@/constants/theme";
 
 import { NOTIFY_CATEGORY_LABELS } from "@/events/notifyPrefs";
+import { AppIconPicker } from "@/features/profile/AppIconPicker";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { ALL_NOTIFY_CATEGORIES, useSessionStore } from "@/stores/sessionStore";
+import { useThemeStore, type ThemePref } from "@/stores/themeStore";
 import { useUiStore } from "@/stores/uiStore";
 import { makeStyles, useColors, useTypeScale } from "@/theme";
 
-// App settings (stack page, no tabs per law 12): notification prefs, the
-// identity danger zone, about/FAQ, support. Quick prefs (name, units) stay
-// on the Profile tab; everything configurational lives here.
+// App settings (stack page, no tabs per law 12), most-used first: look,
+// map, notifications, then data, help and support. Profile keeps only the
+// "you" bits (name, face, saved places).
 export default function SettingsScreen() {
   const styles = useStyles();
   const colors = useColors();
   const ts = useTypeScale();
   const router = useRouter();
   const notifyPrefs = useSessionStore((s) => s.notifyPrefs);
+  const units = useSessionStore((s) => s.units);
+  const focusShowsMe = useSessionStore((s) => s.focusShowsMe);
+  const themePref = useThemeStore((s) => s.pref);
   const [osNotifGranted, setOsNotifGranted] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"reset" | "wipe" | null>(null);
@@ -94,7 +100,43 @@ export default function SettingsScreen() {
     <Screen>
       <NavHeader title="Settings" />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <SectionHeader title="Notifications" style={styles.firstSection} />
+        <SectionHeader title="Appearance" style={styles.firstSection} />
+        <Segmented<ThemePref>
+          options={THEME_OPTIONS}
+          value={themePref}
+          onChange={(p) => useThemeStore.getState().setPref(p)}
+          testID="profile-theme"
+        />
+        {supportsAlternateIcons && (
+          <>
+            <Text style={[ts.meta, styles.subLabel]}>App icon</Text>
+            <AppIconPicker />
+          </>
+        )}
+
+        <SectionHeader title="Map" />
+        <GroupedCard>
+          <ListRow
+            icon={icons.navigate}
+            title="Distance units"
+            value={units === "km" ? "km" : "mi"}
+            divider
+            a11yLabel={`Distance units, ${units === "km" ? "kilometers" : "miles"}. Tap to switch.`}
+            testID={units === "km" ? "profile-units-km" : "profile-units-mi"}
+            onPress={() => useSessionStore.getState().setUnits(units === "km" ? "mi" : "km")}
+          />
+          <ListRow
+            icon={icons.trips}
+            title="Your route in Focus"
+            sub={focusShowsMe ? "Drawn faintly while you focus on others" : "Hidden while you focus on others"}
+            value={focusShowsMe ? "On" : "Off"}
+            a11yLabel={`Your route in Focus, ${focusShowsMe ? "on" : "off"}. Tap to switch.`}
+            testID="profile-focus-me"
+            onPress={() => useSessionStore.getState().setFocusShowsMe(!focusShowsMe)}
+          />
+        </GroupedCard>
+
+        <SectionHeader title="Notifications" />
         <Text style={[ts.meta, styles.caption]}>
           Background alerts per category. In-app toasts always show.
         </Text>
@@ -147,14 +189,11 @@ export default function SettingsScreen() {
         </GroupedCard>
         <ErrorText>{error}</ErrorText>
 
-        <SectionHeader title="How it works" />
-        <Text style={ts.body}>
-          Create a room, share the code, and see each other move on one live
-          map. Set a destination together, get arrival and separation alerts,
-          and leave anytime — rooms auto-close when they expire.
+        <SectionHeader title="Help" />
+        <Text style={[ts.rowTitle, styles.question]}>How does it work?</Text>
+        <Text style={ts.rowSub}>
+          Create a room, share the code, and see each other move on one live map. Leave anytime.
         </Text>
-
-        <SectionHeader title="FAQ" />
         <Text style={[ts.rowTitle, styles.question]}>Who sees my location?</Text>
         <Text style={ts.rowSub}>Only members of rooms you join, only while you share.</Text>
         <Text style={[ts.rowTitle, styles.question]}>Does it drain battery?</Text>
@@ -167,6 +206,18 @@ export default function SettingsScreen() {
         <SectionHeader title="Support" />
         <GroupedCard>
           <ListRow icon={icons.feedback} title="Send feedback" chevron divider onPress={sendFeedback} />
+          <ListRow
+            icon={icons.share}
+            title="Tell a friend about Buds"
+            chevron
+            divider
+            testID="profile-share-app"
+            onPress={() =>
+              void Share.share({
+                message: "I use Buds to see my group live on one map during trips: https://github.com/chrisdco/buds",
+              })
+            }
+          />
           <ListRow
             icon={icons.link}
             title="Source code"
@@ -181,8 +232,15 @@ export default function SettingsScreen() {
   );
 }
 
+const THEME_OPTIONS = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const;
+
 const useStyles = makeStyles(() => ({
   firstSection: { marginTop: space.sm },
+  subLabel: { marginTop: space.md, marginBottom: space.sm },
   caption: { marginBottom: space.sm },
   question: { marginTop: space.md, marginBottom: 2 },
   version: { textAlign: "center", marginTop: space.lg, marginBottom: space.xl },
