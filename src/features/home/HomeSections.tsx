@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { IconTile } from "@/components/layout";
+import { fitWidth } from "@/components/illustrations/scene";
 import { icons } from "@/components/Symbol";
 import { colors, radius, space } from "@/constants/theme";
 import { typeScale as ts } from "@/constants/typography";
@@ -12,6 +13,7 @@ import { TRIP_IDEAS, type TripIdea } from "@/features/home/tripIdeas";
 // rest of the page and the next one peeks in from the right.
 
 const GUTTER = 20; // Screen's horizontal padding
+const ART_H = 160;
 
 /** Wide art cards, one and a bit per screen, so the scroll is discoverable. */
 export function IdeaCarousel({ onSelect }: { onSelect: (idea: TripIdea) => void }) {
@@ -37,9 +39,7 @@ export function IdeaCarousel({ onSelect }: { onSelect: (idea: TripIdea) => void 
           onPress={() => onSelect(idea)}
         >
           <View style={[styles.art, { backgroundColor: idea.tint }]}>
-            <View style={styles.artInner}>
-              <idea.Art width={Math.round(cardW * idea.artScale)} />
-            </View>
+            <idea.Art width={fitWidth(idea.Art, cardW * 0.7, ART_H - space.md * 2)} />
           </View>
           <Text style={[ts.rowTitle, styles.cardTitle]} numberOfLines={1}>
             {idea.title}
@@ -89,13 +89,15 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   bleed: { marginHorizontal: -GUTTER },
   row: { paddingHorizontal: GUTTER, gap: space.md },
+  // The whole figure, fitted and centered on its tint: no crop, so heads
+  // and feet never fall off the panel.
   art: {
-    height: 160,
+    height: ART_H,
     borderRadius: radius.lg,
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  // Scenes sit bottom-right like a photo crop, leaving the left calm.
-  artInner: { position: "absolute", right: space.md, bottom: 0 },
   cardTitle: { marginTop: space.sm + 2 },
   promise: {
     backgroundColor: colors.surface,

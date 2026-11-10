@@ -174,6 +174,14 @@ peep avatars, and small spots (<100 nodes). Node budget for any future scene:
   blind emulator rounds — resvg preview framing provably equals on-device
   framing (same bytes, same viewBox math). testIDs unchanged (Maestro taps
   them). 4th tab deferred to a design discussion, not this pass.
+- **Round 3: whole figures, no crops.** The focal windows looked fine in
+  resvg but landed as fragments on device (a stroke, half a skate), and the
+  Open Doodles figures read as nothing once cropped. Presets now carry
+  `art: SceneArt` and circles fit the whole figure at 80% of the diameter,
+  centered; Home idea cards fit it inside 70% x (160 - 32), centered.
+  `scene(source, aspect)` gives every scene an explicit width and height
+  (never `aspectRatio` alone) and `fitWidth` does the contain math.
+  `scripts/preview-crop.mjs` is no longer used by the app.
 - **Open Peeps people system (CC0):** `PeepAvatar` (7 faces A–H, deterministic
   hash by id) drives member cards, the profile identity medallion, and the
   create-screen "gather your buds" trio. White-on-ink remap baked at

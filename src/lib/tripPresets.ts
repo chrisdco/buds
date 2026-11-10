@@ -1,7 +1,6 @@
-import type { ComponentType } from "react";
-
 import type { IconName } from "@/components/Symbol";
 import type { RoomMode } from "@/types/contracts";
+import type { SceneArt } from "@/components/illustrations/scene";
 import { DestinationArt } from "@/components/illustrations/DestinationArt";
 import { OrderRideArt } from "@/components/illustrations/OrderRideArt";
 import { TravelTogetherArt } from "@/components/illustrations/TravelTogetherArt";
@@ -21,21 +20,11 @@ export interface TripPreset {
   /** Short badge over the tile (Uber "Promo"/"Faster" language). */
   badge?: string;
   /**
-   * Uber-style tile art: a full-bleed scene per preset (unDraw, brand
-   * recolor — see illustration notes in docs/design.md). Circles show a
-   * zoomed window, not the whole scene: (fx, fy) is the focal point as
-   * viewBox fractions, window its size in source units. Focals were chosen
-   * against laptop renders (scripts/preview-crop.mjs), not blind.
-   * Symbols stay as the loading-safe fallback, never alongside the art.
+   * Tile art: a whole Open Doodles figure fitted inside the circle (see
+   * illustration notes in docs/design.md). Symbols stay as the
+   * loading-safe fallback, never alongside the art.
    */
-  image: {
-    Art: ComponentType<{ width?: number }>;
-    vbW: number;
-    vbH: number;
-    fx: number;
-    fy: number;
-    window: number;
-  };
+  art: SceneArt;
   mode: RoomMode;
   limit: number;
   durationHours: number | null;
@@ -50,7 +39,7 @@ export const TRIP_PRESETS: TripPreset[] = [
     blurb: "Everyone heads to one spot",
     icon: "flag",
     badge: "Popular",
-    image: { Art: DestinationArt, vbW: 888.4, vbH: 760.8, fx: 0.5, fy: 0.45, window: 720 },
+    art: DestinationArt,
     mode: "converge",
     limit: 10,
     durationHours: 12,
@@ -61,7 +50,7 @@ export const TRIP_PRESETS: TripPreset[] = [
     title: "Follow leader",
     blurb: "One leader, everyone keeps up",
     icon: "star",
-    image: { Art: OrderRideArt, vbW: 999.0, vbH: 767.0, fx: 0.5, fy: 0.45, window: 720 },
+    art: OrderRideArt,
     mode: "leader",
     limit: 10,
     durationHours: 12,
@@ -72,7 +61,7 @@ export const TRIP_PRESETS: TripPreset[] = [
     title: "Stay together",
     blurb: "Hold formation on the move",
     icon: "recenter",
-    image: { Art: TravelTogetherArt, vbW: 802.1, vbH: 778.1, fx: 0.5, fy: 0.45, window: 720 },
+    art: TravelTogetherArt,
     mode: "formation",
     limit: 10,
     durationHours: 12,
