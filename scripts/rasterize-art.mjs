@@ -16,17 +16,24 @@ const outDir = path.join(root, "assets", "illustrations");
 const srcDir = path.join(outDir, "src");
 
 const ACCENT = "#4F8EF7";
+const ACCENT_LIGHT = "#276EF1";
 // Open Doodles are black ink + one pink; on our dark canvas the ink flips
-// to white (chalk-on-slate) and the pink becomes the accent.
+// to white (chalk-on-slate) and the pink becomes the accent. The light
+// theme keeps the original black ink (name-light.png).
 const DOODLE = { "#000000": "#FFFFFF", "#FF5678": ACCENT };
+const DOODLE_LIGHT = { "#FF5678": ACCENT_LIGHT };
+const VARIANTS = [
+  { suffix: "", recolor: DOODLE },
+  { suffix: "-light", recolor: DOODLE_LIGHT },
+];
 
-// name -> source file, render width at @1x (dp of largest use), recolors.
+// name -> source file, render width at @1x (dp of largest use).
 const ART = {
-  destination: { src: "destination.svg", width: 320, recolor: DOODLE },
-  "order-ride": { src: "order-ride.svg", width: 320, recolor: DOODLE },
-  "travel-together": { src: "travel-together.svg", width: 320, recolor: DOODLE },
-  "share-location": { src: "share-location.svg", width: 220, recolor: DOODLE },
-  "location-search": { src: "location-search.svg", width: 200, recolor: DOODLE },
+  destination: { src: "destination.svg", width: 320 },
+  "order-ride": { src: "order-ride.svg", width: 320 },
+  "travel-together": { src: "travel-together.svg", width: 320 },
+  "share-location": { src: "share-location.svg", width: 220 },
+  "location-search": { src: "location-search.svg", width: 200 },
 };
 
 // Doodles sit in a 1024x768 artboard with wide margins; crop the viewBox to
@@ -44,17 +51,21 @@ function cropToContent(svg) {
 }
 
 for (const [name, cfg] of Object.entries(ART)) {
-  let svg = fs.readFileSync(path.join(srcDir, cfg.src), "utf8");
-  for (const [from, to] of Object.entries(cfg.recolor)) {
-    svg = svg.replaceAll(new RegExp(from, "gi"), to);
+  for (const variant of VARIANTS) {
+    let svg = fs.readFileSync(path.join(srcDir, cfg.src), "utf8");
+    for (const [from, to] of Object.entries(variant.recolor)) {
+      svg = svg.replaceAll(new RegExp(from, "gi"), to);
+    }
+    const cropped = cropToContent(svg);
+    svg = cropped.svg;
+    for (const scale of [1, 2, 3]) {
+      const resvg = new Resvg(svg, { fitTo: { mode: "width", value: cfg.width * scale } });
+      const png = resvg.render().asPng();
+      const suffix = scale === 1 ? "" : `@${scale}x`;
+      fs.writeFileSync(path.join(outDir, `${name}${variant.suffix}${suffix}.png`), png);
+    }
+    console.log(
+      `rasterized ${name}${variant.suffix} @1x/@2x/@3x (base ${cfg.width}px) viewBox ${cropped.w?.toFixed(1)} x ${cropped.h?.toFixed(1)}`,
+    );
   }
-  const cropped = cropToContent(svg);
-  svg = cropped.svg;
-  for (const scale of [1, 2, 3]) {
-    const resvg = new Resvg(svg, { fitTo: { mode: "width", value: cfg.width * scale } });
-    const png = resvg.render().asPng();
-    const suffix = scale === 1 ? "" : `@${scale}x`;
-    fs.writeFileSync(path.join(outDir, `${name}${suffix}.png`), png);
-  }
-  console.log(`rasterized ${name} @1x/@2x/@3x (base ${cfg.width}px) viewBox ${cropped.w?.toFixed(1)} x ${cropped.h?.toFixed(1)}`);
 }

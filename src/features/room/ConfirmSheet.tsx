@@ -1,14 +1,16 @@
 import { BottomSheet, Button, Column, Text } from "@expo/ui";
 
-import { colors, space } from "@/constants/theme";
+import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useUiStore } from "@/stores/uiStore";
+import { useColors } from "@/theme";
 
 // Native replacement for Alert.alert confirms (leave, end, kick, set
 // destination). Native modal sheet with scrim on both platforms — the
 // pattern Uber/Maps/Life360 use instead of OS-default alert boxes.
 // Mounted once in the room layout; callers await requestConfirm().
 export function ConfirmSheet() {
+  const colors = useColors();
   const confirm = useUiStore((s) => s.confirm);
   const resolveConfirm = useUiStore((s) => s.resolveConfirm);
 

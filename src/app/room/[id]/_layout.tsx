@@ -5,7 +5,6 @@ import * as Linking from "expo-linking";
 import { useEffect, useRef } from "react";
 import { Alert, AppState } from "react-native";
 
-import { colors } from "@/constants/theme";
 import { startRoomSession } from "@/features/room/session/roomSession";
 import { clearActiveRoom } from "@/lib/activeRoom";
 import {
@@ -28,6 +27,7 @@ import { resetRouteManager } from "@/services/routing/routeManager";
 import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useColors } from "@/theme";
 
 const EXIT_MESSAGES = {
   ended: "This room has ended.",
@@ -38,6 +38,7 @@ const EXIT_MESSAGES = {
 // Owns the room channel and location pipeline lifecycle: connect on mount,
 // tear down on unmount, exit gracefully when the room ends or we get kicked.
 export default function RoomLayout() {
+  const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const exitReason = useRoomStore((s) => s.exitReason);

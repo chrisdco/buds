@@ -1,15 +1,15 @@
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { PeepAvatar, PEEP_COUNT, peepIndexFor } from "@/components/PeepAvatar";
 import { icons } from "@/components/Symbol";
 import { Screen, TextField } from "@/components/ui";
-import { colors, space } from "@/constants/theme";
+import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { typeScale } from "@/constants/typography";
+
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePlacesStore } from "@/stores/placesStore";
 import { useRecentsStore } from "@/stores/recentsStore";
@@ -17,12 +17,15 @@ import { TabScrollView } from "@/features/nav/TabScrollView";
 import { AppIconPicker } from "@/features/profile/AppIconPicker";
 import { BudsRow, QuickTiles } from "@/features/profile/ProfileSections";
 import { frequentBuds } from "@/lib/tripHistory";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // Profile tab in Uber Account grammar: big name + avatar header, three
 // square shortcuts, your buds, then grouped rows (name, places, prefs).
 // Anonymous identity stays: profile = name + prefs + what this device has
 // seen, and the door to Settings (notifications, privacy, support).
 export default function ProfileScreen() {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const units = useSessionStore((s) => s.units);
@@ -244,6 +247,7 @@ function AvatarPick({
   onPress: () => void;
   children: React.ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       // Border always present (transparent when idle) so selection never
@@ -261,7 +265,7 @@ function AvatarPick({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.75 },
   header: {
     flexDirection: "row",
@@ -281,4 +285,4 @@ const styles = StyleSheet.create({
   pickSelected: { borderColor: colors.text },
   hint: { marginTop: space.sm },
   version: { textAlign: "center", marginTop: space.lg },
-});
+}));

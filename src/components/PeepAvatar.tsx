@@ -1,6 +1,4 @@
-import { StyleSheet, View } from "react-native";
-
-import { colors } from "@/constants/theme";
+import { View } from "react-native";
 
 import { PeepA } from "./illustrations/PeepA";
 import { PeepC } from "./illustrations/PeepC";
@@ -9,6 +7,7 @@ import { PeepE } from "./illustrations/PeepE";
 import { PeepF } from "./illustrations/PeepF";
 import { PeepG } from "./illustrations/PeepG";
 import { PeepH } from "./illustrations/PeepH";
+import { makeStyles } from "@/theme";
 
 // Deterministic Open Peeps faces (CC0): the same id always renders the same
 // face, so members stay recognizable across the member list, profile, and
@@ -42,6 +41,7 @@ export function PeepAvatar({
   size?: number;
   testID?: string;
 }) {
+  const styles = useStyles();
   const i =
     face === undefined
       ? indexFor(seed)
@@ -60,7 +60,7 @@ export function PeepAvatar({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   medallion: {
     backgroundColor: colors.surfaceAlt,
     overflow: "hidden",
@@ -69,4 +69,4 @@ const styles = StyleSheet.create({
   // Busts are portrait (head at top): top-align the art so the crop keeps
   // the face, not the torso.
   crop: { overflow: "hidden", justifyContent: "flex-start" },
-});
+}));

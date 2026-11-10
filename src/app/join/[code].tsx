@@ -1,19 +1,21 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { joinErrorMessage } from "@/lib/joinErrors";
 import { Button, LoadingView, Screen, Title } from "@/components/ui";
-import { colors } from "@/constants/theme";
+
 import { fontFamily } from "@/constants/fonts";
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode } from "@/lib/ids";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { RpcError } from "@/types/contracts";
+import { makeStyles } from "@/theme";
 
 // Deep-link target: buds://join/CODE (QR codes and shared invites land here).
 export default function DeepLinkJoinScreen() {
+  const styles = useStyles();
   const router = useRouter();
   const { code: rawCode } = useLocalSearchParams<{ code: string }>();
   const ready = useSessionStore((s) => s.ready);
@@ -110,7 +112,7 @@ export default function DeepLinkJoinScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   center: { flex: 1, justifyContent: "center" },
   error: {
     color: colors.danger,
@@ -119,4 +121,4 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
-});
+}));

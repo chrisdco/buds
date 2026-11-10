@@ -7,17 +7,21 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { IconTile, NavHeader, SelectableRow, StickyFooter } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button, ErrorText, Screen, TextField } from "@/components/ui";
-import { colors, radius, space } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { typeScale } from "@/constants/typography";
+
 import { setActiveRoom } from "@/lib/activeRoom";
 import { CODE_LENGTH, normalizeCode, parseInviteCode } from "@/lib/ids";
 import { joinErrorMessage } from "@/lib/joinErrors";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { MemberRole, RpcError } from "@/types/contracts";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 export default function JoinRoomScreen() {
+  const styles = useStyles();
+  const colors = useColors();
+  const typeScale = useTypeScale();
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const { scan } = useLocalSearchParams<{ scan?: string }>();
@@ -242,7 +246,7 @@ export default function JoinRoomScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   scroll: { flex: 1 },
   pressed: { opacity: 0.7 },
   codeBox: {
@@ -309,4 +313,4 @@ const styles = StyleSheet.create({
     borderColor: colors.text,
   },
   scanHint: { textAlign: "center", marginTop: space.md },
-});
+}));

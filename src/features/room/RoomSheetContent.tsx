@@ -1,13 +1,14 @@
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { ListRow } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button } from "@/components/ui";
-import { colors, radius, space } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { typeScale } from "@/constants/typography";
+
 import type { PrimaryAction } from "@/features/room/sheetLogic";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 export { primaryAction } from "@/features/room/sheetLogic";
 
@@ -45,6 +46,8 @@ export const SheetHeader = memo(function SheetHeader({
   onInvite: () => void;
   onSettings: () => void;
 }) {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const ratio =
     progress && progress.total > 0 ? Math.min(1, Math.max(0, progress.arrived / progress.total)) : null;
   return (
@@ -110,6 +113,8 @@ function CircleButton({
   testID: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable
       style={({ pressed }) => [styles.circle, pressed && styles.pressed]}
@@ -138,6 +143,8 @@ export function DestinationRow({
   canSet: boolean;
   onSearch: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   if (canSet) {
     return (
       <Pressable
@@ -179,6 +186,7 @@ export const RoomFacts = memo(function RoomFacts({
   onSettings: () => void;
   onLeave: () => void;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.facts}>
       <ListRow
@@ -223,6 +231,8 @@ export function SheetFooter({
   onAction: () => void;
   secondary?: { label: string; onPress: () => void } | null;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.footerRow}>
       <View style={styles.footerMain}>
@@ -243,7 +253,7 @@ export function SheetFooter({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.7 },
   header: { paddingBottom: space.sm },
   headerRow: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
@@ -294,4 +304,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

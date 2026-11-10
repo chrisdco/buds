@@ -3,12 +3,13 @@ import { memo } from "react";
 import { GeoJSONSource, Images, Layer } from "@maplibre/maplibre-react-native";
 import type { ExpressionSpecification, FilterSpecification } from "@maplibre/maplibre-gl-style-spec";
 
-import { colors } from "@/constants/theme";
 import {
   CHEVRON_ICON_SIZE,
   type RouteFeatureCollection,
   type RouteLabelCollection,
 } from "@/features/map/routeFeatures";
+import { onHue } from "@/constants/theme";
+import { useColors } from "@/theme";
 
 // Single-source route renderer (docs/route-view.md 4, 9.1): every route is
 // one or two features (main + final leg), every visual is a data-driven
@@ -90,19 +91,20 @@ export const RouteLines = memo(function RouteLines({
   features: RouteFeatureCollection;
   labels: RouteLabelCollection;
 }) {
+  const colors = useColors();
   return (
     <>
       <Images images={{ "route-chevron": CHEVRON }} />
       <GeoJSONSource id="routes" data={features}>
-        {/* Casing: a light halo (amber when late / off route) so a route
-        reads on dark tiles. Context lines go without. */}
+        {/* Casing: a halo in the text color (white on dark tiles, black on
+        light), amber when late / off route. Context lines go without. */}
         <Layer
           type="line"
           id="route-casing"
           filter={casingFilter}
           layout={lineLayout}
           paint={{
-            "line-color": ["case", ["get", "late"], colors.warning, "#FFFFFF"],
+            "line-color": ["case", ["get", "late"], colors.warning, colors.text],
             "line-width": width(9.5, 7.5, 0),
             "line-opacity": ["case", ["get", "late"], 0.85, byTier(0.3, 0.16, 0)],
             "line-offset": ["get", "offset"],
@@ -179,7 +181,7 @@ export const RouteLines = memo(function RouteLines({
             "symbol-sort-key": 0,
           }}
           paint={{
-            "text-color": colors.onPrimary,
+            "text-color": onHue.label,
             "text-halo-color": ["get", "color"],
             "text-halo-width": 4,
           }}

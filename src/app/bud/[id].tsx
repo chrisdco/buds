@@ -1,21 +1,24 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, NavHeader, SectionHeader, StickyFooter } from "@/components/layout";
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { icons } from "@/components/Symbol";
 import { Button, Screen } from "@/components/ui";
 import { colorForUser, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+
 import { shortDate, tripsWith } from "@/lib/tripHistory";
 import { MODE_OPTIONS } from "@/modes/modeOptions";
 import { useRecentsStore } from "@/stores/recentsStore";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // One bud: the trips you shared, newest first, and a way to start the next
 // one. There are no accounts, so we can't ping them directly; "New room"
 // goes to create, and the room's invite sheet sends them the code.
 export default function BudScreen() {
+  const styles = useStyles();
+  const ts = useTypeScale();
   const router = useRouter();
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
@@ -81,10 +84,10 @@ export default function BudScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   scroll: { paddingBottom: space.xl },
   hero: { alignItems: "center", gap: space.sm, marginTop: space.md, marginBottom: space.md },
   ring: { borderWidth: 3, borderRadius: 50, padding: 3, marginBottom: space.xs },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm },
   centerSub: { textAlign: "center" },
-});
+}));

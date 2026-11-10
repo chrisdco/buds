@@ -1,11 +1,13 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
-import { colors, radius, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { radius, space } from "@/constants/theme";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // Row of big-number tiles (Uber Account's quick tiles, used for counts).
 // The number is the hierarchy; the label is quiet underneath.
 export function StatTiles({ stats }: { stats: { key: string; value: number; label: string }[] }) {
+  const styles = useStyles();
+  const ts = useTypeScale();
   return (
     <View style={styles.row}>
       {stats.map((s) => (
@@ -26,7 +28,7 @@ export function StatTiles({ stats }: { stats: { key: string; value: number; labe
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, ts) => ({
   row: { flexDirection: "row", gap: space.sm },
   tile: {
     flex: 1,
@@ -37,4 +39,4 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   value: { ...ts.value, fontSize: 24, lineHeight: 30 },
-});
+}));

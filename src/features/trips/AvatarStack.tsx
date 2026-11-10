@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { PeepAvatar } from "@/components/PeepAvatar";
-import { colors } from "@/constants/theme";
+
 import { fontFamily } from "@/constants/fonts";
+import { makeStyles } from "@/theme";
 
 // Overlapping faces of who was on a trip (Uber's shared-ride stack). Each
 // face gets a canvas-colored ring so the overlap reads as separate people.
@@ -15,6 +16,7 @@ export function AvatarStack({
   size?: number;
   max?: number;
 }) {
+  const styles = useStyles();
   if (buds.length === 0) return null;
   const shown = buds.slice(0, max);
   const more = buds.length - shown.length;
@@ -41,9 +43,9 @@ export function AvatarStack({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center" },
   ring: { backgroundColor: colors.surface },
   more: { alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceAlt },
   moreText: { color: colors.text, fontSize: 11, fontFamily: fontFamily.semiBold },
-});
+}));

@@ -1,13 +1,13 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { Button, Screen } from "@/components/ui";
 import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
 import { icons } from "@/components/Symbol";
 import { space } from "@/constants/theme";
-import { typeScale } from "@/constants/typography";
+
 import { countdownLabel } from "@/lib/planned";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useRecentsStore } from "@/stores/recentsStore";
@@ -16,12 +16,15 @@ import { AvatarStack } from "@/features/trips/AvatarStack";
 import { StatTiles } from "@/features/trips/StatTiles";
 import { budsLabel, groupByRecency, shortDate, tripStats } from "@/lib/tripHistory";
 import { MODE_OPTIONS } from "@/modes/modeOptions";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // Trips tab (Uber Activity): counts at a glance, upcoming planned trips,
 // then every room this device created or joined, bucketed by recency, each
 // row saying where it went, with whom and when.
 // A row opens the trip's detail (where, who, rejoin or go again).
 export default function TripsScreen() {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const router = useRouter();
   // Resident recents (loaded once at startup): rows paint on first commit,
   // and focus refetches that change nothing don't re-render at all.
@@ -154,7 +157,7 @@ export default function TripsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   title: { marginTop: space.lg },
   firstSection: { marginTop: space.lg },
   stats: { marginTop: space.lg },
@@ -162,4 +165,4 @@ const styles = StyleSheet.create({
   emptySub: { textAlign: "center", paddingHorizontal: space.lg },
   emptyActions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch", marginTop: space.sm },
   emptyBtn: { flex: 1 },
-});
+}));

@@ -1,10 +1,13 @@
 import { Image, type ImageSourcePropType } from "react-native";
 
+import { useScheme } from "@/theme";
+
 // Pre-rasterized Open Doodles scenes (CC0; see illustration notes in
 // docs/design.md). Sources live in assets/illustrations/src/; regenerate
 // the PNGs with `node scripts/rasterize-art.mjs`. Each scene is one native
 // Image with an explicit width AND height (never aspectRatio alone, which
 // Android can resolve against the intrinsic size inside clipped parents).
+// Each scene ships twice: white ink for dark, black ink for light.
 
 export interface SceneArt {
   (props: { width: number }): React.JSX.Element;
@@ -12,10 +15,10 @@ export interface SceneArt {
   aspect: number;
 }
 
-export function scene(source: ImageSourcePropType, aspect: number): SceneArt {
+export function scene(dark: ImageSourcePropType, light: ImageSourcePropType, aspect: number): SceneArt {
   const Art = ({ width }: { width: number }) => (
     <Image
-      source={source}
+      source={useScheme() === "light" ? light : dark}
       style={{ width, height: width / aspect }}
       resizeMode="contain"
       accessible={false}

@@ -3,22 +3,26 @@ import { useFocusEffect, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { useCallback, useState } from "react";
-import { ScrollView, Share, StyleSheet, Switch, Text } from "react-native";
+import { ScrollView, Share, Switch, Text } from "react-native";
 
 import { GroupedCard, ListRow, NavHeader, SectionHeader } from "@/components/layout";
 import { icons } from "@/components/Symbol";
 import { ErrorText, Screen } from "@/components/ui";
-import { colors, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { space } from "@/constants/theme";
+
 import { NOTIFY_CATEGORY_LABELS } from "@/events/notifyPrefs";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { ALL_NOTIFY_CATEGORIES, useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 // App settings (stack page, no tabs per law 12): notification prefs, the
 // identity danger zone, about/FAQ, support. Quick prefs (name, units) stay
 // on the Profile tab; everything configurational lives here.
 export default function SettingsScreen() {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   const router = useRouter();
   const notifyPrefs = useSessionStore((s) => s.notifyPrefs);
   const [osNotifGranted, setOsNotifGranted] = useState<boolean | null>(null);
@@ -177,9 +181,9 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   firstSection: { marginTop: space.sm },
   caption: { marginBottom: space.sm },
   question: { marginTop: space.md, marginBottom: 2 },
   version: { textAlign: "center", marginTop: space.lg, marginBottom: space.xl },
-});
+}));

@@ -1,23 +1,27 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, StickyFooter } from "@/components/layout";
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button, ErrorText, Screen } from "@/components/ui";
-import { colors, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { space } from "@/constants/theme";
+
 import { useRejoin } from "@/features/trips/useRejoin";
 import { goAgainParams, shortDate } from "@/lib/tripHistory";
 import { MODE_OPTIONS } from "@/modes/modeOptions";
 import { useRecentsStore } from "@/stores/recentsStore";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 // One past trip (Uber Activity's trip detail): what it was, where it went,
 // who came. Rejoin if the room is still alive, or start a fresh room with
 // the same mode and place. All local history: "Remove" never touches the
 // server room.
 export default function TripDetailScreen() {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   const router = useRouter();
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
@@ -119,7 +123,7 @@ export default function TripDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   scroll: { paddingBottom: space.xl },
   hero: { gap: space.sm, marginTop: space.md, marginBottom: space.lg },
   title: { marginTop: space.xs },
@@ -128,4 +132,4 @@ const styles = StyleSheet.create({
   removeCard: { marginTop: space.lg },
   actions: { flexDirection: "row", gap: space.sm },
   action: { flex: 1 },
-});
+}));

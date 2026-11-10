@@ -1,16 +1,17 @@
 import { memo, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { WaitingPeepArt } from "@/components/illustrations/WaitingPeepArt";
-import { colorForUser, colors, radius, space } from "@/constants/theme";
+import { colorForUser, radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { typeScale } from "@/constants/typography";
+
 import type { DistanceUnit } from "@/lib/geo";
 import type { MemberInsight } from "@/modes/types";
 import { memberMeta, memberValue, sortMembers } from "@/features/room/sheetLogic";
 import { presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // The room's member list in Uber ride-list grammar (ref "Choose a trip"):
 // one vertical row per person — face left, name + status, and the deciding
@@ -49,6 +50,8 @@ export function MemberList({
   onLongPressMember,
   selectedIds,
 }: MemberListProps) {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const selected = useMemo(() => new Set(selectedIds ?? []), [selectedIds]);
   const sos = useMemo(() => new Set(sosUserIds), [sosUserIds]);
   const sorted = useMemo(() => sortMembers(members, insights, sos), [members, insights, sos]);
@@ -113,6 +116,8 @@ const MemberRow = memo(function MemberRow({
   onToggleFocus?: (userId: string) => void;
   onLongPressMember?: (userId: string) => void;
 }) {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const name = isMe ? `${m.name} (you)` : m.name;
   return (
     <Pressable
@@ -166,7 +171,7 @@ const MemberRow = memo(function MemberRow({
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   empty: { paddingVertical: space.md, alignItems: "center", gap: space.sm },
   row: {
     flexDirection: "row",
@@ -196,4 +201,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, flexShrink: 1, gap: 2 },
   sosText: { color: colors.danger, fontFamily: fontFamily.semiBold },
   value: { marginLeft: space.sm },
-});
+}));

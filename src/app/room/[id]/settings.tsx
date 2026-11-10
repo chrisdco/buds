@@ -1,13 +1,13 @@
 import * as Linking from "expo-linking";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Switch, Text, View } from "react-native";
 
 import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, SelectableRow } from "@/components/layout";
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { icons } from "@/components/Symbol";
 import { Button, Chip, ErrorText, Screen } from "@/components/ui";
-import { colorForUser, colors, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { colorForUser, space } from "@/constants/theme";
+
 import { extendedExpiryIso } from "@/lib/expiry";
 import { MODE_OPTIONS } from "@/modes/modeOptions";
 import { requestBatteryOptimizationExemption } from "@/services/location/battery";
@@ -18,6 +18,7 @@ import { useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 /** Switch styled once for every toggle row on this screen. */
 function Toggle({
@@ -33,6 +34,7 @@ function Toggle({
   label: string;
   onValueChange: (v: boolean) => void;
 }) {
+  const colors = useColors();
   return (
     <Switch
       value={value}
@@ -47,6 +49,8 @@ function Toggle({
 }
 
 export default function RoomSettingsScreen() {
+  const styles = useStyles();
+  const ts = useTypeScale();
   const room = useRoomStore((s) => s.room);
   const myMemberId = useRoomStore((s) => s.myMemberId);
   const destRoom = useRoomStore((s) => s.destRoom);
@@ -342,7 +346,7 @@ export default function RoomSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, ts) => ({
   chips: { flexDirection: "row", flexWrap: "wrap" },
   note: { marginTop: space.sm },
   expiry: { marginBottom: space.sm },
@@ -351,4 +355,4 @@ const styles = StyleSheet.create({
   kick: { ...ts.meta, color: colors.danger, padding: 4 },
   end: { marginTop: space.lg },
   bottom: { height: space.xl },
-});
+}));

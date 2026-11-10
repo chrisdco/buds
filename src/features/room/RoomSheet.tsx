@@ -12,7 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import * as Haptics from "expo-haptics";
 
-import { colors, space } from "@/constants/theme";
+import { space } from "@/constants/theme";
+import { makeStyles } from "@/theme";
 
 // Uber "Choose a trip" grammar: full-screen map with a non-modal sheet (peek /
 // half / full, no scrim — the map stays interactive behind it). Three parts:
@@ -76,6 +77,7 @@ export function RoomSheet({
   renderFooter,
   onPeekHeight,
 }: RoomSheetProps) {
+  const styles = useStyles();
   const { height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
@@ -211,7 +213,7 @@ export function RoomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   sheet: {
     position: "absolute",
     top: 0,
@@ -248,4 +250,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-});
+}));

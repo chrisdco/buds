@@ -4,11 +4,12 @@ import {
   supportsAlternateIcons,
 } from "expo-alternate-app-icons";
 import { useState } from "react";
-import { Image, Platform, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { Image, Platform, Pressable, Text, View, type ImageSourcePropType } from "react-native";
 
-import { colors, radius, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { radius, space } from "@/constants/theme";
+
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // Home-screen icon choice. null = the default icon (app.json "icon"); the
 // names match the expo-alternate-app-icons entries in app.json. Art comes
@@ -21,6 +22,8 @@ const OPTIONS: { name: string | null; label: string; source: ImageSourcePropType
 
 /** Three icon tiles; selected = 2px white ring. Hidden where switching isn't supported. */
 export function AppIconPicker() {
+  const styles = useStyles();
+  const ts = useTypeScale();
   const [current, setCurrent] = useState<string | null>(() => {
     try {
       return getAppIconName();
@@ -86,7 +89,7 @@ export function AppIconPicker() {
 
 const ICON = 64;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.75 },
   row: { flexDirection: "row", gap: space.lg },
   option: { alignItems: "center", gap: space.sm },
@@ -96,4 +99,4 @@ const styles = StyleSheet.create({
   icon: { width: ICON, height: ICON, borderRadius: radius.lg },
   labelSelected: { color: colors.text },
   error: { color: colors.danger, marginTop: space.sm },
-});
+}));

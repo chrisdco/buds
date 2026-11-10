@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { LENS_LABEL, type Lens } from "@/modes/lenses";
+import { makeStyles } from "@/theme";
 
 // Depth-1 control for the route view (docs/route-view.md 5.2): one tap
 // switches who's emphasized. Floats just above the sheet, left of the FAB
@@ -49,6 +50,7 @@ export function LensChips({
   /** The "You" toggle while focusing; null hides it. */
   meInFocus?: { on: boolean; onToggle: () => void } | null;
 }) {
+  const styles = useStyles();
   const scroll = useRef<ScrollView>(null);
   useEffect(() => {
     if (scrollToStartKey > 0) scroll.current?.scrollTo({ x: 0, animated: true });
@@ -133,7 +135,7 @@ export function LensChips({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   // Right inset leaves the FAB column (48 + 16 margin) clear.
   wrap: { position: "absolute", left: 0, right: 76 },
   row: { paddingHorizontal: 16, gap: 8 },
@@ -144,7 +146,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     borderRadius: radius.full,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.floating,
     elevation: 6,
   },
   chipOn: { backgroundColor: colors.text },
@@ -158,4 +160,4 @@ const styles = StyleSheet.create({
   close: { fontSize: 12 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
   pressed: { opacity: 0.75 },
-});
+}));

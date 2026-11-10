@@ -1,12 +1,13 @@
 import { memo, type ReactNode } from "react";
 
 import { Marker } from "@maplibre/maplibre-react-native";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { colorForUser, colors } from "@/constants/theme";
+import { colorForUser, onHue } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import type { DestRow, MemberLive } from "@/types/contracts";
+import { makeStyles, useColors } from "@/theme";
 
 interface DestinationMarkersProps {
   destRoom: DestRow | null;
@@ -20,6 +21,8 @@ interface DestinationMarkersProps {
  * the round head.
  */
 function Pin({ size, color, inner }: { size: number; color: string; inner?: ReactNode }) {
+  const styles = useStyles();
+  const colors = useColors();
   const h = size * 1.3;
   return (
     <View style={{ width: size, height: h }}>
@@ -46,6 +49,8 @@ export const DestinationMarkers = memo(function DestinationMarkers({
   destByMember,
   members,
 }: DestinationMarkersProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const memberByMemberId = new Map(Object.values(members).map((m) => [m.memberId, m]));
   return (
     <>
@@ -87,11 +92,11 @@ export const DestinationMarkers = memo(function DestinationMarkers({
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { alignItems: "center" },
   inner: { position: "absolute", top: 0, left: 0, alignItems: "center", justifyContent: "center", paddingTop: 1 },
   label: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.floating,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -102,6 +107,6 @@ const styles = StyleSheet.create({
   },
   labelKicker: { color: colors.textDim, fontSize: 10, fontFamily: fontFamily.semiBold, letterSpacing: 0.4 },
   labelText: { color: colors.text, fontSize: 14, lineHeight: 18, fontFamily: fontFamily.semiBold, textAlign: "center" },
-  flag: { color: colors.text, fontSize: 15, fontFamily: fontFamily.bold },
-  initial: { color: colors.text, fontSize: 12, fontFamily: fontFamily.bold },
-});
+  flag: { color: onHue.glyph, fontSize: 15, fontFamily: fontFamily.bold },
+  initial: { color: onHue.glyph, fontSize: 12, fontFamily: fontFamily.bold },
+}));

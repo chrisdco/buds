@@ -1,15 +1,15 @@
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { IconTile, ListRow, NavHeader } from "@/components/layout";
 import { Button, Chip, ErrorText, Screen } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors, radius, space } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { typeScale } from "@/constants/typography";
+
 import { formatDistanceM } from "@/lib/geo";
 import { destCreateParams } from "@/lib/tripPresets";
 import { planTimeError, whenLabel } from "@/lib/planned";
@@ -20,6 +20,7 @@ import { usePlacesStore } from "@/stores/placesStore";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 const MIN_QUERY = 3;
 const DEBOUNCE_MS = 400;
@@ -30,6 +31,9 @@ const DEBOUNCE_MS = 400;
 // anything directly — they route to /create with validated dest params,
 // and the room's adjust-pin confirm applies unchanged post-create.
 export default function PlanTripScreen() {
+  const styles = useStyles();
+  const colors = useColors();
+  const typeScale = useTypeScale();
   const router = useRouter();
   const rawParams = useLocalSearchParams();
   const whenParam = Array.isArray(rawParams.when) ? rawParams.when[0] : rawParams.when;
@@ -424,6 +428,8 @@ export default function PlanTripScreen() {
 
 /** Fixed left column: clock (recent) or pin (result), distance under it. */
 function PlaceLead({ distance, search }: { distance: string | null; search?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   const icon = search ? icons.pin : icons.clock;
   return (
     <View style={styles.lead}>
@@ -452,6 +458,8 @@ function SavedChip({
   onPress: () => void;
   onLongPress: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable
       style={({ pressed }) => [styles.savedChip, pressed && styles.pressed]}
@@ -472,7 +480,7 @@ function SavedChip({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.75 },
   whenRow: { flexDirection: "row" },
   whenChip: {
@@ -525,7 +533,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    backgroundColor: "rgba(79,142,247,0.16)",
+    backgroundColor: colors.accentWash,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -538,4 +546,4 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontVariant: ["tabular-nums"],
   },
-});
+}));

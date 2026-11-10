@@ -1,21 +1,25 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, StickyFooter } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button, Screen } from "@/components/ui";
-import { colors, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { space } from "@/constants/theme";
+
 import { countdownLabel, whenLabel } from "@/lib/planned";
 import { WhenPicker } from "@/features/planned/WhenPicker";
 import { placeCreateParams } from "@/lib/tripPresets";
 import { usePlannedStore } from "@/stores/plannedStore";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 // One planned trip ("Later"): where, when, whether a reminder is set. Move
 // it to another slot, start it now, or drop it. Rows on Home and Trips land
 // here instead of creating a room on tap.
 export default function PlannedTripScreen() {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   const router = useRouter();
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
@@ -98,11 +102,11 @@ export default function PlannedTripScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   scroll: { paddingBottom: space.xl },
   hero: { gap: space.sm, marginTop: space.md, marginBottom: space.lg },
   title: { marginTop: space.xs },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm },
   centerSub: { textAlign: "center" },
   cancelCard: { marginTop: space.lg },
-});
+}));
