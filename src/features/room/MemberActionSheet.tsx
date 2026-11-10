@@ -1,10 +1,12 @@
-import { BottomSheet, Button, Column, Text } from "@expo/ui";
+import { BottomSheet, Column, Text } from "@expo/ui";
 
 import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useMembersStore } from "@/stores/membersStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useColors } from "@/theme";
+
+import { SheetButton } from "./SheetButton";
 
 // Long-press menu for a member (docs/route-view.md 5.2 #3): from a face on
 // the map or a row in the list. "Only them" is the fast path into a
@@ -65,10 +67,10 @@ export function MemberActionSheet({
           {name}
         </Text>
         {isTraveler && !onlyThem && (
-          <Button label="Only them" testID="member-only-them" onPress={run(focusOnly)} />
+          <SheetButton label="Only them" testID="member-only-them" onPress={run(focusOnly)} />
         )}
         {isTraveler && focusUserIds.length > 0 && !onlyThem && (
-          <Button
+          <SheetButton
             label={focused ? "Remove from focus" : "Add to focus"}
             variant="text"
             testID="member-toggle-focus"
@@ -76,10 +78,10 @@ export function MemberActionSheet({
           />
         )}
         {onlyThem && (
-          <Button label="Stop focusing" testID="member-stop-focus" onPress={run(() => useUiStore.getState().setFocusUserIds([]))} />
+          <SheetButton label="Stop focusing" testID="member-stop-focus" onPress={run(() => useUiStore.getState().setFocusUserIds([]))} />
         )}
         {member?.pos && !isSelf && (
-          <Button
+          <SheetButton
             label="Navigate to them"
             variant="text"
             testID="member-actions-navigate"
@@ -87,14 +89,14 @@ export function MemberActionSheet({
           />
         )}
         {member && (
-          <Button
+          <SheetButton
             label="Details"
             variant="text"
             testID="member-actions-details"
             onPress={run(() => onDetails(member.userId))}
           />
         )}
-        <Button label="Cancel" variant="text" testID="member-actions-cancel" onPress={close} />
+        <SheetButton label="Cancel" variant="text" testID="member-actions-cancel" onPress={close} />
       </Column>
     </BottomSheet>
   );

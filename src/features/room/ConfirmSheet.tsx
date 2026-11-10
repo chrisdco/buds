@@ -1,9 +1,11 @@
-import { BottomSheet, Button, Column, Text } from "@expo/ui";
+import { BottomSheet, Column, Text } from "@expo/ui";
 
 import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useUiStore } from "@/stores/uiStore";
 import { useColors } from "@/theme";
+
+import { SheetButton } from "./SheetButton";
 
 // Native replacement for Alert.alert confirms (leave, end, kick, set
 // destination). Native modal sheet with scrim on both platforms — the
@@ -47,12 +49,13 @@ export function ConfirmSheet() {
             {confirm.body}
           </Text>
         ) : null}
-        <Button
+        <SheetButton
           label={confirm?.confirmLabel ?? "Confirm"}
+          tone={confirm?.destructive ? "danger" : "default"}
           testID="confirm-ok"
           onPress={() => resolveConfirm(true)}
         />
-        <Button
+        <SheetButton
           label={confirm?.cancelLabel ?? "Cancel"}
           variant="text"
           testID="confirm-cancel"
