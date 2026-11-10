@@ -1,12 +1,12 @@
-import { StyleSheet } from "react-native";
 
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { makeStyles } from "@/theme";
 
 // Styles for the room map screen (app/room/[id]/index.tsx). Kept here, not
 // beside the route: every file under src/app is a route to expo-router.
 
-export const roomScreenStyles = StyleSheet.create({
+export const useRoomScreenStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.bg },
   // Uber's map back control: a solid black circle, top-left, nothing else.
   backCircle: {
@@ -15,7 +15,7 @@ export const roomScreenStyles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#000000",
+    backgroundColor: colors.floating,
     alignItems: "center",
     justifyContent: "center",
     elevation: 6,
@@ -38,7 +38,7 @@ export const roomScreenStyles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.floating,
     elevation: 6,
     borderRadius: radius.lg,
     paddingHorizontal: 14,
@@ -65,7 +65,7 @@ export const roomScreenStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.text,
   },
-  pinGlyph: { color: colors.text, fontSize: 14, fontFamily: fontFamily.bold },
+  pinGlyph: { color: colors.onStatus, fontSize: 14, fontFamily: fontFamily.bold },
   pinTip: {
     width: 0,
     height: 0,
@@ -109,7 +109,7 @@ export const roomScreenStyles = StyleSheet.create({
     minWidth: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.floating,
     elevation: 6,
     alignItems: "center",
     justifyContent: "center",
@@ -119,4 +119,4 @@ export const roomScreenStyles = StyleSheet.create({
   fabSosActive: { borderColor: colors.danger, backgroundColor: colors.danger },
   fabText: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   pressed: { opacity: 0.75 },
-});
+}));

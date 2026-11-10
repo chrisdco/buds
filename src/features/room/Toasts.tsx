@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, Text } from "react-native";
 import Animated, { Easing, FadeInDown, FadeOutDown } from "react-native-reanimated";
 
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles } from "@/theme";
 
 const TOAST_TTL_MS = 6_000;
 
@@ -16,6 +17,7 @@ const TOAST_ENTER = FadeInDown.duration(300).easing(EASE_OUT);
 const TOAST_EXIT = FadeOutDown.duration(250).easing(EASE_OUT);
 
 export function Toasts({ topOffset }: { topOffset: number }) {
+  const styles = useStyles();
   const toasts = useUiStore((s) => s.toasts);
   const dismissToast = useUiStore((s) => s.dismissToast);
 
@@ -69,7 +71,7 @@ export function Toasts({ topOffset }: { topOffset: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   toast: {
     position: "absolute",
     alignSelf: "center",
@@ -85,4 +87,4 @@ const styles = StyleSheet.create({
   warn: { borderColor: colors.warning },
   title: { color: colors.text, fontFamily: fontFamily.bold, fontSize: 13 },
   body: { color: colors.textDim, fontSize: 12, fontFamily: fontFamily.regular, marginTop: 1 },
-});
+}));

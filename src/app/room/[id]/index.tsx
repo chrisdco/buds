@@ -30,7 +30,7 @@ import {
   SheetHeader,
   primaryAction,
 } from "@/features/room/RoomSheetContent";
-import { roomScreenStyles as styles } from "@/features/room/roomScreenStyles";
+import { useRoomScreenStyles } from "@/features/room/roomScreenStyles";
 import { SosBanner } from "@/features/room/SosBanner";
 import { Toasts } from "@/features/room/Toasts";
 import { useDestinationPicker } from "@/features/room/useDestinationPicker";
@@ -64,6 +64,7 @@ import { useUiStore } from "@/stores/uiStore";
 // camera, destination picking and SOS in the features/room hooks.
 
 export default function RoomScreen() {
+  const styles = useRoomScreenStyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: H } = useWindowDimensions();

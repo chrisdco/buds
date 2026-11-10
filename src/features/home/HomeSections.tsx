@@ -1,11 +1,12 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 
 import { IconTile } from "@/components/layout";
 import { fitWidth } from "@/components/illustrations/scene";
 import { icons } from "@/components/Symbol";
-import { colors, radius, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { radius, space } from "@/constants/theme";
+
 import { TRIP_IDEAS, type TripIdea } from "@/features/home/tripIdeas";
+import { makeStyles, useCardTints, useTypeScale } from "@/theme";
 
 // Below-the-fold Home sections (Uber's carousels under "For you"). Both
 // bleed to the screen edge: the Screen gutter is cancelled on the scroller
@@ -17,6 +18,9 @@ const ART_H = 160;
 
 /** Wide art cards, one and a bit per screen, so the scroll is discoverable. */
 export function IdeaCarousel({ onSelect }: { onSelect: (idea: TripIdea) => void }) {
+  const styles = useStyles();
+  const ts = useTypeScale();
+  const tints = useCardTints();
   const { width } = useWindowDimensions();
   const cardW = Math.round((width - GUTTER * 2) * 0.82);
   return (
@@ -38,7 +42,7 @@ export function IdeaCarousel({ onSelect }: { onSelect: (idea: TripIdea) => void 
           testID={`home-idea-${idea.id}`}
           onPress={() => onSelect(idea)}
         >
-          <View style={[styles.art, { backgroundColor: idea.tint }]}>
+          <View style={[styles.art, { backgroundColor: tints[idea.tint] }]}>
             <idea.Art width={fitWidth(idea.Art, cardW * 0.7, ART_H - space.md * 2)} />
           </View>
           <Text style={[ts.rowTitle, styles.cardTitle]} numberOfLines={1}>
@@ -61,6 +65,8 @@ const PROMISES = [
 
 /** Uber "Ways to save" slot: three compact promise tiles, not a wall of text. */
 export function PrivacyRow() {
+  const styles = useStyles();
+  const ts = useTypeScale();
   const { width } = useWindowDimensions();
   const tileW = Math.round((width - GUTTER * 2) * 0.46);
   return (
@@ -85,7 +91,7 @@ export function PrivacyRow() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.8 },
   bleed: { marginHorizontal: -GUTTER },
   row: { paddingHorizontal: GUTTER, gap: space.md },
@@ -106,4 +112,4 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   promiseTitle: { marginTop: space.sm },
-});
+}));

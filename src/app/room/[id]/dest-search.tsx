@@ -6,13 +6,14 @@ import { NavHeader } from "@/components/layout";
 import { ErrorText, Screen, TextField } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
 import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
 import { useMembersStore } from "@/stores/membersStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useColors } from "@/theme";
 
 const MIN_QUERY = 3;
 const DEBOUNCE_MS = 400;
@@ -24,6 +25,8 @@ const LABEL_MAX = 80;
 // anything directly — they seed adjust-pin mode back on the map, where the
 // existing policy checks + set_destination RPC apply unchanged.
 export default function DestSearchScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlaceResult[]>([]);
@@ -233,7 +236,7 @@ export default function DestSearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 12 },
   row: {
     flexDirection: "row",
@@ -263,4 +266,4 @@ const styles = StyleSheet.create({
   rowName: { color: colors.text, fontSize: 16, fontFamily: fontFamily.semiBold },
   rowSub: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 1 },
   chev: { color: colors.textDim, fontSize: 20, fontFamily: fontFamily.regular },
-});
+}));

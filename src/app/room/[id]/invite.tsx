@@ -1,15 +1,17 @@
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useRef, useState } from "react";
-import { Share, StyleSheet, Text, View } from "react-native";
+import { Share, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
 import { NavHeader, StickyFooter } from "@/components/layout";
 import { Button, LoadingView, Screen } from "@/components/ui";
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useRoomStore } from "@/stores/roomStore";
+import { makeStyles } from "@/theme";
 
 export default function InviteScreen() {
+  const styles = useStyles();
   const room = useRoomStore((s) => s.room);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,7 +80,7 @@ export default function InviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: { marginBottom: 18 },
   sub: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular, marginTop: 4 },
   qrBox: {
@@ -104,4 +106,4 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 6,
   },
-});
+}));

@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -12,8 +11,9 @@ import {
 import Animated, { cubicBezier } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, radius, space } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { makeStyles, useColors } from "@/theme";
 
 // Shared near-imperceptible press transition (expo-animation skill recipe):
 // 3% scale over 120ms. cubicBezier is required — Reanimated 4 rejects raw
@@ -27,6 +27,7 @@ const pressTransition = {
 };
 
 export function Screen({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+  const styles = useStyles();
   return (
     <SafeAreaView style={[styles.screen, style]} edges={["top", "bottom", "left", "right"]}>
       {children}
@@ -35,14 +36,17 @@ export function Screen({ children, style }: { children: ReactNode; style?: ViewS
 }
 
 export function Title({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return <Text style={styles.title}>{children}</Text>;
 }
 
 export function Label({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return <Text style={styles.label}>{children}</Text>;
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   if (!children) return null;
   return <Text style={styles.error}>{children}</Text>;
 }
@@ -51,6 +55,8 @@ export function TextField({
   inputRef,
   ...props
 }: TextInputProps & { inputRef?: React.Ref<TextInput> }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [focused, setFocused] = useState(false);
   return (
     <TextInput
@@ -94,6 +100,8 @@ export function Button({
   a11yLabel,
   testID,
 }: ButtonProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const base =
     variant === "primary"
       ? styles.btnPrimary
@@ -164,6 +172,7 @@ export function Chip({
   /** Stable selector for Maestro E2E flows (zero runtime cost). */
   testID?: string;
 }) {
+  const styles = useStyles();
   // Same near-imperceptible press scale as Button (tens of presses/day
   // tier). Selected state is a color change, kept — reduced motion drops
   // the scale but never the selection signal.
@@ -188,7 +197,51 @@ export function Chip({
   );
 }
 
+/**
+ * Segmented choice (2-4 options): a filled track with the selected
+ * option in the CTA polarity, like Chip's selected state. One row, equal
+ * widths, every option always visible (no menu to open).
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  testID,
+}: {
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  /** Each option gets `${testID}-${value}`. */
+  testID?: string;
+}) {
+  const styles = useStyles();
+  return (
+    <View style={styles.segTrack} accessibilityRole="radiogroup">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            style={({ pressed }) => [styles.seg, on && styles.segOn, pressed && !on && styles.btnPressed]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={o.label}
+            testID={testID ? `${testID}-${o.value}` : undefined}
+            hitSlop={4}
+            onPress={() => onChange(o.value)}
+          >
+            <Text style={[styles.segText, on && styles.segTextOn]} numberOfLines={1}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function Row({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+  const styles = useStyles();
   return <View style={[styles.row, style]}>{children}</View>;
 }
 
@@ -196,6 +249,8 @@ export function Row({ children, style }: { children: ReactNode; style?: ViewStyl
 // no positioning opinions — callers wrap it in their Screen/overlay. One
 // copy instead of the four that grew across _layout/invite/room/join.
 export function LoadingView({ label, testID }: { label?: string; testID?: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.loadingView} testID={testID}>
       <ActivityIndicator size="large" color={colors.textDim} />
@@ -204,7 +259,7 @@ export function LoadingView({ label, testID }: { label?: string; testID?: string
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -270,11 +325,11 @@ const styles = StyleSheet.create({
   btnPressed: { opacity: 0.85 },
   btnCompact: { paddingVertical: 10, minHeight: 44 },
   btnTextCompact: { fontSize: 14 },
-  // Primary/danger labels sit on filled ink: black/white respectively.
-  // Ghost labels are plain white text (was accent blue).
+  // Primary labels flip with the CTA (black on white, white on black);
+  // danger labels stay white on red; ghost labels are plain text.
   btnText: { fontSize: 16, fontFamily: fontFamily.semiBold },
   btnTextPrimary: { color: colors.onPrimary },
-  btnTextDanger: { color: colors.text },
+  btnTextDanger: { color: colors.onStatus },
   btnTextGhost: { color: colors.text },
   chip: {
     borderRadius: radius.full,
@@ -288,6 +343,24 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.primary },
   chipText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
   chipTextSelected: { color: colors.onPrimary },
+  segTrack: {
+    flexDirection: "row",
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    padding: 4,
+    gap: 4,
+  },
+  seg: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: space.sm,
+  },
+  segOn: { backgroundColor: colors.primary },
+  segText: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.semiBold },
+  segTextOn: { color: colors.onPrimary },
   row: { flexDirection: "row", alignItems: "center" },
   loadingView: { flex: 1, alignItems: "center", justifyContent: "center" },
   loadingViewText: {
@@ -296,4 +369,4 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     marginTop: space.sm + 4,
   },
-});
+}));

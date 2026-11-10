@@ -1,11 +1,12 @@
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
 
 import { fitWidth } from "@/components/illustrations/scene";
 import { AppSymbol, type AppSymbolName } from "@/components/Symbol";
-import { colors, radius, space } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { TRIP_PRESETS, type TripPreset, type TripPresetId } from "@/lib/tripPresets";
+import { makeStyles, useColors } from "@/theme";
 
 // Uber "For you" grid: four circles per row, wrapping, one-word label under
 // each and an optional badge overlapping the top edge. Trip presets render
@@ -31,6 +32,7 @@ export interface ForYouTile {
 const ART_FILL = 0.8;
 
 function PresetArtInner({ preset, size }: { preset: TripPreset; size: number }) {
+  const styles = useStyles();
   const { art: Art } = preset;
   const box = size * ART_FILL;
   const w = fitWidth(Art, box, box);
@@ -64,6 +66,7 @@ function Cell({
   onPress: () => void;
   children: React.ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       style={({ pressed }) => [styles.cell, { width: size }, pressed && styles.pressed]}
@@ -97,6 +100,8 @@ export function PresetCircles({
   /** Shortcut tiles appended after the presets (Uber's Reserve / Rentals). */
   extras?: ForYouTile[];
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { width } = useWindowDimensions();
   const size = Math.floor((width - GUTTER * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
   return (
@@ -135,7 +140,7 @@ export function PresetCircles({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   grid: { flexDirection: "row", flexWrap: "wrap", columnGap: GAP, rowGap: space.lg },
   cell: { alignItems: "center" },
   pressed: { opacity: 0.75 },
@@ -151,7 +156,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  badgeText: { color: colors.text, fontSize: 12, fontFamily: fontFamily.semiBold },
+  badgeText: { color: colors.onStatus, fontSize: 12, fontFamily: fontFamily.semiBold },
   label: {
     color: colors.text,
     fontSize: 15,
@@ -159,4 +164,4 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     textAlign: "center",
   },
-});
+}));

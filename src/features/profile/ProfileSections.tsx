@@ -1,10 +1,11 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { AppSymbol, type AppSymbolName } from "@/components/Symbol";
-import { colorForUser, colors, radius, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { colorForUser, radius, space } from "@/constants/theme";
+
 import type { Bud } from "@/lib/tripHistory";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 const GUTTER = 20; // Screen's horizontal padding
 
@@ -18,6 +19,9 @@ export interface QuickTile {
 
 /** Uber Account's three square shortcuts under the name (Help / Wallet / Activity). */
 export function QuickTiles({ tiles }: { tiles: QuickTile[] }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   return (
     <View style={styles.tiles}>
       {tiles.map((t) => (
@@ -44,6 +48,8 @@ export function QuickTiles({ tiles }: { tiles: QuickTile[] }) {
  * same hue they get on the map, so a bud looks the same everywhere.
  */
 export function BudsRow({ buds, onSelect }: { buds: Bud[]; onSelect: (bud: Bud) => void }) {
+  const styles = useStyles();
+  const ts = useTypeScale();
   return (
     <ScrollView
       horizontal
@@ -75,7 +81,7 @@ export function BudsRow({ buds, onSelect }: { buds: Bud[]; onSelect: (bud: Bud) 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.75 },
   tiles: { flexDirection: "row", gap: space.sm, marginTop: space.lg },
   tile: {
@@ -93,4 +99,4 @@ const styles = StyleSheet.create({
   bud: { width: 72, alignItems: "center" },
   budRing: { borderWidth: 2, borderRadius: 32, padding: 2 },
   budName: { color: colors.text, marginTop: space.xs },
-});
+}));

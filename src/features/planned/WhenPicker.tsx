@@ -1,11 +1,12 @@
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Chip } from "@/components/ui";
-import { colors, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { space } from "@/constants/theme";
+
 import { combineDateTime, MAX_AHEAD_MS, planTimeError, timeSlots, whenLabel } from "@/lib/planned";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 /**
  * "When" for a planned trip: one-tap presets for the usual intents, plus
@@ -22,6 +23,9 @@ export function WhenPicker({
   onChange: (atMs: number) => void;
   testID?: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   // Presets and "now" snapshot at mount: a picker open for a minute
   // shouldn't reshuffle under your thumb.
   const [nowMs] = useState(() => Date.now());
@@ -100,8 +104,8 @@ export function WhenPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   summary: { marginTop: space.sm, color: colors.text },
   error: { marginTop: space.sm, color: colors.danger },
-});
+}));

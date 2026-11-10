@@ -5,8 +5,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { IconTile, ListRow, NavHeader, SelectableRow, StickyFooter } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button, Chip, ErrorText, Screen, TextField } from "@/components/ui";
-import { colors, radius, space } from "@/constants/theme";
-import { typeScale } from "@/constants/typography";
+import { radius, space } from "@/constants/theme";
+
 import { setActiveRoom } from "@/lib/activeRoom";
 import { TRIP_PRESETS, parseCreateParams } from "@/lib/tripPresets";
 import { MODE_OPTIONS as MODES } from "@/modes/modeOptions";
@@ -14,6 +14,7 @@ import { roomsRpc } from "@/services/rpc/rooms";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { RoomMode, RpcError } from "@/types/contracts";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 const DURATIONS: { label: string; hours: number | null }[] = [
   { label: "No limit", hours: null },
@@ -40,6 +41,9 @@ function createErrorMessage(error: RpcError): string {
 }
 
 export default function CreateRoomScreen() {
+  const styles = useStyles();
+  const colors = useColors();
+  const typeScale = useTypeScale();
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   // Asked here only while no name is set (frozen at mount so the field
@@ -255,7 +259,7 @@ export default function CreateRoomScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   scroll: { flex: 1 },
   nameBlock: { marginBottom: space.md },
   nameHint: { marginTop: space.xs },
@@ -287,4 +291,4 @@ const styles = StyleSheet.create({
   stepValue: { minWidth: 28, textAlign: "center" },
   expiresTitle: { marginTop: space.lg, marginBottom: space.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", paddingBottom: space.md },
-});
+}));

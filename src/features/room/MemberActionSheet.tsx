@@ -1,9 +1,10 @@
 import { BottomSheet, Button, Column, Text } from "@expo/ui";
 
-import { colors, space } from "@/constants/theme";
+import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { useMembersStore } from "@/stores/membersStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useColors } from "@/theme";
 
 // Long-press menu for a member (docs/route-view.md 5.2 #3): from a face on
 // the map or a row in the list. "Only them" is the fast path into a
@@ -19,6 +20,7 @@ export function MemberActionSheet({
   onNavigate: (lat: number, lng: number) => void;
   onDetails: (userId: string) => void;
 }) {
+  const colors = useColors();
   const userId = useUiStore((s) => s.memberActionsFor);
   const focusUserIds = useUiStore((s) => s.focusUserIds);
   const member = useMembersStore((s) => (userId ? s.members[userId] : undefined));

@@ -2,9 +2,10 @@ import { Pressable, Text, View } from "react-native";
 
 import { AppSymbol, icons } from "@/components/Symbol";
 import { Button } from "@/components/ui";
-import { colors } from "@/constants/theme";
-import { roomScreenStyles as styles } from "@/features/room/roomScreenStyles";
+
+import { useRoomScreenStyles } from "@/features/room/roomScreenStyles";
 import type { AdjustDraft } from "@/features/room/useDestinationPicker";
+import { useColors } from "@/theme";
 
 // Map chrome, kept to Uber's minimum: a back circle top-left, the adjust-pin
 // card only while picking a spot, and two floating buttons (recenter, SOS).
@@ -12,6 +13,8 @@ import type { AdjustDraft } from "@/features/room/useDestinationPicker";
 // the sheet. Presentational only; actions arrive as callbacks.
 
 export function BackCircle({ top, onPress }: { top: number; onPress: () => void }) {
+  const styles = useRoomScreenStyles();
+  const colors = useColors();
   return (
     <Pressable
       style={({ pressed }) => [styles.backCircle, { top }, pressed && styles.pressed]}
@@ -43,6 +46,8 @@ export function AdjustPin({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const styles = useRoomScreenStyles();
+  const colors = useColors();
   return (
     <>
       <View style={[styles.adjustCard, { top }]}>
@@ -76,6 +81,8 @@ export function RoomFabs(props: {
   /** Null hides the SOS button (spectators just watch). */
   sos: { active: boolean; onPress: () => void } | null;
 }) {
+  const styles = useRoomScreenStyles();
+  const colors = useColors();
   return (
     <View style={[styles.fabColumn, { bottom: props.bottom }]} pointerEvents="box-none">
       <Pressable
@@ -108,7 +115,7 @@ export function RoomFabs(props: {
             name={icons.warning}
             fallback={icons.warning.fallback}
             size={22}
-            tintColor={props.sos.active ? colors.text : colors.danger}
+            tintColor={props.sos.active ? colors.onStatus : colors.danger}
           />
         </Pressable>
       )}

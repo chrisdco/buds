@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { expiryInfo } from "@/lib/expiry";
+import { makeStyles } from "@/theme";
 
 interface ExpiryBannerProps {
   expiresAt: string | null;
@@ -12,6 +13,7 @@ interface ExpiryBannerProps {
 // Only renders during the warning window (T-10min) so it stays out of the way
 // for the rest of the trip.
 export function ExpiryBanner({ expiresAt, nowMs }: ExpiryBannerProps) {
+  const styles = useStyles();
   const info = expiryInfo(expiresAt, nowMs);
   if (!info || !info.warning) return null;
   return (
@@ -21,7 +23,7 @@ export function ExpiryBanner({ expiresAt, nowMs }: ExpiryBannerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   banner: {
     alignSelf: "center",
     backgroundColor: colors.warning,
@@ -37,4 +39,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontVariant: ["tabular-nums"],
   },
-});
+}));

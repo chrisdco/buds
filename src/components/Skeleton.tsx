@@ -9,7 +9,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
+import { makeStyles } from "@/theme";
 
 // Honest loading shapes (expo-animation skill): a looping opacity pulse on
 // the UI thread — opacity is a free property, so the shimmer never costs a
@@ -17,6 +18,7 @@ import { colors, radius } from "@/constants/theme";
 // renders the same shapes statically: the state explanation survives,
 // the motion doesn't.
 export function Skeleton({ style, testID }: { style?: ViewStyle; testID?: string }) {
+  const styles = useStyles();
   const reducedMotion = useReducedMotion();
   const pulse = useSharedValue(1);
 
@@ -37,6 +39,7 @@ export function Skeleton({ style, testID }: { style?: ViewStyle; testID?: string
 // loading announcement lives on the parent container (busy + live region) —
 // rows stay silent so screen readers don't repeat it three times.
 export function SearchResultSkeleton() {
+  const styles = useStyles();
   return (
     <View style={styles.row} testID="dest-search-skeleton">
       <Skeleton style={styles.icon} />
@@ -48,7 +51,7 @@ export function SearchResultSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   block: { backgroundColor: colors.surface, borderRadius: radius.sm },
   row: {
     flexDirection: "row",
@@ -62,4 +65,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, flexShrink: 1, gap: 6 },
   name: { height: 16, width: "62%", borderRadius: radius.sm },
   sub: { height: 13, width: "88%", borderRadius: radius.sm },
-});
+}));

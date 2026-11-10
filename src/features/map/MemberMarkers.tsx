@@ -1,12 +1,13 @@
 import { Marker } from "@maplibre/maplibre-react-native";
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { PeepAvatar } from "@/components/PeepAvatar";
-import { colorForUser, colors } from "@/constants/theme";
+import { colorForUser, onHue } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { presenceOf } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
+import { makeStyles } from "@/theme";
 
 interface MemberMarkersProps {
   members: MemberLive[];
@@ -46,6 +47,7 @@ export function MemberMarkers({
   dimmedIds,
   etaByUser,
 }: MemberMarkersProps) {
+  const styles = useStyles();
   const selected = new Set(selectedIds ?? []);
   return (
     <>
@@ -114,7 +116,7 @@ export function MemberMarkers({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { alignItems: "center", width: 150 },
   faded: { opacity: 0.5 },
   dimmed: { opacity: 0.6 },
@@ -125,7 +127,7 @@ const styles = StyleSheet.create({
     width: DOT + 16,
     height: DOT + 16,
     borderRadius: (DOT + 16) / 2,
-    backgroundColor: "rgba(79,142,247,0.22)",
+    backgroundColor: colors.accentWash,
   },
   cone: { position: "absolute", width: DOT + 14, height: DOT + 14, alignItems: "center" },
   coneTip: {
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.floating,
     borderRadius: 999,
     paddingLeft: 9,
     paddingRight: 4,
@@ -170,6 +172,6 @@ const styles = StyleSheet.create({
     paddingRight: 5,
   },
   eta: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
-  etaText: { color: colors.onPrimary, fontSize: 11, fontFamily: fontFamily.bold, fontVariant: ["tabular-nums"] },
+  etaText: { color: onHue.label, fontSize: 11, fontFamily: fontFamily.bold, fontVariant: ["tabular-nums"] },
   offline: { color: colors.textDim, fontSize: 11, fontFamily: fontFamily.medium, paddingRight: 5 },
-});
+}));

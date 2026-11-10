@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 
 import { AppSymbol, icons, type AppSymbolName } from "@/components/Symbol";
-import { colors, radius, space } from "@/constants/theme";
-import { typeScale as ts } from "@/constants/typography";
+import { radius, space } from "@/constants/theme";
+import { makeStyles, useColors, useTypeScale } from "@/theme";
 
 // Shared Uber-grammar building blocks (docs/ui-critique.md §4). Screens are
 // assembled from these so spacing, hierarchy and affordances stay identical
@@ -27,6 +27,9 @@ export function NavHeader({
   right?: ReactNode;
   testID?: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   const router = useRouter();
   return (
     <View style={styles.nav} testID={testID}>
@@ -60,6 +63,9 @@ export function SectionHeader({
   moreLabel?: string;
   style?: ViewStyle;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   return (
     <View style={[styles.section, style]}>
       <Text style={ts.section} accessibilityRole="header">
@@ -97,6 +103,8 @@ export function IconTile({
   tint?: string;
   children?: ReactNode;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.tile, round && styles.tileRound]}>
       {children ??
@@ -143,6 +151,9 @@ export function ListRow({
   testID?: string;
   destructive?: boolean;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const ts = useTypeScale();
   const body = (
     <>
       {leading ?? (icon ? <IconTile icon={icon} /> : null)}
@@ -197,6 +208,7 @@ export function ListRow({
 
 /** Rounded group holding rows (Uber's recents card). */
 export function GroupedCard({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+  const styles = useStyles();
   return <View style={[styles.group, style]}>{children}</View>;
 }
 
@@ -228,6 +240,8 @@ export function SelectableRow({
   a11yHint?: string;
   testID?: string;
 }) {
+  const styles = useStyles();
+  const ts = useTypeScale();
   return (
     <Pressable
       style={({ pressed }) => [
@@ -270,6 +284,8 @@ export function SelectableRow({
  * in normal flow, so it can never scroll away or be pushed off-screen.
  */
 export function StickyFooter({ summary, children }: { summary?: string | null; children: ReactNode }) {
+  const styles = useStyles();
+  const ts = useTypeScale();
   return (
     <View style={styles.footer}>
       {summary ? (
@@ -284,10 +300,11 @@ export function StickyFooter({ summary, children }: { summary?: string | null; c
 
 /** Spacer that keeps scroll content clear of the floating tab bar. */
 export function TabBarClearance() {
+  const styles = useStyles();
   return <View style={styles.tabClearance} />;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, ts) => ({
   pressed: { opacity: 0.7 },
   nav: { flexDirection: "row", alignItems: "center", height: 52, marginBottom: space.sm },
   navSide: { width: 44, height: 44, justifyContent: "center" },
@@ -367,4 +384,4 @@ const styles = StyleSheet.create({
   },
   footerSummary: { textAlign: "center", marginTop: space.xs },
   tabClearance: { height: 92 },
-});
+}));

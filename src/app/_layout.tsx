@@ -1,12 +1,13 @@
 import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
-import { useRouter, DarkTheme, ThemeProvider } from "expo-router";
+import { useRouter, DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from "expo-router";
 import Stack from "expo-router/stack";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { Asset } from "expo-asset";
-import { useCallback, useEffect, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -15,7 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import "@/services/location/backgroundTask";
 
 import { appFonts } from "@/constants/fonts";
-import { colors } from "@/constants/theme";
+
 import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import { loadAppConfig } from "@/lib/appConfig";
@@ -27,11 +28,13 @@ import { useRecentsStore } from "@/stores/recentsStore";
 import { usePlacesStore } from "@/stores/placesStore";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { ThemeProvider, makeStyles, useColors, useScheme } from "@/theme";
 
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  return supabaseConfigured ? <AppRoot /> : <MissingConfig />;
+  return <ThemeProvider>{supabaseConfigured ? <AppRoot /> : <MissingConfig />}</ThemeProvider>;
 }
 
 /**
@@ -39,12 +42,13 @@ export default function RootLayout() {
  * Nothing else mounts (session init would only fail against a placeholder).
  */
 function MissingConfig() {
+  const styles = useStyles();
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
   return (
     <View style={styles.loading}>
-      <StatusBar style="light" />
+      <StatusBar style={useScheme() === "dark" ? "light" : "dark"} />
       <Text style={styles.configTitle}>This build isn&apos;t configured</Text>
       <Text style={styles.configBody}>
         It was built without the Supabase URL and key. Set EXPO_PUBLIC_SUPABASE_URL and
@@ -55,12 +59,18 @@ function MissingConfig() {
 }
 
 function AppRoot() {
-  const ready = useSessionStore((s) => s.ready);
+  const styles = useStyles();
+  const colors = useColors();
+  const scheme = useScheme();
+  const sessionReady = useSessionStore((s) => s.ready);
+  const themeReady = useThemeStore((s) => s.ready);
+  const ready = sessionReady && themeReady;
   const router = useRouter();
   const [fontsLoaded] = useFonts(appFonts);
 
   useEffect(() => {
     void useSessionStore.getState().init();
+    void useThemeStore.getState().hydrate();
     void loadAppConfig();
     void setupNotifications();
     // Resident recents: load once so tab screens paint rows on first commit
@@ -78,10 +88,28 @@ function AppRoot() {
       require("../../assets/illustrations/travel-together.png"),
       require("../../assets/illustrations/share-location.png"),
       require("../../assets/illustrations/location-search.png"),
+      require("../../assets/illustrations/destination-light.png"),
+      require("../../assets/illustrations/order-ride-light.png"),
+      require("../../assets/illustrations/travel-together-light.png"),
+      require("../../assets/illustrations/share-location-light.png"),
+      require("../../assets/illustrations/location-search-light.png"),
     ]).catch(() => {});
   }, []);
 
-  // Hold the splash until fonts AND session are ready: first paint must
+  // Root window color follows the theme, so keyboard and sheet transitions
+  // never flash the other scheme behind the React tree.
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
+  }, [colors.bg]);
+
+  // Navigation theme pins native surfaces (headers, modal backdrops) to
+  // the app scheme; the card background is our canvas.
+  const navTheme = useMemo(() => {
+    const base = scheme === "dark" ? DarkTheme : DefaultTheme;
+    return { ...base, colors: { ...base.colors, background: colors.bg, card: colors.bg, text: colors.text } };
+  }, [scheme, colors]);
+
+  // Hold the splash until fonts, theme and session are ready: first paint must
   // already be Inter, never a system-font flash. hideAsync is fire-and-log:
   // a rejected hide must never wedge the app on the splash, and a watchdog
   // guarantees the overlay lifts even if a readiness gate stalls.
@@ -161,11 +189,8 @@ function AppRoot() {
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
-        {/* Dark navigation theme (expo-router skill): pins native surfaces
-        to dark so future native chrome (tabs glass, sheets) matches our ink
-        UI instead of flashing white. Visual no-op today — all headers hidden. */}
-        <ThemeProvider value={DarkTheme}>
-          <StatusBar style="light" />
+        <NavThemeProvider value={navTheme}>
+          <StatusBar style={scheme === "dark" ? "light" : "dark"} />
           <Stack
             screenOptions={{
               headerShown: false,
@@ -177,13 +202,13 @@ function AppRoot() {
           here — requestConfirm() callers outside the room layout (home,
           settings) would otherwise await a sheet that never renders. */}
           <ConfirmSheet />
-        </ThemeProvider>
+        </NavThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   loading: {
     flex: 1,
@@ -194,4 +219,4 @@ const styles = StyleSheet.create({
   },
   configTitle: { color: colors.text, fontSize: 22, textAlign: "center", marginBottom: 12 },
   configBody: { color: colors.textDim, fontSize: 16, lineHeight: 22, textAlign: "center" },
-});
+}));

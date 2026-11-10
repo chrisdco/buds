@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import {
   GroupedCard,
@@ -11,7 +11,7 @@ import {
 } from "@/components/layout";
 import { AppSymbol, icons } from "@/components/Symbol";
 import { ErrorText, Screen } from "@/components/ui";
-import { colors, radius, space } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { IdeaCarousel, PrivacyRow } from "@/features/home/HomeSections";
 import { ideaCreateParams, type TripIdea } from "@/features/home/tripIdeas";
@@ -26,6 +26,7 @@ import { usePlacesStore } from "@/stores/placesStore";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useColors } from "@/theme";
 
 // Uber home grammar (ref: Uber Home): the "Where to?" box is the one primary
 // entry with Later nested inside it; one grouped card holds the live room +
@@ -34,6 +35,8 @@ import { useUiStore } from "@/stores/uiStore";
 // here (Later only in the box, scanning inside Join). No form fields; your name is
 // asked where it's needed (create / join).
 export default function HomeScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const sessionError = useSessionStore((s) => s.error);
@@ -311,7 +314,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.75 },
   searchBox: {
     flexDirection: "row",
@@ -337,4 +340,4 @@ const styles = StyleSheet.create({
   laterText: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold },
   group: { marginTop: space.lg },
   sessionError: { marginTop: space.sm, marginBottom: space.md },
-});
+}));

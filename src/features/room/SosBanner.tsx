@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
-import { colors, radius } from "@/constants/theme";
+import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
+import { makeStyles } from "@/theme";
 
 export interface SosBannerItem {
   userId: string;
@@ -27,6 +28,7 @@ export function SosBanner({
   top: number;
   onNavigate: (lat: number, lng: number) => void;
 }) {
+  const styles = useStyles();
   if (items.length === 0) return null;
   return (
     <View
@@ -69,7 +71,7 @@ function freshness(atMs: number, nowMs: number): string {
   return mins < 1 ? "just now" : `${mins}m ago`;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   stack: { position: "absolute", alignSelf: "center", maxWidth: "92%", gap: 6 },
   banner: {
     flexDirection: "row",
@@ -81,7 +83,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   text: {
-    color: colors.text,
+    color: colors.onStatus,
     fontFamily: fontFamily.bold,
     fontSize: 13,
     flexShrink: 1,
@@ -89,9 +91,9 @@ const styles = StyleSheet.create({
   nav: {
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.text,
+    borderColor: colors.onStatus,
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
-  navText: { color: colors.text, fontFamily: fontFamily.semiBold, fontSize: 12 },
-});
+  navText: { color: colors.onStatus, fontFamily: fontFamily.semiBold, fontSize: 12 },
+}));

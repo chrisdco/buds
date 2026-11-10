@@ -9,7 +9,7 @@
     // Dark-only product (law 2: ink canvas, Uber duet): pin the scheme so
     // native surfaces default to dark instead of following the device.
     // Needs a rebuild to take effect.
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.buds.app",

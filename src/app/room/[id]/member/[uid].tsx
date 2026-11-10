@@ -1,12 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { NavHeader } from "@/components/layout";
 import { Button, Label, Screen } from "@/components/ui";
-import { typeScale } from "@/constants/typography";
+
 import { PeepAvatar } from "@/components/PeepAvatar";
-import { colors, space } from "@/constants/theme";
+import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM, haversineMeters } from "@/lib/geo";
 import { openExternalNavigation } from "@/lib/nav";
@@ -16,11 +16,14 @@ import { useRoomStore } from "@/stores/roomStore";
 import { useRouteStore } from "@/stores/routeStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // Per-member detail + focus sheet (issue #16): live presence, route ETA /
 // remaining distance, navigate-to-them, and map focus (frames them and their
 // route). Pure reads off the existing stores — no backend changes.
 export default function MemberDetailScreen() {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const router = useRouter();
   const { uid: rawUid } = useLocalSearchParams<{ uid: string }>();
   const uid = Array.isArray(rawUid) ? (rawUid[0] ?? "") : (rawUid ?? "");
@@ -144,7 +147,7 @@ export default function MemberDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   center: { flex: 1, justifyContent: "center" },
   body: { flex: 1 },
   header: { marginTop: space.lg, alignItems: "center", gap: 8 },
@@ -158,4 +161,4 @@ const styles = StyleSheet.create({
   stat: { color: colors.text, fontSize: 15, fontFamily: fontFamily.semiBold },
   dim: { color: colors.textDim, fontSize: 14, fontFamily: fontFamily.regular },
   actions: { marginTop: "auto", paddingTop: space.md },
-});
+}));

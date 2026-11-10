@@ -1,28 +1,32 @@
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, Text, View } from "react-native";
 
 import { GroupedCard, ListRow, SectionHeader, TabBarClearance } from "@/components/layout";
 import { PeepAvatar, PEEP_COUNT, peepIndexFor } from "@/components/PeepAvatar";
 import { icons } from "@/components/Symbol";
-import { Screen, TextField } from "@/components/ui";
-import { colors, space } from "@/constants/theme";
+import { Screen, Segmented, TextField } from "@/components/ui";
+import { space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { typeScale } from "@/constants/typography";
+
 import { useSessionStore } from "@/stores/sessionStore";
+import { useThemeStore, type ThemePref } from "@/stores/themeStore";
 import { usePlacesStore } from "@/stores/placesStore";
 import { useRecentsStore } from "@/stores/recentsStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
 import { AppIconPicker } from "@/features/profile/AppIconPicker";
 import { BudsRow, QuickTiles } from "@/features/profile/ProfileSections";
 import { frequentBuds } from "@/lib/tripHistory";
+import { makeStyles, useTypeScale } from "@/theme";
 
 // Profile tab in Uber Account grammar: big name + avatar header, three
 // square shortcuts, your buds, then grouped rows (name, places, prefs).
 // Anonymous identity stays: profile = name + prefs + what this device has
 // seen, and the door to Settings (notifications, privacy, support).
 export default function ProfileScreen() {
+  const styles = useStyles();
+  const typeScale = useTypeScale();
   const router = useRouter();
   const displayName = useSessionStore((s) => s.displayName);
   const units = useSessionStore((s) => s.units);
@@ -30,6 +34,7 @@ export default function ProfileScreen() {
   const deviceId = useSessionStore((s) => s.deviceId);
   const avatar = useSessionStore((s) => s.avatar);
   const setAvatar = useSessionStore((s) => s.setAvatar);
+  const themePref = useThemeStore((s) => s.pref);
   const [picking, setPicking] = useState(false);
   const saved = usePlacesStore((s) => s.saved);
   const recents = useRecentsStore((s) => s.recents);
@@ -173,6 +178,14 @@ export default function ProfileScreen() {
           />
         </GroupedCard>
 
+        <SectionHeader title="Appearance" />
+        <Segmented<ThemePref>
+          options={THEME_OPTIONS}
+          value={themePref}
+          onChange={(p) => useThemeStore.getState().setPref(p)}
+          testID="profile-theme"
+        />
+
         <SectionHeader title="Preferences" />
         <GroupedCard>
           <ListRow
@@ -231,6 +244,12 @@ export default function ProfileScreen() {
   );
 }
 
+const THEME_OPTIONS = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const;
+
 function AvatarPick({
   selected,
   label,
@@ -244,6 +263,7 @@ function AvatarPick({
   onPress: () => void;
   children: React.ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       // Border always present (transparent when idle) so selection never
@@ -261,7 +281,7 @@ function AvatarPick({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.75 },
   header: {
     flexDirection: "row",
@@ -281,4 +301,4 @@ const styles = StyleSheet.create({
   pickSelected: { borderColor: colors.text },
   hint: { marginTop: space.sm },
   version: { textAlign: "center", marginTop: space.lg },
-});
+}));
