@@ -47,74 +47,101 @@ export function MemberMarkers({
   dimmedIds,
   etaByUser,
 }: MemberMarkersProps) {
-  const styles = useStyles();
   const selected = new Set(selectedIds ?? []);
+  // Each face is its own memoized marker: a position tick re-renders only
+  // the person who moved (the store keeps everyone else's object as-is),
+  // not every native marker view on the map.
   return (
     <>
       {members
         .filter((m) => m.pos)
         .map((m) => {
-          const state = presenceOf(m, nowMs);
-          const faded = state === "offline" || state === "reconnecting";
-          const isSelf = myUserId != null && m.userId === myUserId;
-          const color = colorForUser(m.userId);
-          const etaS = etaByUser?.[m.userId];
-          const heading = m.pos!.heading;
           const isSelected = selected.has(m.userId);
-          const dimmed = !isSelected && (dimmedIds?.has(m.userId) ?? false);
-          const label = isSelf ? "You" : m.name;
           return (
-            <Marker key={m.userId} id={m.userId} lngLat={[m.pos!.lng, m.pos!.lat]} anchor="center">
-              {/* Pressable (not Marker onPress) so a face takes long-press too. */}
-              <Pressable
-                style={[styles.wrap, faded ? styles.faded : dimmed && styles.dimmed]}
-                disabled={!onToggleFocus && !onLongPressMember}
-                accessibilityRole="button"
-                accessibilityLabel={label}
-                accessibilityState={{ selected: isSelected }}
-                accessibilityHint="Tap to focus their route, long-press for more"
-                testID={`marker-${m.userId}`}
-                delayLongPress={350}
-                onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
-                onLongPress={onLongPressMember ? () => onLongPressMember(m.userId) : undefined}
-              >
-                <View style={styles.dotArea}>
-                  {isSelf && <View style={styles.selfHalo} />}
-                  {/* Heading cone: a wedge riding the ring's edge, rotated
-                  with the device bearing, only while actually moving. */}
-                  {heading != null && state === "moving" && (
-                    <View style={[styles.cone, { transform: [{ rotate: `${Math.round(heading)}deg` }] }]}>
-                      <View style={[styles.coneTip, { borderBottomColor: color }]} />
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.dot,
-                      { backgroundColor: color },
-                      (isSelf || isSelected) && styles.dotEmphasis,
-                    ]}
-                  >
-                    <Face userId={m.userId} />
-                  </View>
-                </View>
-                <View style={styles.pill}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {label}
-                  </Text>
-                  {etaS != null && (
-                    <View style={[styles.eta, { backgroundColor: color }]}>
-                      <Text style={styles.etaText}>{Math.max(1, Math.round(etaS / 60))} min</Text>
-                    </View>
-                  )}
-                  {faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>}
-                </View>
-              </Pressable>
-            </Marker>
+            <MemberMarker
+              key={m.userId}
+              m={m}
+              state={presenceOf(m, nowMs)}
+              isSelf={myUserId != null && m.userId === myUserId}
+              isSelected={isSelected}
+              dimmed={!isSelected && (dimmedIds?.has(m.userId) ?? false)}
+              etaS={etaByUser?.[m.userId]}
+              onToggleFocus={onToggleFocus}
+              onLongPressMember={onLongPressMember}
+            />
           );
         })}
     </>
   );
 }
+
+const MemberMarker = memo(function MemberMarker({
+  m,
+  state,
+  isSelf,
+  isSelected,
+  dimmed,
+  etaS,
+  onToggleFocus,
+  onLongPressMember,
+}: {
+  m: MemberLive;
+  state: ReturnType<typeof presenceOf>;
+  isSelf: boolean;
+  isSelected: boolean;
+  dimmed: boolean;
+  etaS: number | undefined;
+  onToggleFocus?: (userId: string) => void;
+  onLongPressMember?: (userId: string) => void;
+}) {
+  const styles = useStyles();
+  const faded = state === "offline" || state === "reconnecting";
+  const color = colorForUser(m.userId);
+  const heading = m.pos!.heading;
+  const label = isSelf ? "You" : m.name;
+  return (
+    <Marker id={m.userId} lngLat={[m.pos!.lng, m.pos!.lat]} anchor="center">
+      {/* Pressable (not Marker onPress) so a face takes long-press too. */}
+      <Pressable
+        style={[styles.wrap, faded ? styles.faded : dimmed && styles.dimmed]}
+        disabled={!onToggleFocus && !onLongPressMember}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: isSelected }}
+        accessibilityHint="Tap to focus their route, long-press for more"
+        testID={`marker-${m.userId}`}
+        delayLongPress={350}
+        onPress={onToggleFocus ? () => onToggleFocus(m.userId) : undefined}
+        onLongPress={onLongPressMember ? () => onLongPressMember(m.userId) : undefined}
+      >
+        <View style={styles.dotArea}>
+          {isSelf && <View style={styles.selfHalo} />}
+          {/* Heading cone: a wedge riding the ring's edge, rotated
+          with the device bearing, only while actually moving. */}
+          {heading != null && state === "moving" && (
+            <View style={[styles.cone, { transform: [{ rotate: `${Math.round(heading)}deg` }] }]}>
+              <View style={[styles.coneTip, { borderBottomColor: color }]} />
+            </View>
+          )}
+          <View style={[styles.dot, { backgroundColor: color }, (isSelf || isSelected) && styles.dotEmphasis]}>
+            <Face userId={m.userId} />
+          </View>
+        </View>
+        <View style={styles.pill}>
+          <Text style={styles.name} numberOfLines={1}>
+            {label}
+          </Text>
+          {etaS != null && (
+            <View style={[styles.eta, { backgroundColor: color }]}>
+              <Text style={styles.etaText}>{Math.max(1, Math.round(etaS / 60))} min</Text>
+            </View>
+          )}
+          {faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>}
+        </View>
+      </Pressable>
+    </Marker>
+  );
+});
 
 const useStyles = makeStyles((colors) => ({
   wrap: { alignItems: "center", width: 150 },

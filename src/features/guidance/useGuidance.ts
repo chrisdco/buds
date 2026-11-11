@@ -23,6 +23,9 @@ const MIN_REFETCH_MS = 8_000;
 const ARRIVED_M = 30;
 const NAV_ZOOM = 16.5;
 const NAV_PITCH = 50;
+/** Follow-camera dead band: smaller moves and turns keep the current view. */
+const CAMERA_MIN_MOVE_M = 4;
+const CAMERA_MIN_TURN_DEG = 8;
 
 export interface GuidanceTarget {
   lat: number;
@@ -97,13 +100,30 @@ export function useGuidance(args: {
   // Heading-up follow while the camera is ours; a pan hands it to you until
   // you tap re-center. Ending hands back to the room camera, which flattens.
   const wasActive = useRef(false);
+  const lastCam = useRef<{ lat: number; lng: number; bearing: number; pad: string } | null>(null);
   useEffect(() => {
+    if (!active || cameraMode !== "auto") lastCam.current = null;
     if (active && me && cameraMode === "auto") {
+      // A pitched camera move is the costliest thing the map does; GPS
+      // jitter and near-identical fixes don't earn one.
+      const bearing = g?.bearing ?? 0;
+      const last = lastCam.current;
+      const pad = `${padTop}:${padBottom}`;
+      if (
+        last &&
+        last.pad === pad &&
+        haversineMeters(last.lat, last.lng, me.lat, me.lng) < CAMERA_MIN_MOVE_M &&
+        Math.abs(((bearing - last.bearing + 540) % 360) - 180) < CAMERA_MIN_TURN_DEG
+      ) {
+        wasActive.current = active;
+        return;
+      }
+      lastCam.current = { lat: me.lat, lng: me.lng, bearing, pad };
       cameraRef.current?.easeTo({
         center: [me.lng, me.lat],
         zoom: NAV_ZOOM,
         pitch: NAV_PITCH,
-        bearing: g?.bearing ?? 0,
+        bearing,
         padding: { top: padTop, bottom: padBottom, left: 0, right: 0 },
         duration: wasActive.current ? 900 : 700,
       });

@@ -17,7 +17,12 @@ interface RoutesState {
 export const useRouteStore = create<RoutesState>()((set, get) => ({
   routes: {},
   tiers: {},
-  setTiers: (tiers) => set({ tiers }),
+  setTiers: (tiers) => {
+    const prev = get().tiers;
+    const keys = Object.keys(tiers);
+    if (keys.length === Object.keys(prev).length && keys.every((k) => prev[k] === tiers[k])) return;
+    set({ tiers });
+  },
   setRoute: (userId, route) =>
     set({ routes: { ...get().routes, [userId]: route } }),
   clearRoute: (userId) => {
