@@ -129,18 +129,21 @@ export const useMembersStore = create<MembersState>()((set, get) => ({
   },
 
   syncPresence: (state) => {
-    const members = { ...get().members };
-    const onlineIds = new Set(Object.keys(state));
-    for (const [userId, m] of Object.entries(members)) {
+    // Presence syncs arrive often and usually change nothing: keep member
+    // objects (and the map) identical unless someone's presence moved, so
+    // every subscriber doesn't re-render the whole room for a no-op.
+    const prev = get().members;
+    let members: Record<string, MemberLive> | null = null;
+    for (const [userId, m] of Object.entries(prev)) {
       const metas = state[userId];
       const meta = metas?.[metas.length - 1];
-      members[userId] = {
-        ...m,
-        online: onlineIds.has(userId),
-        appState: meta?.appState ?? m.appState,
-      };
+      const online = metas != null;
+      const appState = meta?.appState ?? m.appState;
+      if (m.online === online && m.appState === appState) continue;
+      members ??= { ...prev };
+      members[userId] = { ...m, online, appState };
     }
-    set({ members });
+    if (members) set({ members });
   },
 
   reset: () => set({ members: {}, sosByUser: {} }),
