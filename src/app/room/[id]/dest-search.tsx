@@ -9,7 +9,7 @@ import { AppSymbol, icons } from "@/components/Symbol";
 import { radius } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
-import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
+import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/search";
 import { useMembersStore } from "@/stores/membersStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
