@@ -15,7 +15,7 @@ import { destCreateParams } from "@/lib/tripPresets";
 import { planTimeError, whenLabel } from "@/lib/planned";
 import { WhenPicker } from "@/features/planned/WhenPicker";
 import type { PlaceRef } from "@/lib/places";
-import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/photon";
+import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/search";
 import { usePlacesStore } from "@/stores/placesStore";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useSessionStore } from "@/stores/sessionStore";
