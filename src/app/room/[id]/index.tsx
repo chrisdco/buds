@@ -13,6 +13,7 @@ import { colorForUser } from "@/constants/theme";
 import { DestinationMarkers } from "@/features/map/DestinationMarkers";
 import { LensChips } from "@/features/map/LensChips";
 import { MemberMarkers } from "@/features/map/MemberMarkers";
+import { SelfPuck, useLocationGranted } from "@/features/map/SelfPuck";
 import { RoomMap } from "@/features/map/RoomMap";
 import { buildRouteFeatures, buildRouteLabels, nearestIndex } from "@/features/map/routeFeatures";
 import { RouteLines } from "@/features/map/RouteLines";
@@ -292,6 +293,7 @@ export default function RoomScreen() {
     if (nav && !navTarget) useUiStore.getState().setNav(null);
   }, [nav, navTarget]);
   const guidanceTop = insets.top + 8;
+  const locationGranted = useLocationGranted();
   const guide = useGuidance({
     cameraRef,
     nav,
@@ -519,8 +521,10 @@ export default function RoomScreen() {
         <RouteLines features={routeFeatures} labels={routeLabels} />
         {guide.active && <GuidanceLine route={guide.route} from={mePos} />}
         <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
+        {locationGranted && <SelfPuck navigating={guide.active} />}
         <MemberMarkers
           members={positioned}
+          hideSelf={locationGranted}
           nowMs={nowMs}
           myUserId={myUserId}
           selectedIds={focusUserIds}
