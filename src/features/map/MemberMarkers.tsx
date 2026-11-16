@@ -24,6 +24,8 @@ interface MemberMarkersProps {
   dimmedIds?: ReadonlySet<string>;
   /** Route ETA (seconds) per member, shown as a chip in the name pill. */
   etaByUser?: Record<string, number>;
+  /** The native location puck is drawing you: skip your own face. */
+  hideSelf?: boolean;
 }
 
 const FACE = 30;
@@ -46,6 +48,7 @@ export function MemberMarkers({
   onLongPressMember,
   dimmedIds,
   etaByUser,
+  hideSelf,
 }: MemberMarkersProps) {
   const selected = new Set(selectedIds ?? []);
   // Each face is its own memoized marker: a position tick re-renders only
@@ -54,7 +57,7 @@ export function MemberMarkers({
   return (
     <>
       {members
-        .filter((m) => m.pos)
+        .filter((m) => m.pos && !(hideSelf && m.userId === myUserId))
         .map((m) => {
           const isSelected = selected.has(m.userId);
           return (
