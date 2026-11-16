@@ -1,4 +1,4 @@
-import { clearRouteCache, fetchRoute, straightLineRoute } from "@/services/routing/router";
+import { clearRouteCache, fetchRoute, HEDGE_MS, straightLineRoute } from "@/services/routing/router";
 import type { RouteFetcher } from "@/services/routing/types";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
@@ -98,6 +98,35 @@ describe("fetchRoute O/D cache", () => {
     expect(first.source).toBe("straightline");
     expect(second.source).toBe("straightline");
     expect(osrm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("fetchRoute hedging", () => {
+  beforeEach(() => clearRouteCache());
+  afterEach(() => jest.useRealTimers());
+
+  it("starts the next provider when the first is slow, and takes the first answer", async () => {
+    jest.useFakeTimers();
+    const slow: RouteFetcher = (_f, _t, signal) =>
+      new Promise((_, reject) => signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    const ors = jest.fn(slow);
+    const osrm = jest.fn(ok(7));
+    const p = fetchRoute(A, B, { hasOrsKey: true, ors, osrm });
+    expect(osrm).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(HEDGE_MS);
+    const r = await p;
+    expect(osrm).toHaveBeenCalledTimes(1);
+    expect(r.distanceM).toBe(7);
+    expect(r.source).toBe("osrm");
+  });
+
+  it("retries a straight-line fallback sooner than a real route", async () => {
+    jest.useFakeTimers();
+    const osrm = jest.fn(fail);
+    await fetchRoute(A, B, { hasOrsKey: false, osrm });
+    jest.advanceTimersByTime(20_000);
+    await fetchRoute(A, B, { hasOrsKey: false, osrm });
+    expect(osrm).toHaveBeenCalledTimes(2);
   });
 });
 
