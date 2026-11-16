@@ -8,6 +8,13 @@ import type { LatLng, RouteFetcher } from "@/services/routing/types";
 import type { RouteResult } from "@/types/contracts";
 
 const FETCH_TIMEOUT_MS = 8_000;
+/**
+ * Hedge: if a provider hasn't answered by now, start the next one alongside
+ * it and take whichever valid route lands first. Routes usually come back in
+ * well under a second; a slow cold start or a stuck provider no longer
+ * blocks the whole chain for its full timeout.
+ */
+export const HEDGE_MS = 2_500;
 const ASSUMED_SPEED_MS = 11; // ~40 km/h for the straight-line ETA estimate
 // Identical origin/destination pairs share one fetch: convoy members usually
 // route to the same point from ~the same place, and rooms re-resolve on
@@ -17,6 +24,8 @@ const ASSUMED_SPEED_MS = 11; // ~40 km/h for the straight-line ETA estimate
 // is down. Deviation refetches may wait out the TTL — bounded staleness for
 // a quieter demo server.
 const ROUTE_CACHE_TTL_MS = 60_000;
+/** Failures (straight-line estimates) retry sooner: a blip shouldn't stick for a minute. */
+const FALLBACK_CACHE_TTL_MS = 15_000;
 const routeCache = new Map<string, { route: RouteResult; atMs: number }>();
 
 /** Test seam: the cache is module-global by design (shared across ticks). */
@@ -42,25 +51,57 @@ export function straightLineRoute(from: LatLng, to: LatLng): RouteResult {
   };
 }
 
-async function withTimeout(
-  fetcher: RouteFetcher,
-  from: LatLng,
-  to: LatLng,
-): Promise<Omit<RouteResult, "source" | "fetchedAt">> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    return await fetcher(from, to, controller.signal);
-  } finally {
-    clearTimeout(timer);
-  }
+type Attempt = { fetcher: RouteFetcher; source: "ors" | "osrm" };
+type Routed = Omit<RouteResult, "fetchedAt">;
+
+/**
+ * Run the chain hedged: provider i starts when i-1 fails or has been quiet
+ * for HEDGE_MS. First valid answer wins and aborts the rest; null when all
+ * fail. Each provider still has its own FETCH_TIMEOUT_MS.
+ */
+function raceChain(chain: Attempt[], from: LatLng, to: LatLng): Promise<Routed | null> {
+  return new Promise((resolve) => {
+    const controllers: AbortController[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let started = 0;
+    let failed = 0;
+    let done = false;
+    const finish = (r: Routed | null) => {
+      if (done) return;
+      done = true;
+      timers.forEach(clearTimeout);
+      controllers.forEach((c) => c.abort());
+      resolve(r);
+    };
+    const startNext = () => {
+      if (done || started >= chain.length) return;
+      const { fetcher, source } = chain[started++];
+      const controller = new AbortController();
+      controllers.push(controller);
+      timers.push(setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS));
+      const hedge = setTimeout(startNext, HEDGE_MS);
+      timers.push(hedge);
+      fetcher(from, to, controller.signal)
+        .then((result) => {
+          if (!isValidRoutePayload(result)) throw new Error("invalid route payload");
+          finish({ ...result, source });
+        })
+        .catch(() => {
+          clearTimeout(hedge);
+          failed++;
+          if (failed >= chain.length) finish(null);
+          else if (failed >= started) startNext();
+        });
+    };
+    startNext();
+  });
 }
 
 /**
  * The routing chain: our `route` proxy (unless switched off in app_config)
- * -> ORS (if a key is configured) -> OSRM demo ->
- * straight-line estimate. Never rejects — the worst case is a dashed
- * straight line labeled as an estimate.
+ * -> ORS (if a key is configured) -> OSRM demo -> straight-line estimate,
+ * hedged (see HEDGE_MS) rather than strictly one after another. Never
+ * rejects — the worst case is a dashed straight line labeled as an estimate.
  */
 export async function fetchRoute(
   from: LatLng,
@@ -75,13 +116,14 @@ export async function fetchRoute(
 ): Promise<RouteResult> {
   const key = cacheKey(from, to);
   const hit = routeCache.get(key);
-  if (hit && Date.now() - hit.atMs < ROUTE_CACHE_TTL_MS) {
+  const ttl = hit?.route.source === "straightline" ? FALLBACK_CACHE_TTL_MS : ROUTE_CACHE_TTL_MS;
+  if (hit && Date.now() - hit.atMs < ttl) {
     return { ...hit.route, fetchedAt: Date.now() };
   }
 
   const hasKey = deps.hasOrsKey ?? orsApiKey() != null;
   const useProxy = deps.useProxy ?? (supabaseConfigured && getAppConfig().routing.proxy);
-  const chain: { fetcher: RouteFetcher; source: "ors" | "osrm" }[] = [];
+  const chain: Attempt[] = [];
   // The proxy's answer comes from ORS or OSRM server-side; it is labelled
   // "osrm" here only for the dashed/solid distinction, which is all
   // `source` drives.
@@ -89,16 +131,11 @@ export async function fetchRoute(
   if (hasKey) chain.push({ fetcher: deps.ors ?? fetchOrsRoute, source: "ors" });
   chain.push({ fetcher: deps.osrm ?? fetchOsrmRoute, source: "osrm" });
 
-  for (const { fetcher, source } of chain) {
-    try {
-      const result = await withTimeout(fetcher, from, to);
-      if (!isValidRoutePayload(result)) throw new Error("invalid route payload");
-      const routed = { ...result, source, fetchedAt: Date.now() };
-      routeCache.set(key, { route: routed, atMs: Date.now() });
-      return routed;
-    } catch {
-      // fall through to the next provider
-    }
+  const won = await raceChain(chain, from, to);
+  if (won) {
+    const routed = { ...won, fetchedAt: Date.now() };
+    routeCache.set(key, { route: routed, atMs: Date.now() });
+    return routed;
   }
   const fallback = straightLineRoute(from, to);
   routeCache.set(key, { route: fallback, atMs: Date.now() });

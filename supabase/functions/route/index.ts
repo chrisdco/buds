@@ -11,7 +11,8 @@
 //
 // Providers, in order: ORS (if the ORS_API_KEY secret is set) -> OSRM
 // (OSRM_URL_DRIVE / _WALK / _CYCLE secrets, else the public demo for
-// driving and FOSSGIS for walk and cycle).
+// driving and FOSSGIS for walk and cycle). Hedged: OSRM starts alongside
+// a slow ORS after HEDGE_MS, and the first valid route wins.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -54,7 +55,10 @@ const ORS_STEP: Record<number, [string, string?]> = {
 };
 
 const CACHE_TTL_S = 10 * 60;
-const PROVIDER_TIMEOUT_MS = 7_000;
+const PROVIDER_TIMEOUT_MS = 6_000;
+// Start the next provider if the current one is quiet this long; first
+// valid route wins. Keeps a slow ORS from holding every request hostage.
+const HEDGE_MS = 1_500;
 // Best-effort per-user limit, per function instance. Enough to stop a
 // runaway client loop; a shared limit would need a table and isn't worth
 // the latency yet.
@@ -139,6 +143,40 @@ function simplify(points: [number, number][], tol: number): [number, number][] {
     }
   }
   return points.filter((_, i) => keep[i]);
+}
+
+/** Providers in order, each started on the previous one's failure or after HEDGE_MS. */
+function hedged(chain: (() => Promise<Route>)[]): Promise<Route | null> {
+  return new Promise((resolve) => {
+    let started = 0;
+    let failed = 0;
+    let done = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const finish = (r: Route | null) => {
+      if (done) return;
+      done = true;
+      timers.forEach(clearTimeout);
+      resolve(r);
+    };
+    const startNext = () => {
+      if (done || started >= chain.length) return;
+      const attempt = chain[started++];
+      const hedge = setTimeout(startNext, HEDGE_MS);
+      timers.push(hedge);
+      attempt()
+        .then((r) => {
+          if (!valid(r)) throw new Error("invalid");
+          finish(r);
+        })
+        .catch(() => {
+          clearTimeout(hedge);
+          failed++;
+          if (failed >= chain.length) finish(null);
+          else if (failed >= started) startNext();
+        });
+    };
+    startNext();
+  });
 }
 
 async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -271,29 +309,24 @@ Deno.serve(async (req) => {
   if (orsKey) chain.push(() => viaOrs(profile, from, to, orsKey));
   chain.push(() => viaOsrm(profile, from, to));
 
-  for (const attempt of chain) {
-    try {
-      const route = await attempt();
-      if (!valid(route)) continue;
-      route.coords = simplify(route.coords, SIMPLIFY_TOLERANCE_DEG);
-      const expires = new Date(Date.now() + CACHE_TTL_S * 1000).toISOString();
-      // Fire-and-forget: a cache write failure must not fail the request.
-      // waitUntil keeps the instance alive until the write lands.
-      const write = admin
-        .from("route_cache")
-        .upsert({ key, route, expires_at: expires })
-        .then(() => {
-          if (Math.random() < 0.02) {
-            return admin.from("route_cache").delete().lt("expires_at", new Date().toISOString());
-          }
-        });
-      (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(
-        Promise.resolve(write),
-      );
-      return json(200, route);
-    } catch {
-      // next provider
-    }
+  const route = await hedged(chain);
+  if (route) {
+    route.coords = simplify(route.coords, SIMPLIFY_TOLERANCE_DEG);
+    const expires = new Date(Date.now() + CACHE_TTL_S * 1000).toISOString();
+    // Fire-and-forget: a cache write failure must not fail the request.
+    // waitUntil keeps the instance alive until the write lands.
+    const write = admin
+      .from("route_cache")
+      .upsert({ key, route, expires_at: expires })
+      .then(() => {
+        if (Math.random() < 0.02) {
+          return admin.from("route_cache").delete().lt("expires_at", new Date().toISOString());
+        }
+      });
+    (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(
+      Promise.resolve(write),
+    );
+    return json(200, route);
   }
   return json(502, { error: "all providers failed" });
 });
