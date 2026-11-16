@@ -11,7 +11,9 @@ import { space } from "@/constants/theme";
 import { countdownLabel } from "@/lib/planned";
 import { usePlannedStore } from "@/stores/plannedStore";
 import { useRecentsStore } from "@/stores/recentsStore";
+import { useUiStore } from "@/stores/uiStore";
 import { TabScrollView } from "@/features/nav/TabScrollView";
+import { SwipeToDelete } from "@/features/trips/SwipeToDelete";
 import { AvatarStack } from "@/features/trips/AvatarStack";
 import { StatTiles } from "@/features/trips/StatTiles";
 import { budsLabel, groupByRecency, shortDate, tripStats } from "@/lib/tripHistory";
@@ -21,7 +23,8 @@ import { makeStyles, useTypeScale } from "@/theme";
 // Trips tab (Uber Activity): counts at a glance, upcoming planned trips,
 // then every room this device created or joined, bucketed by recency, each
 // row saying where it went, with whom and when.
-// A row opens the trip's detail (where, who, rejoin or go again).
+// A row opens the trip's detail (where, who, rejoin or go again). Swipe a
+// row left (or long-press it) to remove it.
 export default function TripsScreen() {
   const styles = useStyles();
   const typeScale = useTypeScale();
@@ -40,6 +43,30 @@ export default function TripsScreen() {
       setNowMs(Date.now());
     }, []),
   );
+
+  const removeTrip = (id: string, name: string) => {
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: `Remove ${name}?`,
+        body: "It leaves your trip history on this device. Your buds aren't affected.",
+        confirmLabel: "Remove",
+        destructive: true,
+      });
+      if (ok) await useRecentsStore.getState().remove(id);
+    })();
+  };
+  const cancelPlan = (id: string, name: string) => {
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: `Cancel trip to ${name}?`,
+        body: "Its reminder is cancelled too.",
+        confirmLabel: "Cancel trip",
+        cancelLabel: "Keep",
+        destructive: true,
+      });
+      if (ok) await usePlannedStore.getState().cancel(id);
+    })();
+  };
 
   const upcoming = planned ?? [];
   const past = recents ?? [];
@@ -69,20 +96,27 @@ export default function TripsScreen() {
         {upcoming.length > 0 && (
           <>
             <SectionHeader title="Upcoming" style={past.length > 0 ? undefined : styles.firstSection} />
-            <GroupedCard>
+            <GroupedCard style={styles.clip}>
               {upcoming.map((t, i) => (
-                <ListRow
+                <SwipeToDelete
                   key={t.id}
-                  icon={icons.calendar}
-                  title={t.place.name}
-                  sub={`${countdownLabel(t.atMs, nowMs)}${t.notifId ? "" : " · no reminder"}`}
-                  chevron
-                  divider={i < upcoming.length - 1}
-                  a11yLabel={`Planned trip to ${t.place.name}`}
-                  a11yHint="Change the time, start now or cancel"
-                  testID={`trips-planned-${t.id}`}
-                  onPress={() => router.push(`/planned/${t.id}`)}
-                />
+                  label="Cancel"
+                  testID={`trips-planned-cancel-${t.id}`}
+                  onDelete={() => void usePlannedStore.getState().cancel(t.id)}
+                >
+                  <ListRow
+                    icon={icons.calendar}
+                    title={t.place.name}
+                    sub={`${countdownLabel(t.atMs, nowMs)}${t.notifId ? "" : " · no reminder"}`}
+                    chevron
+                    divider={i < upcoming.length - 1}
+                    a11yLabel={`Planned trip to ${t.place.name}`}
+                    a11yHint="Change the time, start now or cancel"
+                    testID={`trips-planned-${t.id}`}
+                    onPress={() => router.push(`/planned/${t.id}`)}
+                    onLongPress={() => cancelPlan(t.id, t.place.name)}
+                  />
+                </SwipeToDelete>
               ))}
             </GroupedCard>
           </>
@@ -124,26 +158,33 @@ export default function TripsScreen() {
           sections.map((section) => (
             <View key={section.title}>
               <SectionHeader title={section.title} />
-              <GroupedCard>
+              <GroupedCard style={styles.clip}>
                 {section.rooms.map((r, i) => {
                   const mode = MODE_OPTIONS.find((m) => m.id === r.mode);
                   const when = shortDate(r.lastAtMs, nowMs);
                   const where = r.destLabel ? `to ${r.destLabel}` : (mode?.label ?? null);
                   const who = budsLabel(r.buds);
                   return (
-                    <ListRow
+                    <SwipeToDelete
                       key={r.id}
-                      icon={mode?.icon ?? icons.group}
-                      title={r.name}
-                      sub={[when, where].filter(Boolean).join(" · ") || null}
-                      divider={i < section.rooms.length - 1}
-                      chevron
-                      a11yLabel={`${r.name}${who ? `, ${who}` : ""}`}
-                      a11yHint="Opens trip details"
-                      testID={`trips-open-${r.code}`}
-                      onPress={() => router.push(`/trip/${r.id}`)}
-                      trailing={<AvatarStack buds={r.buds ?? []} size={24} />}
-                    />
+                      label="Remove"
+                      testID={`trips-remove-${r.code}`}
+                      onDelete={() => void useRecentsStore.getState().remove(r.id)}
+                    >
+                      <ListRow
+                        icon={mode?.icon ?? icons.group}
+                        title={r.name}
+                        sub={[when, where].filter(Boolean).join(" · ") || null}
+                        divider={i < section.rooms.length - 1}
+                        chevron
+                        a11yLabel={`${r.name}${who ? `, ${who}` : ""}`}
+                        a11yHint="Opens trip details"
+                        testID={`trips-open-${r.code}`}
+                        onPress={() => router.push(`/trip/${r.id}`)}
+                        trailing={<AvatarStack buds={r.buds ?? []} size={24} />}
+                        onLongPress={() => removeTrip(r.id, r.name)}
+                      />
+                    </SwipeToDelete>
                   );
                 })}
               </GroupedCard>
@@ -161,6 +202,8 @@ const useStyles = makeStyles(() => ({
   title: { marginTop: space.lg },
   firstSection: { marginTop: space.lg },
   stats: { marginTop: space.lg },
+  // Swipe actions slide in from the card's rim; clip them to its corners.
+  clip: { overflow: "hidden" },
   empty: { alignItems: "center", gap: space.sm, paddingVertical: space.md },
   emptySub: { textAlign: "center", paddingHorizontal: space.lg },
   emptyActions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch", marginTop: space.sm },
