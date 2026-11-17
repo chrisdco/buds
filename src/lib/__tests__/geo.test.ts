@@ -1,6 +1,7 @@
 import {
   bearingDeg,
   distToPolylineM,
+  isNullIsland,
   formatDistanceM,
   haversineMeters,
   round5,
@@ -86,5 +87,14 @@ describe("distToPolylineM", () => {
   it("agrees with haversine for a mid-segment point", () => {
     const d = distToPolylineM(0.0005, 0.005, line);
     expect(d).toBeCloseTo(haversineMeters(0.0005, 0.005, 0, 0.005), -1);
+  });
+});
+
+describe("isNullIsland", () => {
+  it("flags 0,0 and nothing real", () => {
+    expect(isNullIsland(0, 0)).toBe(true);
+    expect(isNullIsland(0.004, -0.002)).toBe(true);
+    expect(isNullIsland(12.93244, 77.62326)).toBe(false);
+    expect(isNullIsland(0, 77.6)).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { SheetDetent } from "@/features/room/RoomSheet";
 import type { ModeStrategy } from "@/modes/types";
-import { haversineMeters } from "@/lib/geo";
+import { haversineMeters, isNullIsland } from "@/lib/geo";
 import { ensureTripPack } from "@/services/map/offlinePacks";
 import { reversePlace } from "@/services/places/photon";
 import { roomsRpc } from "@/services/rpc/rooms";
@@ -29,6 +29,10 @@ export interface AdjustDraft {
 const RENAME_AFTER_M = 40;
 
 function setDestinationAndWarm(args: Parameters<typeof roomsRpc.setDestination>[0]): void {
+  if (isNullIsland(args.lat, args.lng)) {
+    useUiStore.getState().pushAlerts([{ id: "dest-err", severity: "warn", title: "Couldn't set destination" }]);
+    return;
+  }
   void roomsRpc.setDestination(args).then((r) => {
     if (!r.ok) {
       useUiStore.getState().pushAlerts([
@@ -157,9 +161,27 @@ export function useDestinationPicker(args: {
   }, [destDraft]);
 
   // While adjusting, the pin stays screen-centered: track the live map center
-  // as the user drags (fires on gesture end, not per frame).
-  const onRegionChange = () => {
+  // as the user drags (fires on gesture end, not per frame). Only the user's
+  // own drags move the pick: a programmatic move (a fresh map settling from
+  // its world view at 0,0, a fly-in cut short, auto-follow) would otherwise
+  // overwrite it, so those just bring the camera back to the pick.
+  const onRegionChange = (userInteraction: boolean) => {
     if (!adjust) return;
+    if (!userInteraction) {
+      const target = adjust;
+      void mapRef.current
+        ?.getCenter()
+        .then(([lng, lat]) => {
+          const off = haversineMeters(target.lat, target.lng, lat, lng);
+          if (off > RENAME_AFTER_M) {
+            // Far off (still the world view): zoom in as the fly-in would have.
+            const zoom = off > 5_000 ? { zoom: 15 } : {};
+            cameraRef.current?.easeTo({ center: [target.lng, target.lat], ...zoom, duration: 400 });
+          }
+        })
+        .catch(() => {});
+      return;
+    }
     void mapRef.current
       ?.getCenter()
       .then(([lng, lat]) => {

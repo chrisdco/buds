@@ -29,8 +29,8 @@ interface RoomMapProps {
   mapRef?: RefObject<MapRef | null>;
   onLongPress?: (lngLat: LngLat) => void;
   onUserPan?: () => void;
-  /** Fires on every region change (user or programmatic). */
-  onRegionChange?: () => void;
+  /** Fires on every region change; true when the user's gesture moved it. */
+  onRegionChange?: (userInteraction: boolean) => void;
   /** Keeps the attribution visible above the bottom sheet. */
   ornamentPosition?: OrnamentPosition;
   /** Basemap palette; defaults to the app theme. */
@@ -61,7 +61,7 @@ export function RoomMap({
       onLongPress={(event) => onLongPress?.(event.nativeEvent.lngLat)}
       onRegionDidChange={(event) => {
         if (event.nativeEvent.userInteraction) onUserPan?.();
-        onRegionChange?.();
+        onRegionChange?.(event.nativeEvent.userInteraction);
       }}
     >
       <Camera ref={cameraRef} initialViewState={{ zoom: 1.2 }} maxZoom={19} />

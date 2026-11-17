@@ -116,8 +116,13 @@ export function parseCreateParams(params: {
   const limit = Number.parseInt(one(params.limit) ?? "", 10);
   const duration = one(params.duration);
   const name = one(params.name)?.trim().slice(0, 60);
-  const destLat = Number(one(params.destLat) ?? "");
-  const destLng = Number(one(params.destLng) ?? "");
+  // Number("") is 0: a missing coordinate must not become Null Island.
+  const coord = (v: string | string[] | undefined) => {
+    const s = one(v)?.trim();
+    return s ? Number(s) : Number.NaN;
+  };
+  const destLat = coord(params.destLat);
+  const destLng = coord(params.destLng);
   const destLabel = one(params.destLabel)?.trim().slice(0, 80);
   return {
     mode: MODES.includes(mode as RoomMode) ? (mode as RoomMode) : "converge",

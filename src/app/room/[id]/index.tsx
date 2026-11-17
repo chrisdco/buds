@@ -299,7 +299,8 @@ export default function RoomScreen() {
     nav,
     target: navTarget,
     me: mePos,
-    cameraMode,
+    // Picking a destination owns the camera (the pin is the map center).
+    cameraMode: adjust ? "manual" : cameraMode,
     padTop: guidanceTop + GUIDANCE_BANNER_H + 120,
     padBottom: Math.round(sheetVisibleHeight(detent, H, peekH) + 24),
   });
