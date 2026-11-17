@@ -4,6 +4,14 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+/**
+ * True for (0, 0) "Null Island": what an unset or not-yet-positioned map
+ * reports. No real destination is there, so never save one.
+ */
+export function isNullIsland(lat: number, lng: number): boolean {
+  return Math.abs(lat) < 0.01 && Math.abs(lng) < 0.01;
+}
+
 export function haversineMeters(
   lat1: number,
   lng1: number,

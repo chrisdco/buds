@@ -58,3 +58,18 @@ describe("parseCreateParams", () => {
     expect(parseCreateParams({}).dest).toBeUndefined();
   });
 });
+
+describe("parseCreateParams destination", () => {
+  it("keeps real coordinates", () => {
+    expect(parseCreateParams({ destLat: "12.93244", destLng: "77.62326", destLabel: "Topgrep" }).dest).toEqual({
+      lat: 12.93244,
+      lng: 77.62326,
+      label: "Topgrep",
+    });
+  });
+
+  it("treats missing or empty coordinates as no destination, not 0,0", () => {
+    expect(parseCreateParams({ destLabel: "Topgrep" }).dest).toBeUndefined();
+    expect(parseCreateParams({ destLat: "", destLng: " ", destLabel: "Topgrep" }).dest).toBeUndefined();
+  });
+});
