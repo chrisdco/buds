@@ -109,12 +109,28 @@ export function RoomSheet({
 
   const translateY = useSharedValue(topFor(detent));
   const dragStartY = useSharedValue(topFor(detent));
+  // Where the sheet is headed. A release already springs to its detent with
+  // the finger's velocity; when React then reports that detent, re-springing
+  // would restart the settle (new 300 ms clock, velocity lost) — a hitch.
+  const targetY = useSharedValue(topFor(detent));
 
   // Tap-handle / programmatic moves (and a re-measured peek) animate.
   useEffect(() => {
-    translateY.set(withSpring(topFor(detent), SPRING));
+    const to = topFor(detent);
+    if (Math.abs(targetY.get() - to) < 0.5) return;
+    targetY.set(to);
+    translateY.set(withSpring(to, SPRING));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detent, H, peekH]);
+
+  // Mount the body once, shortly after open, and keep it: mounting the member
+  // list at the start of a peek -> half spring cost frames every time.
+  const [bodyReady, setBodyReady] = useState(detent !== "peek");
+  useEffect(() => {
+    if (bodyReady) return;
+    const t = setTimeout(() => setBodyReady(true), 400);
+    return () => clearTimeout(t);
+  }, [bodyReady]);
 
   // Memoized on screen height + callback identity so parent re-renders
   // (presence tick) never rebuild the gesture mid-drag and cancel it.
@@ -152,6 +168,7 @@ export function RoomSheet({
               best = d;
             }
           }
+          targetY.set(topFor(best));
           translateY.set(withSpring(topFor(best), { ...SPRING, velocity: e.velocityY }));
           scheduleOnRN(onDetentChange, best);
           if (!reducedMotion) scheduleOnRN(settleHaptic);
@@ -192,9 +209,10 @@ export function RoomSheet({
           <View style={styles.pad}>{renderHeader(detent)}</View>
         </View>
       </GestureDetector>
-      {bodyH > 24 && (
+      {bodyReady && (
         <ScrollView
-          style={{ height: bodyH }}
+          style={{ height: bodyH > 24 ? bodyH : 0 }}
+          pointerEvents={bodyH > 24 ? "auto" : "none"}
           contentContainerStyle={styles.body}
           showsVerticalScrollIndicator={false}
         >

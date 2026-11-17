@@ -2,7 +2,7 @@ import { Stack } from "expo-router/stack";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as Linking from "expo-linking";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 
 import { startRoomSession } from "@/features/room/session/roomSession";
@@ -36,6 +36,18 @@ const EXIT_MESSAGES = {
   not_member: "You're no longer a member of this room.",
 } as const;
 
+// Location problems we've already explained, per room ("<id>:fg" etc.).
+// The room reconnects often (network flaps, app switches); each reconnect
+// re-runs the sharing setup, and re-asking every time is a nag loop.
+const explained = new Set<string>();
+
+/** True the first time `key` is seen (while the app is on screen, unless `anyState`). */
+function explainOnce(key: string, anyState = false): boolean {
+  if ((!anyState && AppState.currentState !== "active") || explained.has(key)) return false;
+  explained.add(key);
+  return true;
+}
+
 // Owns the room channel and location pipeline lifecycle: connect on mount,
 // tear down on unmount, exit gracefully when the room ends or we get kicked.
 export default function RoomLayout() {
@@ -50,6 +62,15 @@ export default function RoomLayout() {
   );
   const backgroundSharing = useSessionStore((s) => s.backgroundSharing);
   const pipelineRunning = useRef(false);
+  // Bumped on return to the app while not sharing: granting location in
+  // Settings starts sharing at once, without leaving and re-entering.
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && !pipelineRunning.current) setRetry((n) => n + 1);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -95,7 +116,8 @@ export default function RoomLayout() {
         if (!granted) {
           pipelineRunning.current = false;
           // Deny recovery: the banner names the breakage and offers the
-          // one-tap Settings path instead of a dead end.
+          // one-tap Settings path instead of a dead end. Once per room.
+          if (!explainOnce(`${id}:fg`)) return;
           void useUiStore
             .getState()
             .requestConfirm({
@@ -114,6 +136,7 @@ export default function RoomLayout() {
         const servicesOn = await Location.hasServicesEnabledAsync();
         if (!servicesOn) {
           pipelineRunning.current = false;
+          if (!explainOnce(`${id}:services`)) return;
           void useUiStore
             .getState()
             .requestConfirm({
@@ -136,7 +159,7 @@ export default function RoomLayout() {
         pipelineRunning.current = false;
       }
     })();
-  }, [id, connection, myRole]);
+  }, [id, connection, myRole, retry]);
 
   // Hand off to the background location service when the app is backgrounded,
   // but only for travelers who opted in (settings) and granted permission.
@@ -144,7 +167,6 @@ export default function RoomLayout() {
   // shared publisher means there's no double-send across the transition.
   useEffect(() => {
     if (!id || myRole !== "traveler" || !backgroundSharing) return;
-    let warnedNoPermission = false;
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         void stopBackgroundUpdates();
@@ -153,11 +175,10 @@ export default function RoomLayout() {
           .then((started) => {
             // started === false => the OS "Always" permission lapsed; warn once
             // rather than silently failing to share with the screen off.
-            if (!started && !warnedNoPermission) {
-              warnedNoPermission = true;
+            if (!started && explainOnce(`${id}:bg`, true)) {
               Alert.alert(
                 "Background sharing is off",
-                "Android revoked the always-on location permission, so your buds won't see you with the screen off. Re-enable it from the room's privacy settings.",
+                "Buds can't share with the screen off: location is allowed only while the app is open. Allow it \"All the time\" from the room's privacy settings.",
               );
             }
           })
