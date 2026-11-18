@@ -87,6 +87,22 @@
             }
           }
         ]
+      ],
+      // Leaner APK (was 182 MB universal). Build settings only, no runtime
+      // native code, so no version bump needed.
+      //  - 64-bit phones + 64-bit emulators; drops 32-bit armeabi-v7a/x86.
+      //  - Compressed native libs: much smaller download, unpacked on install.
+      //  - R8 minify + resource shrinking in release builds.
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": ["arm64-v8a", "x86_64"],
+            "useLegacyPackaging": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
       ]
     ],
     "experiments": {
