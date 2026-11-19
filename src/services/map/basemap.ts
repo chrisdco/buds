@@ -8,7 +8,9 @@ import libertyBase from "@/services/map/libertyBase.json";
 // and label as its own layer; we only change colors and a few zoom gates.
 // The hierarchy is the Google / Uber one: highways warm and widest,
 // arterials a step lighter, streets plain, parks green, water blue,
-// buildings a quiet step off the land. Pure: no native imports, unit-tested.
+// buildings a quiet step off the land. Everything is kept muted (low
+// saturation, few POIs) so the members' colored routes and faces are the
+// loudest things on screen. Pure: no native imports, unit-tested.
 
 export type MapScheme = "light" | "dark";
 
@@ -49,35 +51,35 @@ export interface MapPalette {
 
 export const MAP_PALETTES: Record<MapScheme, MapPalette> = {
   light: {
-    land: "#F4F3F0",
-    residential: "#EEEDE9",
-    park: "#CDEACB",
-    wood: "#C3E3BF",
-    grass: "#D7EDD0",
+    land: "#F3F3F1",
+    residential: "#EEEEEC",
+    park: "#D5E6D2",
+    wood: "#CDE1C9",
+    grass: "#DCE9D7",
     ice: "#F1F6F8",
-    sand: "#F3EBD3",
-    hospital: "#F7E3E3",
-    school: "#F3EFDA",
-    water: "#A8D2F5",
+    sand: "#F0EADB",
+    hospital: "#F2E7E7",
+    school: "#F0EDE1",
+    water: "#B8D3EA",
     aeroway: "#E7E5EE",
     runway: "#FFFFFF",
-    building: "#E6E4E0",
-    buildingOutline: "#D9D6D1",
+    building: "#E7E6E3",
+    buildingOutline: "#DCDAD6",
     minor: "#FFFFFF",
     minorCasing: "#DDDAD5",
     path: "#D3CFC8",
     secondary: "#FFFFFF",
     secondaryCasing: "#D0CCC5",
-    primary: "#FFF1BF",
-    primaryCasing: "#E6C978",
-    motorway: "#FCD27E",
-    motorwayCasing: "#DDA449",
+    primary: "#FBF5E6",
+    primaryCasing: "#DCCFAE",
+    motorway: "#F2E0B3",
+    motorwayCasing: "#D3B679",
     rail: "#C4C1BC",
     boundary: "#A9A6B0",
     roadLabel: "#5F6368",
-    poiLabel: "#6B6F76",
-    transitLabel: "#2F6AA6",
-    waterLabel: "#3B72A8",
+    poiLabel: "#7A7E85",
+    transitLabel: "#4C6E92",
+    waterLabel: "#5A7EA0",
     placeLabel: "#3C4043",
     placeMajor: "#1F2124",
     halo: "#FFFFFF",
@@ -85,14 +87,14 @@ export const MAP_PALETTES: Record<MapScheme, MapPalette> = {
   dark: {
     land: "#1A1C20",
     residential: "#1D2024",
-    park: "#1C3125",
-    wood: "#1B2E23",
-    grass: "#1D2C23",
+    park: "#1C2A22",
+    wood: "#1B2820",
+    grass: "#1D2822",
     ice: "#22262B",
     sand: "#282620",
     hospital: "#2B1F23",
     school: "#29271F",
-    water: "#13293F",
+    water: "#15253A",
     aeroway: "#23252B",
     runway: "#33363D",
     building: "#23262B",
@@ -104,14 +106,14 @@ export const MAP_PALETTES: Record<MapScheme, MapPalette> = {
     secondaryCasing: "#272A30",
     primary: "#555D6A",
     primaryCasing: "#363C45",
-    motorway: "#7A6544",
-    motorwayCasing: "#4A3F2E",
+    motorway: "#615646",
+    motorwayCasing: "#40392F",
     rail: "#3A3E45",
     boundary: "#4C5058",
     roadLabel: "#8E97A3",
-    poiLabel: "#8E97A3",
-    transitLabel: "#6E9BC9",
-    waterLabel: "#5F87AF",
+    poiLabel: "#7F8893",
+    transitLabel: "#7A94AF",
+    waterLabel: "#62809E",
     placeLabel: "#B5BDC8",
     placeMajor: "#E3E7EC",
     halo: "#14161A",
@@ -147,9 +149,9 @@ const DEFER: Record<string, number> = {
   label_other: 13,
   "highway-name-minor": 15.5,
   "highway-name-path": 16.5,
-  poi_r1: 15.5,
+  poi_r1: 16,
   poi_transit: 16,
-  poi_r7: 16.5,
+  poi_r7: 17,
   poi_r20: 17.5,
   road_one_way_arrow: 17,
   road_one_way_arrow_opposite: 17,
@@ -237,9 +239,10 @@ function paintLayer(layer: Layer, p: MapPalette, scheme: MapScheme): void {
       paint["text-halo-width"] = 1.2;
       paint["text-halo-blur"] = 0.4;
     }
-    // Sprite icons are drawn for a light canvas; mute them on dark.
-    if (scheme === "dark" && layer.layout && "icon-image" in layer.layout) {
-      paint["icon-opacity"] = 0.7;
+    // POI sprites are full-color; keep them a step back (more so on dark,
+    // where they were drawn for a light canvas).
+    if (layer.layout && "icon-image" in layer.layout) {
+      paint["icon-opacity"] = scheme === "dark" ? 0.6 : 0.8;
     }
   }
 }
