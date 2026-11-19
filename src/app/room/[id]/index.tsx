@@ -16,10 +16,13 @@ import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { SelfPuck, useLocationGranted } from "@/features/map/SelfPuck";
 import { RoomMap } from "@/features/map/RoomMap";
 import { buildRouteFeatures, buildRouteLabels, nearestIndex } from "@/features/map/routeFeatures";
+import { PendingRoutes, type PendingRoute } from "@/features/map/PendingRoutes";
 import { RouteLines } from "@/features/map/RouteLines";
 import { GUIDANCE_BANNER_H, GuidanceBanner } from "@/features/guidance/GuidanceBanner";
 import { GuidanceLine } from "@/features/guidance/GuidanceLine";
 import { useGuidance, type GuidanceTarget } from "@/features/guidance/useGuidance";
+import { ArrivalCard } from "@/features/room/ArrivalCard";
+import { arrivalMoment } from "@/features/room/arrival";
 import { ExpiryBanner } from "@/features/room/ExpiryBanner";
 import { MemberActionSheet } from "@/features/room/MemberActionSheet";
 import { MemberList } from "@/features/room/MemberList";
@@ -65,6 +68,11 @@ import { useUiStore, type NavTarget } from "@/stores/uiStore";
 // and wires gestures. Behavior lives elsewhere — alerts, routes and arrival in
 // the room-session controller (features/room/session, run by the layout);
 // camera, destination picking and SOS in the features/room hooks.
+
+const NO_PENDING: PendingRoute[] = [];
+// Arrival cards you've closed, by moment key. Module scope so leaving for
+// settings and coming back doesn't bring them back.
+const dismissedArrivals = new Set<string>();
 
 export default function RoomScreen() {
   const styles = useRoomScreenStyles();
@@ -189,6 +197,18 @@ export default function RoomScreen() {
       routeLabels: buildRouteLabels({ routes: shown, tiers, etaByUser: etas, colorFor: colorForUser, trimFrom }),
     };
   }, [routes, tiers, myUserId, trimKey, lateKey, navigating]);
+  // Travelers heading somewhere whose road route hasn't arrived yet: drawn
+  // as a "finding route" placeholder instead of an empty map.
+  const pendingRoutes = useMemo<PendingRoute[]>(() => {
+    if (!snap) return NO_PENDING;
+    const out: PendingRoute[] = [];
+    for (const m of travelers(snap)) {
+      if (!m.pos || m.arrivedAt != null || routes[m.userId] || (tiers[m.userId] ?? "hidden") === "hidden") continue;
+      const dest = strategy.effectiveDestinationFor(snap, m.userId);
+      if (dest) out.push({ userId: m.userId, from: [m.pos.lng, m.pos.lat], to: [dest.lng, dest.lat] });
+    }
+    return out.length ? out : NO_PENDING;
+  }, [snap, routes, tiers, strategy]);
   // Any drawn route is a straight-line estimate: say so (9.2).
   const estimating = useMemo(
     () => Object.entries(routes).some(([uid, r]) => r.source === "straightline" && (tiers[uid] ?? "hidden") !== "hidden"),
@@ -360,6 +380,49 @@ export default function RoomScreen() {
     [],
   );
 
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set(dismissedArrivals));
+  const moment = useMemo(
+    () =>
+      snap && room
+        ? arrivalMoment({
+            roomId: room.id,
+            travelers: travelers(snap),
+            myUserId,
+            nowMs,
+            dismissed,
+          })
+        : null,
+    [snap, room, myUserId, nowMs, dismissed],
+  );
+  const dismissArrival = useCallback(() => {
+    if (!moment) return;
+    dismissedArrivals.add(moment.key);
+    setDismissed(new Set(dismissedArrivals));
+  }, [moment]);
+
+  const endTrip = () => {
+    void (async () => {
+      const ok = await useUiStore.getState().requestConfirm({
+        title: "End trip for everyone?",
+        body: "Everyone stops sharing their location and the room closes.",
+        confirmLabel: "End trip",
+        destructive: false,
+      });
+      if (!ok || !room) return;
+      const r = await roomsRpc.endRoom(room.id);
+      if (!r.ok) {
+        useUiStore.getState().pushAlerts([
+          {
+            id: `end-failed:${Date.now()}`,
+            severity: "warn",
+            title: "Couldn't end the trip",
+            body: "Check your connection and try again.",
+          },
+        ]);
+      }
+    })();
+  };
+
   const leave = () => {
     void (async () => {
       const ok = await useUiStore.getState().requestConfirm({
@@ -466,12 +529,17 @@ export default function RoomScreen() {
         canSetDest,
         canCheckIn,
         nearDest,
+        arrived: me?.role === "traveler" && me.arrivedAt != null,
+        allArrived: tripProgress != null && tripProgress.total > 0 && tripProgress.arrived === tripProgress.total,
+        isHost,
       });
   const runAction = () => {
     if (action === "checkin") checkIn();
     else if (action === "navigate") onNavigateToDest();
     else if (action === "setDest") onSearchDest();
     else if (action === "invite") onInvite();
+    else if (action === "endTrip") endTrip();
+    else if (action === "leave") leave();
   };
 
   const travelerCount = tripProgress?.total ?? 0;
@@ -506,6 +574,20 @@ export default function RoomScreen() {
   if (showWaiting) y += 36;
   const adjustTop = y;
   if (adjust) y += 124;
+  const arrivalTop = y;
+  // The card's wrap-up action: the whole trip is done (or it was a solo
+  // trip). Host ends it for everyone; members just leave.
+  const tripDone = moment != null && (moment.kind === "all" || moment.total === 1);
+  const arrivalViewer = isHost ? "host" : isTraveler ? "traveler" : "watcher";
+  const wrapUp = !tripDone
+    ? null
+    : arrivalViewer === "host"
+      ? { label: "End trip", onPress: endTrip }
+      : arrivalViewer === "traveler"
+        ? { label: "Leave room", onPress: leave }
+        : null;
+  const showArrival = moment != null && !adjust;
+  if (showArrival) y += wrapUp ? 124 : 80;
   const toastTop = y;
 
   const visibleSheet = sheetVisibleHeight(detent, H, peekH);
@@ -521,6 +603,7 @@ export default function RoomScreen() {
         onRegionChange={picker.onRegionChange}
         ornamentPosition={{ top: insets.top + 12, right: 12 }}
       >
+        <PendingRoutes pending={pendingRoutes} />
         <RouteLines features={routeFeatures} labels={routeLabels} />
         {guide.active && <GuidanceLine route={guide.route} from={mePos} />}
         <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
@@ -592,6 +675,10 @@ export default function RoomScreen() {
 
       {adjust && (
         <AdjustPin top={adjustTop} adjust={adjust} onCancel={picker.cancel} onConfirm={picker.confirm} />
+      )}
+
+      {showArrival && moment && (
+        <ArrivalCard moment={moment} viewer={arrivalViewer} top={arrivalTop} wrapUp={wrapUp} onDismiss={dismissArrival} />
       )}
 
       <Toasts topOffset={toastTop} />
@@ -685,7 +772,11 @@ export default function RoomScreen() {
                 <SheetFooter
                   action={action}
                   onAction={runAction}
-                  secondary={action !== "invite" ? { label: "Invite buds", onPress: onInvite } : null}
+                  secondary={
+                    action === "invite" || action === "endTrip" || action === "leave"
+                      ? null
+                      : { label: "Invite buds", onPress: onInvite }
+                  }
                 />
               )
             : undefined

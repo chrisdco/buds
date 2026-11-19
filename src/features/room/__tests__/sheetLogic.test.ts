@@ -31,6 +31,14 @@ describe("primaryAction (pinned CTA)", () => {
     expect(primaryAction({ ...base, isTraveler: false, hasDest: true })).toBe("navigate");
     expect(primaryAction({ ...base, isTraveler: false })).toBeNull();
   });
+
+  it("drops navigate once you've arrived, and wraps up once everyone has", () => {
+    expect(primaryAction({ ...base, hasDest: true, arrived: true })).toBeNull();
+    expect(primaryAction({ ...base, hasDest: true, arrived: true, allArrived: true, isHost: true })).toBe("endTrip");
+    expect(primaryAction({ ...base, hasDest: true, arrived: true, allArrived: true })).toBe("leave");
+    expect(primaryAction({ ...base, isTraveler: false, hasDest: true, allArrived: true })).toBeNull();
+    expect(primaryAction({ ...base, isTraveler: false, allArrived: true, isHost: true })).toBe("endTrip");
+  });
 });
 
 describe("member rows", () => {

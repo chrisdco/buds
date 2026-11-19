@@ -61,8 +61,11 @@ function maybePrimeNotifications(): void {
   })();
 }
 
-function deliver(alerts: LocalAlert[]): void {
+function deliver(alerts: LocalAlert[], myUserId: string): void {
   if (AppState.currentState === "active") {
+    // Your own arrival gets the arrival card on screen, not a toast too.
+    alerts = alerts.filter((a) => a.id !== `arrive:${myUserId}`);
+    if (alerts.length === 0) return;
     // Foreground toasts always show; the first alert-worthy moment also
     // primes notifications (our sheet first, OS dialog second).
     maybePrimeNotifications();
@@ -139,7 +142,7 @@ export function startRoomSession(options: RoomSessionOptions = {}): () => void {
       engineKey = key;
     }
     const alerts = engine.evaluate(strategy.alertConditions(snap, myUserId), now());
-    if (alerts.length > 0) deliver(alerts);
+    if (alerts.length > 0) deliver(alerts, myUserId);
 
     // Route reconciliation (staleness / deviation / moved destinations);
     // cheap early-outs when nothing is stale.

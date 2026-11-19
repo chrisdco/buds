@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   ReduceMotion,
+  scrollTo,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -17,8 +20,10 @@ import { makeStyles } from "@/theme";
 
 // Uber "Choose a trip" grammar: full-screen map with a non-modal sheet (peek /
 // half / full, no scrim — the map stays interactive behind it). Three parts:
-//   - header: handle + title block. The ONLY drag area, so the body can scroll.
-//   - body: scrolls within whatever the settled detent leaves visible.
+//   - header: handle + title block. Always drags the sheet.
+//   - body: drags the sheet too, Google Maps style: below full, pulling up
+//     expands and pulling down collapses; at full it scrolls, and pulling
+//     down once the list is at its top collapses the sheet.
 //   - footer: the one pinned CTA, held at the screen bottom at every detent
 //     (and while dragging), like "Choose Auto".
 // Peek is sized to header + footer, so the collapsed sheet always shows the
@@ -132,50 +137,89 @@ export function RoomSheet({
     return () => clearTimeout(t);
   }, [bodyReady]);
 
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.set(e.contentOffset.y);
+  });
+  // Below full the list can't scroll, so show it from the top.
+  useEffect(() => {
+    if (detent !== "full") scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [detent, scrollRef]);
+
+  // Body drag state: whether this drag moves the sheet (vs. scrolls the
+  // list), and the finger travel at the moment it took over.
+  const bodyDriving = useSharedValue(false);
+  const bodyFrom = useSharedValue(0);
+
   // Memoized on screen height + callback identity so parent re-renders
   // (presence tick) never rebuild the gesture mid-drag and cancel it.
-  const pan = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetY([-8, 8])
-        .onStart(() => {
-          dragStartY.set(translateY.get());
-        })
-        .onUpdate((e) => {
-          const min = topFor("full");
-          const max = topFor("peek");
-          const next = dragStartY.get() + e.translationY;
-          translateY.set(
-            next < min
-              ? min + rubberband(next - min, H)
-              : next > max
-                ? max + rubberband(next - max, H)
-                : next,
-          );
-        })
-        .onEnd((e) => {
-          // Fling-aware snap: project along velocity, settle on nearest detent.
-          const projected = Math.min(
-            topFor("peek"),
-            Math.max(topFor("full"), translateY.get() + project(e.velocityY)),
-          );
-          let best: SheetDetent = ORDER[0];
-          let bestDist = Infinity;
-          for (const d of ORDER) {
-            const dist = Math.abs(topFor(d) - projected);
-            if (dist < bestDist) {
-              bestDist = dist;
-              best = d;
-            }
-          }
-          targetY.set(topFor(best));
-          translateY.set(withSpring(topFor(best), { ...SPRING, velocity: e.velocityY }));
-          scheduleOnRN(onDetentChange, best);
-          if (!reducedMotion) scheduleOnRN(settleHaptic);
-        }),
+  const { pan, bodyPan, bodyScroll } = useMemo(() => {
+    const follow = (next: number) => {
+      "worklet";
+      const min = topFor("full");
+      const max = topFor("peek");
+      translateY.set(
+        next < min ? min + rubberband(next - min, H) : next > max ? max + rubberband(next - max, H) : next,
+      );
+    };
+    const settle = (velocityY: number) => {
+      "worklet";
+      // Fling-aware snap: project along velocity, settle on nearest detent.
+      const projected = Math.min(topFor("peek"), Math.max(topFor("full"), translateY.get() + project(velocityY)));
+      let best: SheetDetent = ORDER[0];
+      let bestDist = Infinity;
+      for (const d of ORDER) {
+        const dist = Math.abs(topFor(d) - projected);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = d;
+        }
+      }
+      targetY.set(topFor(best));
+      translateY.set(withSpring(topFor(best), { ...SPRING, velocity: velocityY }));
+      scheduleOnRN(onDetentChange, best);
+      if (!reducedMotion) scheduleOnRN(settleHaptic);
+    };
+
+    const header = Gesture.Pan()
+      .activeOffsetY([-8, 8])
+      .onStart(() => {
+        dragStartY.set(translateY.get());
+      })
+      .onUpdate((e) => follow(dragStartY.get() + e.translationY))
+      .onEnd((e) => settle(e.velocityY));
+
+    const native = Gesture.Native();
+    const body = Gesture.Pan()
+      .activeOffsetY([-8, 8])
+      .failOffsetX([-16, 16])
+      .simultaneousWithExternalGesture(native)
+      .onStart(() => {
+        dragStartY.set(translateY.get());
+        // Below full the list doesn't scroll: every drag moves the sheet.
+        bodyDriving.set(translateY.get() > topFor("full") + 1);
+        bodyFrom.set(0);
+      })
+      .onUpdate((e) => {
+        if (!bodyDriving.get()) {
+          // At full: hand over to the sheet once the list is at its top and
+          // the finger keeps pulling down.
+          if (scrollY.get() > 0 || e.translationY <= 0) return;
+          bodyDriving.set(true);
+          bodyFrom.set(e.translationY);
+        }
+        follow(dragStartY.get() + e.translationY - bodyFrom.get());
+        // Hold the list at its top while the sheet moves.
+        scrollTo(scrollRef, 0, 0, false);
+      })
+      .onEnd((e) => {
+        if (bodyDriving.get()) settle(e.velocityY);
+        bodyDriving.set(false);
+      });
+    return { pan: header, bodyPan: body, bodyScroll: native };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [H, onDetentChange, reducedMotion],
-  );
+  }, [H, onDetentChange, reducedMotion]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.get() }],
@@ -210,14 +254,27 @@ export function RoomSheet({
         </View>
       </GestureDetector>
       {bodyReady && (
-        <ScrollView
-          style={{ height: bodyH > 24 ? bodyH : 0 }}
-          pointerEvents={bodyH > 24 ? "auto" : "none"}
-          contentContainerStyle={styles.body}
-          showsVerticalScrollIndicator={false}
-        >
-          {renderBody(detent)}
-        </ScrollView>
+        <GestureDetector gesture={bodyPan}>
+          <View>
+            <GestureDetector gesture={bodyScroll}>
+              <Animated.ScrollView
+                ref={scrollRef}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+                // Below full, drags move the sheet instead (Google Maps).
+                scrollEnabled={detent === "full"}
+                bounces={false}
+                overScrollMode="never"
+                style={{ height: bodyH > 24 ? bodyH : 0 }}
+                pointerEvents={bodyH > 24 ? "auto" : "none"}
+                contentContainerStyle={styles.body}
+                showsVerticalScrollIndicator={false}
+              >
+                {renderBody(detent)}
+              </Animated.ScrollView>
+            </GestureDetector>
+          </View>
+        </GestureDetector>
       )}
       {footer && (
         <Animated.View
