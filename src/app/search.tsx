@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { IconTile, ListRow, NavHeader } from "@/components/layout";
@@ -11,6 +11,7 @@ import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 
 import { formatDistanceM } from "@/lib/geo";
+import { recentsWithDistance } from "@/lib/placeCategories";
 import { destCreateParams } from "@/lib/tripPresets";
 import { planTimeError, whenLabel } from "@/lib/planned";
 import { WhenPicker } from "@/features/planned/WhenPicker";
@@ -68,6 +69,7 @@ export default function PlanTripScreen() {
   const recents = usePlacesStore((s) => s.recents);
   const saved = usePlacesStore((s) => s.saved);
   const units = useSessionStore((s) => s.units);
+  const recentRows = useMemo(() => recentsWithDistance(recents ?? [], origin), [recents, origin]);
 
   // Best-effort origin for distances: last known fix only, never a
   // permission prompt — search must work denied. Absent origin just means
@@ -351,16 +353,16 @@ export default function PlanTripScreen() {
             {(recents === null || recents.length === 0) && (
               <Text style={[typeScale.rowSub, styles.caption]}>Recent places will show up here.</Text>
             )}
-            {(recents ?? []).map((r, i) => (
+            {recentRows.map((r, i) => (
               <ListRow
                 key={`${r.lat}-${r.lng}-${i}`}
-                leading={<PlaceLead distance={null} />}
+                leading={<PlaceLead distance={r.distanceM != null ? formatDistanceM(r.distanceM, units) : null} />}
                 title={r.name}
                 sub={r.address || null}
                 divider
                 a11yLabel={`Plan a trip to ${r.name}`}
                 testID={`plan-recent-${i}`}
-                onPress={() => pick({ ...r, id: `recent-${i}`, distanceM: null })}
+                onPress={() => pick({ ...r, id: `recent-${i}`, kind: null })}
               />
             ))}
           </>
