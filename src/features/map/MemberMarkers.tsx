@@ -1,13 +1,16 @@
 import { Marker } from "@maplibre/maplibre-react-native";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { colorForUser, onHue } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { presenceOf } from "@/stores/membersStore";
+import { useRouteStore } from "@/stores/routeStore";
 import type { MemberLive } from "@/types/contracts";
 import { makeStyles } from "@/theme";
+
+import { placeOnRoute, useGlidingPosition } from "./glide";
 
 interface MemberMarkersProps {
   members: MemberLive[];
@@ -100,11 +103,23 @@ const MemberMarker = memo(function MemberMarker({
   const styles = useStyles();
   const faded = state === "offline" || state === "reconnecting";
   const color = colorForUser(m.userId);
-  const heading = m.pos!.heading;
+  const pos = m.pos!;
+  const heading = pos.heading;
   const label = isSelf ? "You" : m.name;
-  return (
-    <Marker id={m.userId} lngLat={[m.pos!.lng, m.pos!.lat]} anchor="center">
-      {/* Pressable (not Marker onPress) so a face takes long-press too. */}
+  // Drawn on their own road route when the fix is just GPS drift off it.
+  const route = useRouteStore((s) => {
+    const r = s.routes[m.userId];
+    return r && r.source !== "straightline" ? r.coords : undefined;
+  });
+  const target = useMemo(
+    () => placeOnRoute(pos.lat, pos.lng, pos.accuracy, route),
+    [pos.lat, pos.lng, pos.accuracy, route],
+  );
+  const lngLat = useGlidingPosition(target, pos.atMs);
+  // Built once per real change: the ~30 fps glide only moves the marker,
+  // React skips this subtree (same element) on every animation frame.
+  const content = useMemo(
+    () => (
       <Pressable
         style={[styles.wrap, faded ? styles.faded : dimmed && styles.dimmed]}
         disabled={!onToggleFocus && !onLongPressMember}
@@ -142,6 +157,13 @@ const MemberMarker = memo(function MemberMarker({
           {faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>}
         </View>
       </Pressable>
+    ),
+    [styles, faded, dimmed, onToggleFocus, onLongPressMember, label, isSelected, m.userId, isSelf, heading, state, color, etaS],
+  );
+  return (
+    <Marker id={m.userId} lngLat={lngLat} anchor="center">
+      {/* Pressable (not Marker onPress) so a face takes long-press too. */}
+      {content}
     </Marker>
   );
 });
