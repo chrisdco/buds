@@ -251,6 +251,7 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_my_data: { Args: never; Returns: Json }
       end_room: { Args: { p_room_id: string }; Returns: Json }
       generate_room_code: { Args: never; Returns: string }
       get_room_snapshot: { Args: { p_room_id: string }; Returns: Json }
