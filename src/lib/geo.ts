@@ -103,3 +103,48 @@ export function distToPolylineM(lat: number, lng: number, coords: [number, numbe
   }
   return best;
 }
+
+/**
+ * Closest point on a GeoJSON-order [lng,lat] polyline to a position, with
+ * its distance in meters. Same local projection as distToPolylineM. Null for
+ * a polyline with fewer than two usable points.
+ */
+export function nearestOnPolyline(
+  lat: number,
+  lng: number,
+  coords: [number, number][],
+): { lat: number; lng: number; distM: number } | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  const kx = ((Math.PI / 180) * EARTH_RADIUS_M * Math.cos(toRad(lat))) || 0;
+  const ky = (Math.PI / 180) * EARTH_RADIUS_M;
+  if (kx === 0) return null;
+  let best: { lat: number; lng: number; distM: number } | null = null;
+  for (let i = 0; i + 1 < coords.length; i++) {
+    const a = coords[i];
+    const b = coords[i + 1];
+    if (
+      !Array.isArray(a) ||
+      !Array.isArray(b) ||
+      !Number.isFinite(a[0]) ||
+      !Number.isFinite(a[1]) ||
+      !Number.isFinite(b[0]) ||
+      !Number.isFinite(b[1])
+    ) {
+      continue;
+    }
+    const ax = (a[0] - lng) * kx;
+    const ay = (a[1] - lat) * ky;
+    const dx = (b[0] - a[0]) * kx;
+    const dy = (b[1] - a[1]) * ky;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.min(1, Math.max(0, -((ax * dx + ay * dy) / len2)));
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const dist = Math.sqrt(cx * cx + cy * cy);
+    if (!best || dist < best.distM) {
+      best = { lat: lat + cy / ky, lng: lng + cx / kx, distM: dist };
+    }
+  }
+  return best;
+}
