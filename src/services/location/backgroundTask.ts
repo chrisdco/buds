@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import { AppState, Platform } from "react-native";
 
 import { clearActiveRoom, getActiveRoom } from "@/lib/activeRoom";
 import { supabase } from "@/lib/supabaseClient";
@@ -39,7 +40,9 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
   if (!userId) return;
 
   const publisher = getPublisher(roomId, {
-    isBackground: () => true,
+    // The service now runs for the whole trip, on screen too: report the
+    // real app state so the on-screen send rate isn't slowed to background's.
+    isBackground: () => AppState.currentState !== "active",
     userId,
     // The server says we no longer have a sharing lease (room ended / kicked /
     // left) — tear the service down from inside the headless task so the
@@ -59,14 +62,24 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
 });
 
 /**
- * Starts the Android foreground-service location lane. Returns false (without
- * starting) when background permission isn't actually granted, so callers can
- * surface that instead of a silent no-op.
+ * Starts the screen-off sharing service for the trip. Call it while the app
+ * is on screen: Android lets a location foreground service that was started
+ * from the open app keep receiving fixes with the screen off using only the
+ * "While using the app" permission, so no "All the time" ask is needed. It
+ * refuses to start one from the background, which is why this no longer
+ * waits for the app to be backgrounded. iOS still needs "Always".
+ *
+ * Returns false (without starting) when it can't run right now: no
+ * permission, or the app isn't on screen. Safe to call repeatedly.
  */
 export async function startBackgroundUpdates(): Promise<boolean> {
-  const perm = await Location.getBackgroundPermissionsAsync();
-  if (!perm.granted) return false;
   if (await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK)) return true;
+  if (AppState.currentState !== "active") return false;
+  const perm =
+    Platform.OS === "android"
+      ? await Location.getForegroundPermissionsAsync()
+      : await Location.getBackgroundPermissionsAsync();
+  if (!perm.granted) return false;
   await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
     accuracy: Location.Accuracy.High,
     timeInterval: 3_000,
