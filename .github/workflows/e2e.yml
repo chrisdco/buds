@@ -69,7 +69,13 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
       - name: Build APK (x86_64 only)
         working-directory: android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+        # Release lint isn't needed to test and runs the runner out of
+        # metaspace; skip it and give Gradle room.
+        run: >-
+          ./gradlew assembleRelease --no-daemon
+          -PreactNativeArchitectures=x86_64
+          -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g"
+          -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease
 
       - name: Install Maestro
         run: |
