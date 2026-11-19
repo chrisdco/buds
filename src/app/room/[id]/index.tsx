@@ -16,6 +16,7 @@ import { MemberMarkers } from "@/features/map/MemberMarkers";
 import { SelfPuck, useLocationGranted } from "@/features/map/SelfPuck";
 import { RoomMap } from "@/features/map/RoomMap";
 import { buildRouteFeatures, buildRouteLabels, nearestIndex } from "@/features/map/routeFeatures";
+import { PendingRoutes, type PendingRoute } from "@/features/map/PendingRoutes";
 import { RouteLines } from "@/features/map/RouteLines";
 import { GUIDANCE_BANNER_H, GuidanceBanner } from "@/features/guidance/GuidanceBanner";
 import { GuidanceLine } from "@/features/guidance/GuidanceLine";
@@ -65,6 +66,8 @@ import { useUiStore, type NavTarget } from "@/stores/uiStore";
 // and wires gestures. Behavior lives elsewhere — alerts, routes and arrival in
 // the room-session controller (features/room/session, run by the layout);
 // camera, destination picking and SOS in the features/room hooks.
+
+const NO_PENDING: PendingRoute[] = [];
 
 export default function RoomScreen() {
   const styles = useRoomScreenStyles();
@@ -189,6 +192,18 @@ export default function RoomScreen() {
       routeLabels: buildRouteLabels({ routes: shown, tiers, etaByUser: etas, colorFor: colorForUser, trimFrom }),
     };
   }, [routes, tiers, myUserId, trimKey, lateKey, navigating]);
+  // Travelers heading somewhere whose road route hasn't arrived yet: drawn
+  // as a "finding route" placeholder instead of an empty map.
+  const pendingRoutes = useMemo<PendingRoute[]>(() => {
+    if (!snap) return NO_PENDING;
+    const out: PendingRoute[] = [];
+    for (const m of travelers(snap)) {
+      if (!m.pos || m.arrivedAt != null || routes[m.userId] || (tiers[m.userId] ?? "hidden") === "hidden") continue;
+      const dest = strategy.effectiveDestinationFor(snap, m.userId);
+      if (dest) out.push({ userId: m.userId, from: [m.pos.lng, m.pos.lat], to: [dest.lng, dest.lat] });
+    }
+    return out.length ? out : NO_PENDING;
+  }, [snap, routes, tiers, strategy]);
   // Any drawn route is a straight-line estimate: say so (9.2).
   const estimating = useMemo(
     () => Object.entries(routes).some(([uid, r]) => r.source === "straightline" && (tiers[uid] ?? "hidden") !== "hidden"),
@@ -521,6 +536,7 @@ export default function RoomScreen() {
         onRegionChange={picker.onRegionChange}
         ornamentPosition={{ top: insets.top + 12, right: 12 }}
       >
+        <PendingRoutes pending={pendingRoutes} />
         <RouteLines features={routeFeatures} labels={routeLabels} />
         {guide.active && <GuidanceLine route={guide.route} from={mePos} />}
         <DestinationMarkers destRoom={destRoom} destByMember={destByMember} members={membersMap} />
