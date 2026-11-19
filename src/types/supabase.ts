@@ -240,6 +240,7 @@ export type Database = {
         Args: { p_member_id?: string; p_room_id: string }
         Returns: Json
       }
+      clear_stale_positions: { Args: never; Returns: undefined }
       create_room: {
         Args: {
           p_display_name: string
@@ -251,6 +252,7 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_my_data: { Args: never; Returns: Json }
       end_room: { Args: { p_room_id: string }; Returns: Json }
       generate_room_code: { Args: never; Returns: string }
       get_room_snapshot: { Args: { p_room_id: string }; Returns: Json }
