@@ -94,6 +94,11 @@ export const roomsRpc = {
     return call("leave_room", { p_room_id: roomId });
   },
 
+  /** Server side of Settings → Delete my data: memberships, positions, empty hosted rooms. */
+  deleteMyData() {
+    return call("delete_my_data", undefined as never);
+  },
+
   endRoom(roomId: string) {
     return call("end_room", { p_room_id: roomId });
   },

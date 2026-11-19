@@ -41,9 +41,9 @@ const EXIT_MESSAGES = {
 // re-runs the sharing setup, and re-asking every time is a nag loop.
 const explained = new Set<string>();
 
-/** True the first time `key` is seen (while the app is on screen, unless `anyState`). */
-function explainOnce(key: string, anyState = false): boolean {
-  if ((!anyState && AppState.currentState !== "active") || explained.has(key)) return false;
+/** True the first time `key` is seen while the app is on screen. */
+function explainOnce(key: string): boolean {
+  if (AppState.currentState !== "active" || explained.has(key)) return false;
   explained.add(key);
   return true;
 }
@@ -65,6 +65,9 @@ export default function RoomLayout() {
   // Bumped on return to the app while not sharing: granting location in
   // Settings starts sharing at once, without leaving and re-entering.
   const [retry, setRetry] = useState(0);
+  // Bumped once the on-screen watcher is sharing: the screen-off service
+  // starts from there.
+  const [sharingReady, setSharingReady] = useState(0);
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && !pipelineRunning.current) setRetry((n) => n + 1);
@@ -150,8 +153,10 @@ export default function RoomLayout() {
           return;
         }
         await startForegroundPipeline(id);
-        // Lets backgrounded arrival/separation alerts reach the user.
+        // Lets backgrounded arrival/separation alerts reach the user, and
+        // shows the sharing notification on Android 13+.
         await ensureNotificationPermission();
+        setSharingReady((n) => n + 1);
       } catch {
         // watchPosition / permission plumbing can reject on OEM skins or
         // revoked permissions — release the gate so a connection flap retries
@@ -161,38 +166,30 @@ export default function RoomLayout() {
     })();
   }, [id, connection, myRole, retry]);
 
-  // Hand off to the background location service when the app is backgrounded,
-  // but only for travelers who opted in (settings) and granted permission.
-  // The foreground watcher stops delivering in background without this; the
-  // shared publisher means there's no double-send across the transition.
+  // Screen-off sharing: the location service starts as soon as sharing does,
+  // while Buds is on screen (Android only allows it from the open app), and
+  // runs for the whole trip, so locking the phone or switching apps never
+  // stops your buds seeing you. It feeds the same publisher as the on-screen
+  // watcher, so there's no double-send. Re-tried each time the app comes
+  // back if it couldn't start; stopped when the setting goes off or the room
+  // closes (cleanup above).
   useEffect(() => {
-    if (!id || myRole !== "traveler" || !backgroundSharing) return;
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        void stopBackgroundUpdates();
-      } else {
-        void startBackgroundUpdates()
-          .then((started) => {
-            // started === false => the OS "Always" permission lapsed; warn once
-            // rather than silently failing to share with the screen off.
-            if (!started && explainOnce(`${id}:bg`, true)) {
-              Alert.alert(
-                "Background sharing is off",
-                "Buds can't share with the screen off: location is allowed only while the app is open. Allow it \"All the time\" from the room's privacy settings.",
-              );
-            }
-          })
-          .catch(() => {
-            // startLocationUpdates can reject (revoked permission, OEM
-            // skins) — never redbox on the background transition for it.
-          });
-      }
-    });
-    return () => {
-      sub.remove();
+    if (!id || myRole !== "traveler" || sharingReady === 0) return;
+    if (!backgroundSharing) {
       void stopBackgroundUpdates();
-    };
-  }, [id, myRole, backgroundSharing]);
+      return;
+    }
+    const start = () =>
+      void startBackgroundUpdates().catch(() => {
+        // Can reject on OEM skins or a just-revoked permission: the on-screen
+        // watcher still shares, and the next return to the app retries.
+      });
+    start();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && pipelineRunning.current) start();
+    });
+    return () => sub.remove();
+  }, [id, myRole, backgroundSharing, sharingReady]);
 
   useEffect(() => {
     if (!exitReason) return;

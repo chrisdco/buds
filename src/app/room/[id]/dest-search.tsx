@@ -1,27 +1,32 @@
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { NavHeader } from "@/components/layout";
-import { ErrorText, Screen, TextField } from "@/components/ui";
+import { Chip, ErrorText, Screen, TextField } from "@/components/ui";
 import { SearchResultSkeleton } from "@/components/Skeleton";
 import { AppSymbol, icons } from "@/components/Symbol";
-import { radius } from "@/constants/theme";
+import { radius, space } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
 import { formatDistanceM } from "@/lib/geo";
+import { byDistance, categoryFor, PLACE_CATEGORIES, recentsWithDistance } from "@/lib/placeCategories";
 import { searchPlaces, isAbortError, type PlaceResult } from "@/services/places/search";
 import { useMembersStore } from "@/stores/membersStore";
+import { usePlacesStore } from "@/stores/placesStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUiStore } from "@/stores/uiStore";
 import { makeStyles, useColors } from "@/theme";
 
 const MIN_QUERY = 3;
 const DEBOUNCE_MS = 400;
+/** Category taps want a few more options to choose the nearest from. */
+const CATEGORY_LIMIT = 8;
 // Server caps labels at 80 chars; truncate at pick time so confirms never trip it.
 const LABEL_MAX = 80;
 
 // Uber-style place search: bold name, dim address + distance, recents with
-// clock glyphs, and a "set it on the map" escape hatch. Picks don't set
+// clock glyphs, quick-stop category chips (nearest first), and a "set it on
+// the map" escape hatch. Picks don't set
 // anything directly — they seed adjust-pin mode back on the map, where the
 // existing policy checks + set_destination RPC apply unchanged.
 export default function DestSearchScreen() {
@@ -45,11 +50,23 @@ export default function DestSearchScreen() {
   const units = useSessionStore((s) => s.units);
   const membersMap = useMembersStore((s) => s.members);
   const origin = myUserId ? (membersMap[myUserId]?.pos ?? null) : null;
+  const recents = usePlacesStore((s) => s.recents);
+  useEffect(() => {
+    if (usePlacesStore.getState().recents === null) void usePlacesStore.getState().refresh();
+  }, []);
+  // Distances from where you are now; origin is read once (see below), so
+  // this doesn't recompute on every position tick.
+  const [originAtOpen] = useState(origin);
+  const recentRows = useMemo(() => recentsWithDistance(recents ?? [], originAtOpen), [recents, originAtOpen]);
+  const activeCategory = categoryFor(query);
 
   useEffect(() => {
     const q = query.trim();
     if (q.length < MIN_QUERY) return;
     const id = ++requestId.current;
+    // A category chip (or its exact words) searches straight away and shows
+    // the nearest few; free text waits for typing to pause.
+    const category = categoryFor(q);
     // Spinner starts with the request (not the keystroke): no flash for fast
     // answers, and no synchronous setState in the effect body.
     const timer = setTimeout(() => {
@@ -65,12 +82,12 @@ export default function DestSearchScreen() {
       void searchPlaces(
         q,
         origin ? { lat: origin.lat, lng: origin.lng } : undefined,
-        6,
+        category ? CATEGORY_LIMIT : 6,
         controller.signal,
       )
         .then((r) => {
           if (requestId.current !== id) return;
-          setResults(r);
+          setResults(category ? byDistance(r) : r);
           setSearched(true);
           setError(null);
         })
@@ -87,7 +104,7 @@ export default function DestSearchScreen() {
         .finally(() => {
           if (requestId.current === id) setSearching(false);
         });
-    }, DEBOUNCE_MS);
+    }, category ? 0 : DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       userCancelled.current = true;
@@ -98,7 +115,23 @@ export default function DestSearchScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, retryNonce]);
 
-  const pick = (place: PlaceResult) => {
+  const onChangeQuery = (t: string) => {
+    // Short-query reset lives in the event (not the effect): keeps the
+    // debounce effect free of synchronous setState.
+    setQuery(t);
+    if (t.trim().length < MIN_QUERY) {
+      requestId.current += 1;
+      setResults([]);
+      setSearching(false);
+      setSearched(false);
+      setError(null);
+    }
+  };
+
+  const pick = (place: { name: string; address: string; lat: number; lng: number }) => {
+    void usePlacesStore
+      .getState()
+      .addRecent({ name: place.name, address: place.address, lat: place.lat, lng: place.lng, atMs: Date.now() });
     useUiStore.getState().setDestDraft({
       lat: place.lat,
       lng: place.lng,
@@ -114,23 +147,33 @@ export default function DestSearchScreen() {
 
         <TextField
           value={query}
-          onChangeText={(t) => {
-            // Short-query reset lives in the event (not the effect): keeps
-            // the debounce effect free of synchronous setState.
-            setQuery(t);
-            if (t.trim().length < MIN_QUERY) {
-              requestId.current += 1;
-              setResults([]);
-              setSearching(false);
-              setSearched(false);
-              setError(null);
-            }
-          }}
+          onChangeText={onChangeQuery}
           placeholder="Search places"
           autoFocus
           returnKeyType="search"
           testID="dest-search-field"
         />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}
+          keyboardShouldPersistTaps="handled"
+        >
+          {PLACE_CATEGORIES.map((c) => {
+            const on = activeCategory?.id === c.id;
+            return (
+              <Chip
+                key={c.id}
+                label={c.label}
+                selected={on}
+                a11yLabel={on ? `Clear ${c.label} search` : `Find ${c.label.toLowerCase()} nearby`}
+                testID={`dest-search-cat-${c.id}`}
+                onPress={() => onChangeQuery(on ? "" : c.query)}
+              />
+            );
+          })}
+        </ScrollView>
 
         {searching && (
           <View
@@ -145,21 +188,56 @@ export default function DestSearchScreen() {
           </View>
         )}
 
-        {!searching && !searched && (
+        {!searching && !searched && recentRows.length === 0 && (
           <Text style={styles.caption}>Search places above — or set the pin directly on the map.</Text>
         )}
 
+        {!searching &&
+          !searched &&
+          recentRows.map((r, i) => {
+            const distLabel = r.distanceM != null ? formatDistanceM(r.distanceM, units) : null;
+            return (
+              <Pressable
+                key={`${r.lat}-${r.lng}-${i}`}
+                style={styles.row}
+                accessibilityRole="button"
+                accessibilityLabel={`Set destination to ${r.name}${distLabel ? `, ${distLabel} away` : ""}`}
+                testID={`dest-search-recent-${i}`}
+                onPress={() => pick(r)}
+              >
+                <View style={styles.lead}>
+                  <AppSymbol name={icons.history} fallback={icons.history.fallback} size={18} tintColor={colors.textDim} />
+                  {distLabel && (
+                    <Text style={styles.dist} numberOfLines={1}>
+                      {distLabel}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowName} numberOfLines={1}>
+                    {r.name}
+                  </Text>
+                  {r.address !== "" && (
+                    <Text style={styles.rowSub} numberOfLines={1}>
+                      {r.address}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.chev}>›</Text>
+              </Pressable>
+            );
+          })}
+
         {results.map((r, i) => {
-          const sub = [r.kind, r.address, r.distanceM != null ? formatDistanceM(r.distanceM, units) : null]
-            .filter(Boolean)
-            .join(" · ");
+          // Distance lives in the left column; the subtitle is what and where.
+          const sub = [r.kind, r.address].filter(Boolean).join(" · ");
           const distLabel = r.distanceM != null ? formatDistanceM(r.distanceM, units) : null;
           return (
             <Pressable
               key={r.id}
               style={styles.row}
               accessibilityRole="button"
-              accessibilityLabel={`Set destination to ${r.name}`}
+              accessibilityLabel={`Set destination to ${r.name}${distLabel ? `, ${distLabel} away` : ""}`}
               testID={`dest-search-result-${i}`}
               onPress={() => pick(r)}
             >
@@ -237,6 +315,8 @@ export default function DestSearchScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
+  chips: { gap: space.sm, paddingVertical: space.md },
+  lead: { minWidth: 48, alignItems: "flex-start", gap: 2 },
   caption: { color: colors.textDim, fontSize: 13, fontFamily: fontFamily.regular, marginTop: 12 },
   row: {
     flexDirection: "row",

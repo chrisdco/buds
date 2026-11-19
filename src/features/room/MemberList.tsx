@@ -9,7 +9,7 @@ import { fontFamily } from "@/constants/fonts";
 import type { DistanceUnit } from "@/lib/geo";
 import type { MemberInsight } from "@/modes/types";
 import { memberMeta, memberValue, sortMembers } from "@/features/room/sheetLogic";
-import { presenceOf } from "@/stores/membersStore";
+import { presenceOf, staleAge } from "@/stores/membersStore";
 import type { MemberLive } from "@/types/contracts";
 import { makeStyles, useTypeScale } from "@/theme";
 
@@ -80,7 +80,7 @@ export function MemberList({
           sos={sos.has(m.userId)}
           faded={(() => {
             const s = presenceOf(m, nowMs);
-            return s === "offline" || s === "reconnecting";
+            return s === "offline" || s === "reconnecting" || (s === "stationary" && staleAge(m, nowMs) != null);
           })()}
           selected={selected.has(m.userId)}
           onSelectMember={onSelectMember}

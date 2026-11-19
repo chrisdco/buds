@@ -73,7 +73,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   userId: null,
   displayName: "",
   deviceId: randomId(),
-  backgroundSharing: false,
+  // On by default: it needs no extra permission (see backgroundTask.ts) and
+  // keeping your group updated with the screen off is the point of a trip.
+  backgroundSharing: true,
   primedLocation: false,
   primedNotifications: false,
   primedBackground: false,
@@ -148,7 +150,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         userId: session?.user.id ?? null,
         displayName: storedName ?? "",
         deviceId,
-        backgroundSharing: storedBg === "1",
+        backgroundSharing: storedBg !== "0",
         primedLocation: primedLoc === "1",
         primedNotifications: primedNotif === "1",
         primedBackground: primedBg === "1",
@@ -253,7 +255,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       userId: data.session?.user.id ?? null,
       displayName: "",
       deviceId: randomId(),
-      backgroundSharing: false,
+      backgroundSharing: true,
       primedLocation: false,
       primedNotifications: false,
       primedBackground: false,

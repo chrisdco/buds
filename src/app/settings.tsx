@@ -69,7 +69,7 @@ export default function SettingsScreen() {
     void (async () => {
       const ok = await useUiStore.getState().requestConfirm({
         title: "Delete everything?",
-        body: "Leaves all your rooms and wipes this device's Buds data. This can't be undone.",
+        body: "Leaves all your rooms and deletes your Buds data from this phone and our servers. This can't be undone.",
         confirmLabel: "Delete everything",
         destructive: true,
       });
@@ -77,10 +77,14 @@ export default function SettingsScreen() {
       setBusyAction("wipe");
       setError(null);
       try {
-        await useSessionStore.getState().wipeAllData((roomId) => roomsRpc.leaveRoom(roomId));
+        // Server first: if it fails, nothing local is wiped and the user can retry.
+        const res = await roomsRpc.deleteMyData();
+        if (!res.ok) throw new Error(res.error);
+        // Rooms were already left server-side; the local wipe just clears this phone.
+        await useSessionStore.getState().wipeAllData(async () => {});
         router.replace("/");
       } catch {
-        setError("Couldn't finish wiping — check your connection.");
+        setError("Couldn't delete your data — check your connection and try again.");
         setBusyAction(null);
       }
     })();

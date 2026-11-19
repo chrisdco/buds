@@ -2,7 +2,7 @@ import { serverNowMs } from "@/lib/time";
 import { createJitterFilter, type Fix } from "@/services/location/jitterFilter";
 import { buildTick } from "@/services/location/tick";
 import { createSendThrottle } from "@/services/location/throttle";
-import { isRoomChannelLive, sendLoc } from "@/services/realtime/roomChannel";
+import { isRoomChannelLive, sendLoc, setReconnectedHook } from "@/services/realtime/roomChannel";
 import { roomsRpc } from "@/services/rpc/rooms";
 import { hasWatchers, useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -16,6 +16,10 @@ import type { LocTick } from "@/types/contracts";
 // broadcast when the realtime channel is live, else a last_seen HTTPS upsert.
 
 const LAST_SEEN_INTERVAL_MS = 60_000;
+/** After a failed last_seen write, wait this long before trying again (no signal = no burst). */
+const LAST_SEEN_RETRY_MS = 15_000;
+/** On reconnect, re-send the latest position only if it's this fresh. */
+const RESEND_MAX_AGE_MS = 2 * 60_000;
 
 export interface PublishContext {
   userId: string;
@@ -33,6 +37,8 @@ export interface PublishContext {
 export interface Publisher {
   /** Returns true if the fix passed filter + throttle and was published. */
   publish(raw: Fix): boolean;
+  /** Re-sends the latest position right away (connection just came back). */
+  resendLatest(): void;
   reset(): void;
 }
 
@@ -44,8 +50,15 @@ export function createPublisher(ctx: PublishContext): Publisher {
     hasWatchers: () => hasWatchers(useMembersStore.getState().members, ctx.userId),
   });
   let lastSeenSentAt = 0;
+  let lastSeenFailedAt = 0;
+  // One write at a time: on a weak signal a request can outlive several ticks.
+  let lastSeenInFlight = false;
+  let latest: LocTick | null = null;
+  const markSent = () => useRoomStore.getState().markSent(Date.now());
 
   const upsertLastSeen = (tick: LocTick) => {
+    if (lastSeenInFlight) return;
+    lastSeenInFlight = true;
     roomsRpc
       .updateLastSeen({
         roomId: ctx.roomId,
@@ -58,14 +71,20 @@ export function createPublisher(ctx: PublishContext): Publisher {
         (res) => {
           // Only back off after a confirmed write — a failed upsert must be
           // retried on the next accepted tick, not blacked out for 60s.
+          lastSeenInFlight = false;
           if (res.ok) {
             lastSeenSentAt = Date.now();
+            markSent();
           } else if (res.error === "room_ended" || res.error === "not_member") {
             ctx.onLeaseLost?.();
+          } else {
+            lastSeenFailedAt = Date.now();
           }
         },
         () => {
-          // Transport failure: keep lastSeenSentAt so the next tick retries.
+          // Transport failure (no signal): retry after a pause, not every tick.
+          lastSeenInFlight = false;
+          lastSeenFailedAt = Date.now();
         },
       );
   };
@@ -90,9 +109,13 @@ export function createPublisher(ctx: PublishContext): Publisher {
       // while broadcasting it backstops late joiners; while the socket is down
       // (typical in background) it's the only lane out. Floor it either way so
       // a reconnect flap can't burst one HTTPS write per tick.
-      const dueForLastSeen = Date.now() - lastSeenSentAt > LAST_SEEN_INTERVAL_MS;
+      const now = Date.now();
+      const dueForLastSeen =
+        now - lastSeenSentAt > LAST_SEEN_INTERVAL_MS && now - lastSeenFailedAt > LAST_SEEN_RETRY_MS;
+      latest = tick;
       if (isRoomChannelLive()) {
         sendLoc(tick);
+        markSent();
         if (dueForLastSeen) upsertLastSeen(tick);
       } else if (dueForLastSeen) {
         upsertLastSeen(tick);
@@ -102,8 +125,17 @@ export function createPublisher(ctx: PublishContext): Publisher {
       useMembersStore.getState().applyTick(tick);
       return true;
     },
+    resendLatest() {
+      if (!latest || !isRoomChannelLive()) return;
+      if (serverNowMs() - latest.t > RESEND_MAX_AGE_MS) return;
+      sendLoc(latest);
+      markSent();
+    },
     reset() {
       lastSeenSentAt = 0;
+      lastSeenFailedAt = 0;
+      lastSeenInFlight = false;
+      latest = null;
     },
   };
 }
@@ -163,3 +195,7 @@ export function getPublisher(
 export function disposePublisher(): void {
   current = null;
 }
+
+// Peers shouldn't wait for the next throttled fix (up to 20 s when standing
+// still) to see where we are after a dropout.
+setReconnectedHook(() => current?.publisher.resendLatest());

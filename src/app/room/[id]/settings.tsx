@@ -1,6 +1,6 @@
 import * as Linking from "expo-linking";
 import { useState } from "react";
-import { Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 
 import { GroupedCard, IconTile, ListRow, NavHeader, SectionHeader, SelectableRow } from "@/components/layout";
 import { PeepAvatar } from "@/components/PeepAvatar";
@@ -73,8 +73,15 @@ export default function RoomSettingsScreen() {
       await stopBackgroundUpdates();
       return;
     }
-    // Prime once: explain the Always ask before the OS dialog appears —
-    // unless "Always" is already allowed, then just turn it on.
+    // Android: the trip's location service keeps running with the screen
+    // off on "While using the app" alone, so there is nothing more to ask.
+    if (Platform.OS === "android") {
+      useSessionStore.getState().setBackgroundSharing(true);
+      await requestBatteryOptimizationExemption();
+      return;
+    }
+    // iOS needs "Always". Prime once: explain the ask before the OS dialog
+    // appears — unless it's already allowed, then just turn it on.
     const session = useSessionStore.getState();
     const already = await hasLocationPermission("background");
     if (!already && !session.primedBackground) {
@@ -214,7 +221,7 @@ export default function RoomSettingsScreen() {
               />
               <ListRow
                 title="Screen-off sharing"
-                sub="Keeps sharing while Buds is in the background"
+                sub="Keeps sharing when you lock your phone or switch apps"
                 trailing={
                   <Toggle
                     value={backgroundSharing}
@@ -226,8 +233,8 @@ export default function RoomSettingsScreen() {
               />
             </GroupedCard>
             <Text style={[ts.meta, styles.note]}>
-              Shows a notification while active and asks to ignore battery
-              optimization so Android doesn&apos;t stop it.
+              Shows a notification while your trip is on. Turning it on also
+              asks Android not to pause Buds to save battery.
             </Text>
           </>
         )}
