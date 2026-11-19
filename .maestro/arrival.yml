@@ -1,0 +1,47 @@
+# Arrival: put the room destination on your own spot, expect the "You've
+# arrived" card, then wrap the trip up with End trip.
+# Assumes you host an active room with a position (see suite.yml order).
+appId: com.buds.app
+---
+- launchApp
+# Following yourself keeps the camera centered on your puck.
+- tapOn: 'Maestro \(you\)'
+- tapOn:
+    id: "member-follow"
+- assertVisible:
+    id: "lens-focus"
+- longPressOn:
+    point: "50%,50%"
+- tapOn:
+    id: "adjust-confirm"
+- assertVisible: "Set room destination?"
+- tapOn:
+    id: "confirm-ok"
+- waitForAnimationToEnd
+# Inside the arrival radius you arrive on your own after ~10 s. If the pin
+# landed a little off, "I'm here" does it.
+- runFlow:
+    when:
+      visible:
+        id: "room-cta-checkin"
+    commands:
+      - tapOn:
+          id: "room-cta-checkin"
+- extendedWaitUntil:
+    visible:
+      id: "arrival-card-self"
+    timeout: 45000
+- assertVisible: "You've arrived"
+# Solo trip: the sheet's button and the card both offer End trip.
+- assertVisible:
+    id: "room-cta-endTrip"
+- tapOn:
+    id: "arrival-wrap-up"
+- assertVisible: "End trip for everyone?"
+- tapOn:
+    id: "confirm-ok"
+- extendedWaitUntil:
+    visible: "Room closed"
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Where to?"

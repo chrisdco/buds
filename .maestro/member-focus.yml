@@ -4,7 +4,7 @@ appId: com.buds.app
 ---
 - launchApp
 # Detail screen -> Focus on map shows the Focus chip back on the map.
-- tapOn: "Maestro \(you\)"
+- tapOn: 'Maestro \(you\)'
 - assertVisible: "Focus on map"
 - tapOn:
     id: "member-follow"
@@ -16,7 +16,7 @@ appId: com.buds.app
 - assertNotVisible:
     id: "lens-focus"
 # Long-press your row -> member menu -> Only them.
-- longPressOn: "Maestro \(you\)"
+- longPressOn: 'Maestro \(you\)'
 - assertVisible:
     id: "member-actions"
 - tapOn: "Only them"
