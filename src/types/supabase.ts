@@ -240,6 +240,7 @@ export type Database = {
         Args: { p_member_id?: string; p_room_id: string }
         Returns: Json
       }
+      clear_stale_positions: { Args: never; Returns: undefined }
       create_room: {
         Args: {
           p_display_name: string
