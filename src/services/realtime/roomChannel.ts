@@ -115,6 +115,7 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
           if (wasReconnecting && userId) {
             sendEvt({ k: "rejoined", u: userId, t: serverNowMs() });
           }
+          onReconnected?.();
         } else {
           useRoomStore.getState().setConnection("reconnecting");
         }
@@ -130,6 +131,13 @@ export async function connectRoomChannel(roomId: string): Promise<void> {
   appStateSub = AppState.addEventListener("change", () => {
     if (gen === generation) t.track(presenceMeta());
   });
+}
+
+let onReconnected: (() => void) | null = null;
+
+/** Runs after every successful rejoin (the publisher re-sends its latest position). */
+export function setReconnectedHook(hook: (() => void) | null): void {
+  onReconnected = hook;
 }
 
 export function sendLoc(tick: LocTick): void {

@@ -10,6 +10,31 @@ import type {
 
 const TICK_FRESH_MS = 45_000;
 const RECONNECTING_WINDOW_MS = 2 * 60_000;
+/** Online and sharing, but no position for this long: their dot is frozen. */
+export const STALE_POS_MS = 2 * 60_000;
+
+/** "just now", "4 min ago", "1 h 5 min ago", "3 h ago". */
+export function formatAgo(deltaMs: number): string {
+  const min = Math.floor(deltaMs / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  const rest = min % 60;
+  return h < 3 && rest > 0 ? `${h} h ${rest} min ago` : `${h} h ago`;
+}
+
+/**
+ * How old a member's shown position is when it's worth saying so: sharing
+ * and online but nothing new for STALE_POS_MS (their GPS or upload stalled),
+ * or offline. Null when the dot is current.
+ */
+export function staleAge(m: MemberLive, nowMs: number): number | null {
+  const at = m.pos?.atMs;
+  if (at == null || m.arrivedAt) return null;
+  const age = nowMs - at;
+  if (m.online) return m.sharing && age > STALE_POS_MS ? age : null;
+  return age;
+}
 // An uncancelled SOS goes stale rather than haunting the map forever. Long
 // enough for a real emergency, short enough that a forgotten one clears
 // itself. The sender re-raises to extend (set_sos re-stamps sos_at).
@@ -195,8 +220,11 @@ export function presenceLabel(state: PresenceState, m: MemberLive, nowMs: number
       return "Arrived";
     case "moving":
       return "Moving";
-    case "stationary":
-      return m.sharing ? "Online" : "Sharing paused";
+    case "stationary": {
+      if (!m.sharing) return "Sharing paused";
+      const age = staleAge(m, nowMs);
+      return age != null ? `Location updated ${formatAgo(age)}` : "Online";
+    }
     case "reconnecting":
       return "Reconnecting…";
     case "offline": {
@@ -204,7 +232,7 @@ export function presenceLabel(state: PresenceState, m: MemberLive, nowMs: number
       if (!lastMs) return "Offline";
       const delta = nowMs - lastMs;
       if (delta < 60_000) return "Offline";
-      return `Last seen ${Math.round(delta / 60_000)}m ago`;
+      return `Last seen ${formatAgo(delta)}`;
     }
   }
 }
