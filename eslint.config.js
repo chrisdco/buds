@@ -1,11 +1,17 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
 const expoConfig = require("eslint-config-expo/flat");
+const oxlint = require("eslint-plugin-oxlint");
 
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", "supabase/functions/*"],
+    ignores: ["dist/*", "supabase/functions/*", ".claude/**"],
+  },
+  {
+    // Disable comments for rules oxlint now runs (react-hooks/exhaustive-deps
+    // etc.) look unused to ESLint; oxlint reports truly unused ones instead.
+    linterOptions: { reportUnusedDisableDirectives: "off" },
   },
   {
     // A top-level `function Symbol` shadows the global constructor and broke
@@ -20,4 +26,7 @@ module.exports = defineConfig([
       ],
     },
   },
+  // Everything .oxlintrc.json covers runs in oxlint first (`npm run lint`);
+  // this turns those rules off here so each finding is reported once.
+  ...oxlint.buildFromOxlintConfigFile("./.oxlintrc.json"),
 ]);
