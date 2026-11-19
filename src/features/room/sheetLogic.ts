@@ -8,11 +8,13 @@ import type { MemberLive } from "@/types/contracts";
 // they're unit-testable: which CTA is pinned, how members sort, and what
 // each member row says.
 
-export type PrimaryAction = "checkin" | "navigate" | "setDest" | "invite";
+export type PrimaryAction = "checkin" | "navigate" | "setDest" | "invite" | "endTrip" | "leave";
 
 /**
  * Picks the pinned CTA: the single thing this person most likely wants now.
  * Arriving beats navigating beats setting a destination beats inviting.
+ * Once you're there nothing is left to navigate to; once everyone is, the
+ * CTA wraps the trip up (host ends it, members leave) so sharing stops.
  * Exported for tests.
  */
 export function primaryAction(s: {
@@ -21,8 +23,15 @@ export function primaryAction(s: {
   canSetDest: boolean;
   canCheckIn: boolean;
   nearDest: boolean;
+  /** You (a traveler) have arrived. */
+  arrived?: boolean;
+  /** Every traveler has arrived. */
+  allArrived?: boolean;
+  isHost?: boolean;
 }): PrimaryAction | null {
+  if (s.allArrived) return s.isHost ? "endTrip" : s.isTraveler ? "leave" : null;
   if (!s.isTraveler) return s.hasDest ? "navigate" : null;
+  if (s.arrived) return null;
   if (s.canCheckIn && s.nearDest) return "checkin";
   if (s.hasDest) return "navigate";
   if (s.canSetDest) return "setDest";

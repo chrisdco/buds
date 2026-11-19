@@ -22,6 +22,8 @@ const ACTION_LABEL: Record<PrimaryAction, string> = {
   navigate: "Navigate",
   setDest: "Set a destination",
   invite: "Invite buds",
+  endTrip: "End trip",
+  leave: "Leave room",
 };
 
 /** Title block: the room, then one line of live status, then progress. */
