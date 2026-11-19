@@ -6,8 +6,10 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { Asset } from "expo-asset";
+import { ObserveInteractiveMarker, ObserveRoot } from "expo-observe";
+import type { ErrorBoundaryProps } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -20,6 +22,7 @@ import { appFonts } from "@/constants/fonts";
 import { LoadingView } from "@/components/ui";
 import { ConfirmSheet } from "@/features/room/ConfirmSheet";
 import { loadAppConfig } from "@/lib/appConfig";
+import { initMonitoring, reportError, withMonitoring } from "@/lib/monitoring";
 import { supabaseConfigured } from "@/lib/supabaseClient";
 import { destCreateParams } from "@/lib/tripPresets";
 import { getPlannedTrips } from "@/lib/planned";
@@ -31,10 +34,35 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { ThemeProvider, makeStyles, useColors, useScheme } from "@/theme";
 
+initMonitoring();
 void SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootLayout() {
   return <ThemeProvider>{supabaseConfigured ? <AppRoot /> : <MissingConfig />}</ThemeProvider>;
+}
+
+export default withMonitoring(ObserveRoot.wrap(RootLayout));
+
+/**
+ * Last-resort screen for a render crash anywhere in the app (expo-router
+ * renders this in place of the layout). The error goes to Sentry; the user
+ * gets a way back instead of a white screen.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const styles = useStyles();
+  useEffect(() => {
+    reportError(error, { where: "root-boundary" });
+    SplashScreen.hideAsync().catch(() => {});
+  }, [error]);
+  return (
+    <View style={styles.loading}>
+      <Text style={styles.configTitle}>Something went wrong</Text>
+      <Text style={styles.configBody}>Buds hit an unexpected problem. Try again, or restart the app if it keeps happening.</Text>
+      <Pressable accessibilityRole="button" onPress={() => void retry()} style={styles.retry}>
+        <Text style={styles.retryText}>Try again</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 /**
@@ -202,6 +230,8 @@ function AppRoot() {
           here — requestConfirm() callers outside the room layout (home,
           settings) would otherwise await a sheet that never renders. */}
           <ConfirmSheet />
+          {/* First interactive frame for Observe's startup TTI. */}
+          <ObserveInteractiveMarker />
         </NavThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -219,4 +249,14 @@ const useStyles = makeStyles((colors) => ({
   },
   configTitle: { color: colors.text, fontSize: 22, textAlign: "center", marginBottom: 12 },
   configBody: { color: colors.textDim, fontSize: 16, lineHeight: 22, textAlign: "center" },
+  retry: {
+    marginTop: 24,
+    minHeight: 48,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    backgroundColor: colors.text,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  retryText: { color: colors.bg, fontSize: 16, fontWeight: "600" },
 }));
