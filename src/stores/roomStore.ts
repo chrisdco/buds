@@ -16,6 +16,11 @@ interface RoomState {
   destRoom: DestRow | null;
   destByMember: Record<string, DestRow>;
   connection: ConnectionState;
+  /** When `connection` last changed (ms). */
+  connectionSince: number;
+  /** When this device last got its own position out (broadcast or last_seen), ms. */
+  lastSentAtMs: number | null;
+  markSent: (atMs: number) => void;
   exitReason: ExitReason;
   setRoom: (room: RoomRow) => void;
   applySnapshot: (snap: SnapshotPayload, myUserId: string | null) => void;
@@ -35,6 +40,8 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
   destRoom: null,
   destByMember: {},
   connection: "idle",
+  connectionSince: 0,
+  lastSentAtMs: null,
   exitReason: null,
 
   setRoom: (room) => {
@@ -77,7 +84,10 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
     }
   },
 
-  setConnection: (connection) => set({ connection }),
+  setConnection: (connection) => {
+    if (get().connection !== connection) set({ connection, connectionSince: Date.now() });
+  },
+  markSent: (lastSentAtMs) => set({ lastSentAtMs }),
   setExitReason: (exitReason) => set({ exitReason }),
 
   reset: () =>
@@ -87,6 +97,8 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       destRoom: null,
       destByMember: {},
       connection: "idle",
+      connectionSince: 0,
+      lastSentAtMs: null,
       exitReason: null,
     }),
 }));

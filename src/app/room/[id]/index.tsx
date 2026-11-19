@@ -55,7 +55,7 @@ import { lateUserIds } from "@/modes/routeSignals";
 import { travelers } from "@/modes/shared";
 import { DEFAULT_ARRIVAL_RADIUS_M, type CameraTarget, type ClientSnapshot } from "@/modes/types";
 import { roomsRpc } from "@/services/rpc/rooms";
-import { useMembersStore } from "@/stores/membersStore";
+import { formatAgo, useMembersStore } from "@/stores/membersStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useRouteStore } from "@/stores/routeStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -78,6 +78,8 @@ export default function RoomScreen() {
   const destRoom = useRoomStore((s) => s.destRoom);
   const destByMember = useRoomStore((s) => s.destByMember);
   const connection = useRoomStore((s) => s.connection);
+  const connectionSince = useRoomStore((s) => s.connectionSince);
+  const lastSentAtMs = useRoomStore((s) => s.lastSentAtMs);
   const membersMap = useMembersStore((s) => s.members);
   const routes = useRouteStore((s) => s.routes);
   const myUserId = useSessionStore((s) => s.userId);
@@ -561,7 +563,7 @@ export default function RoomScreen() {
       {showConnBanner && (
         <View style={[styles.connBanner, { top: connTop }]}>
           <Text style={styles.connBannerText}>
-            {connection === "reconnecting" ? "Reconnecting…" : "Connecting…"}
+            {connBannerText(connection, connectionSince, lastSentAtMs, nowMs)}
           </Text>
         </View>
       )}
@@ -691,4 +693,21 @@ export default function RoomScreen() {
       />
     </View>
   );
+}
+
+/**
+ * Own-connection banner. A brief blip just says "Reconnecting…"; a real
+ * dropout says how old the position your buds can see is.
+ */
+function connBannerText(
+  connection: string,
+  sinceMs: number,
+  lastSentAtMs: number | null,
+  nowMs: number,
+): string {
+  if (connection !== "reconnecting") return "Connecting…";
+  if (nowMs - sinceMs < 15_000) return "Reconnecting…";
+  if (lastSentAtMs == null) return "No signal · waiting to send your location";
+  const age = nowMs - lastSentAtMs;
+  return age < 60_000 ? "No signal · reconnecting" : `No signal · last sent ${formatAgo(age)}`;
 }

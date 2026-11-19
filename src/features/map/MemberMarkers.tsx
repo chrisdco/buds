@@ -5,7 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { PeepAvatar } from "@/components/PeepAvatar";
 import { colorForUser, onHue } from "@/constants/theme";
 import { fontFamily } from "@/constants/fonts";
-import { presenceOf } from "@/stores/membersStore";
+import { formatAgo, presenceOf, staleAge } from "@/stores/membersStore";
 import { useRouteStore } from "@/stores/routeStore";
 import type { MemberLive } from "@/types/contracts";
 import { makeStyles } from "@/theme";
@@ -63,11 +63,14 @@ export function MemberMarkers({
         .filter((m) => m.pos && !(hideSelf && m.userId === myUserId))
         .map((m) => {
           const isSelected = selected.has(m.userId);
+          const state = presenceOf(m, nowMs);
+          const age = state === "reconnecting" ? null : staleAge(m, nowMs);
           return (
             <MemberMarker
               key={m.userId}
               m={m}
-              state={presenceOf(m, nowMs)}
+              state={state}
+              ageText={age != null && age >= 60_000 ? formatAgo(age) : null}
               isSelf={myUserId != null && m.userId === myUserId}
               isSelected={isSelected}
               dimmed={!isSelected && (dimmedIds?.has(m.userId) ?? false)}
@@ -88,10 +91,13 @@ const MemberMarker = memo(function MemberMarker({
   isSelected,
   dimmed,
   etaS,
+  ageText,
   onToggleFocus,
   onLongPressMember,
 }: {
   m: MemberLive;
+  /** "4 min ago" when the dot is old (offline, or frozen while online). */
+  ageText: string | null;
   state: ReturnType<typeof presenceOf>;
   isSelf: boolean;
   isSelected: boolean;
@@ -101,7 +107,7 @@ const MemberMarker = memo(function MemberMarker({
   onLongPressMember?: (userId: string) => void;
 }) {
   const styles = useStyles();
-  const faded = state === "offline" || state === "reconnecting";
+  const faded = state === "offline" || state === "reconnecting" || ageText != null;
   const color = colorForUser(m.userId);
   const pos = m.pos!;
   const heading = pos.heading;
@@ -154,11 +160,15 @@ const MemberMarker = memo(function MemberMarker({
               <Text style={styles.etaText}>{Math.max(1, Math.round(etaS / 60))} min</Text>
             </View>
           )}
-          {faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>}
+          {ageText != null ? (
+            <Text style={styles.offline}>{ageText}</Text>
+          ) : (
+            faded && <Text style={styles.offline}>{state === "offline" ? "Offline" : "…"}</Text>
+          )}
         </View>
       </Pressable>
     ),
-    [styles, faded, dimmed, onToggleFocus, onLongPressMember, label, isSelected, m.userId, isSelf, heading, state, color, etaS],
+    [styles, faded, dimmed, onToggleFocus, onLongPressMember, label, isSelected, m.userId, isSelf, heading, state, color, etaS, ageText],
   );
   return (
     <Marker id={m.userId} lngLat={lngLat} anchor="center">
