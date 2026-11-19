@@ -46,9 +46,9 @@ jobs:
           key: modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
       - if: steps.modules.outputs.cache-hit != 'true'
         run: npm ci
-      - name: Typecheck
-        run: npx tsc --noEmit
-      - name: Lint
+      - name: Typecheck (TypeScript 7)
+        run: npm run typecheck
+      - name: Lint (oxlint, then ESLint for expo rules)
         run: npm run lint
       - name: Unit tests
         run: npm test -- --ci
