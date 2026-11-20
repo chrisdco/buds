@@ -1,52 +1,60 @@
-# Buds — Observability (field phase)
+# Buds — Observability
 
-Decision (skills Pass 8, issue #39 — revisits the "no Sentry" deferral with
-real limits, per the `eas-observe` skill):
+Two tools, one job each (decided November 2026, revisiting issue #39):
 
-- **Sentry, errors-only, starting with the first dev build (#2).** The field
-  phase's unknown-unknowns are crashes in code nobody watches: headless
-  background-task crashes, cold-process relaunch failures, OEM-specific
-  native crashes. EAS Observe explicitly has **no crash reporting** (the
-  skill: "use Sentry or BugSnag for that"), so it cannot answer this
-  phase's questions.
-- **EAS Observe deferred** until a performance question exists (slow
-  startup/TTI on tester hardware). Money is not the blocker — its free
-  tier covers 10k MAU — but EAS project linkage plus a native rebuild is
-  real work with no question to answer yet.
+- **Sentry, errors only**: crashes and unhandled JS errors, with native
+  crash coverage (headless background-task crashes, OEM-specific native
+  crashes). Same Sentry account as Incline; the free plan's quota is per
+  organization, so both apps share it.
+- **EAS Observe, performance**: cold/warm launch, time to first render and
+  to interactive, per-route navigation timings, update download times.
+  Built into EAS, no extra account. Its JS error reporting is in preview
+  and it has no native crash reporting, which is why Sentry stays.
 
-## Real limits (verified September 2026)
+Code: `src/lib/monitoring.ts` (`initMonitoring`, `reportError`,
+`withMonitoring`), wired in `src/app/_layout.tsx` (root wrap, Observe
+interactive marker, route `ErrorBoundary` with a Try again screen).
 
-| Service | Free tier | Headroom at our scale (~10 users) |
+## Real limits (checked November 2026)
+
+| Service | Free tier | Our use |
 |---|---|---|
-| Sentry Developer | 5,000 errors/mo, 1 seat, 30-day retention. No card; past quota the server 429s and events drop | Enormous — unless a crash loop fires (e.g. a background-task restart loop). See quota discipline |
-| EAS Observe free | 10,000 MAU, limited feature set | ~1000× headroom; irrelevant until adopted |
+| Sentry Developer | 1 seat, about 5,000 errors/month, 30-day retention. No card; past quota events drop | Errors only: `tracesSampleRate: 0`, no replay, no screenshots |
+| EAS Observe | 100,000 events/month on the free plan | Startup + route metrics only |
 
-## Integration checklist (do when #2 lands — needs a rebuild + device)
+## Privacy
 
-Not before: the SDK is unverifiable without a dev build, so no Sentry code
-ships until the toolchain exists.
+- No PII: `sendDefaultPii` off, no screenshots, no view hierarchy.
+- Breadcrumbs are limited to navigation, touches, UI clicks and app
+  lifecycle. Console logs and network breadcrumbs are dropped (they could
+  carry coordinates or room codes).
+- Observe's Expo Router integration filters route params that identify a
+  room, a person or a place (`id`, `uid`, `code`, `lat`, `lng`, `label`,
+  `name`, `q`).
+- Sentry only runs in release builds with a DSN set; dev builds never
+  report.
 
-1. `npx expo install @sentry/react-native` (SDK-matched versions, never copy
-   pins — canonical shape is `expo/examples` `with-sentry`: `App.js` +
-   `app.json` plugin block + `.env.example` DSN).
-2. Add the `@sentry/react-native/expo` config plugin (project/org) to
-   `app.json`; keep the existing config intact.
-3. `EXPO_PUBLIC_SENTRY_DSN` in `.env` + `.env.example` (the DSN is
-   public-by-design, like the Supabase anon key).
-4. `Sentry.init` in `app/_layout.tsx`, `Sentry.wrap` on the root export.
-   Errors only at first — no tracing, no replay (quota discipline + minimal
-   weight).
-5. Verify on device: a thrown test error appears with source maps; a
-   background-task crash appears after relaunch.
+## Setup (the owner does these; secrets never go through Claude)
+
+1. In Sentry, create a React Native project `buds` in the Incline org.
+2. Put its DSN in EAS env vars as `EXPO_PUBLIC_SENTRY_DSN` for the
+   `preview` and `production` environments (the DSN is public by design,
+   like the Supabase anon key).
+3. Optional, for readable stack traces: create a Sentry auth token and set
+   `SENTRY_AUTH_TOKEN` (secret), `SENTRY_ORG` and `SENTRY_PROJECT` in EAS,
+   then remove `SENTRY_DISABLE_AUTO_UPLOAD` from `eas.json`.
+4. Build a new APK. Monitoring is native code: OTA updates can't add it to
+   an older build (the app version was bumped to 0.2.0 for this).
+5. Check: throw a test error in a preview build and confirm it shows up in
+   Sentry; open the app a few times and run `eas observe:metrics-summary`.
 
 ## Quota discipline
 
-If a crash loop ever threatens the 5k/mo budget, gate init by release
-channel and/or add `beforeSend` sampling — never add a credit card. Paid
-tiers ($26+/mo) are off the table at this scale by the $0 constraint.
+If a crash loop ever threatens the monthly budget, add `beforeSend`
+sampling or gate init by channel. Never add a card; paid tiers are off the
+table at this scale.
 
 ## Out of scope
 
-BugSnag (same job; Sentry owns the canonical Expo example), self-hosted
-Sentry (ops burden, zero benefit at this scale), full tracing/replay
-(until a debugging session needs them).
+BugSnag (same job as Sentry), self-hosted Sentry (ops burden), tracing and
+session replay (until a debugging session needs them).

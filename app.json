@@ -2,7 +2,7 @@
   "expo": {
     "name": "Buds",
     "slug": "buds",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "buds",
@@ -68,6 +68,10 @@
         }
       ],
       "expo-notifications",
+      // Crash reporting (src/lib/monitoring.ts). Source map / mapping upload is
+      // off (SENTRY_DISABLE_AUTO_UPLOAD in eas.json) until a Sentry auth token
+      // is added as an EAS secret.
+      "@sentry/react-native",
       // In-app icon choice (Profile -> App icon). Default stays the
       // top-level icon (Geist Serif "buds"); these are the alternates.
       // Rendered by scripts/render-icons.mjs from assets/icons/src/.
