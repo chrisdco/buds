@@ -3,8 +3,11 @@
 # mock location set. suite.yml does all of that; see docs/e2e.md.
 appId: com.buds.app
 ---
-- launchApp
-- assertVisible: "Where to?"
+# No relaunch: tabs.yml leaves us on Home, and a cold start on the CI
+# emulator is slow. Run on its own, open the app first.
+- extendedWaitUntil:
+    visible: "Where to?"
+    timeout: 60000
 - tapOn:
     id: "home-create"
 - assertVisible: "Choose a mode"
