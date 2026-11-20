@@ -6,7 +6,12 @@ appId: com.buds.app
 # Not launchApp: a relaunch reopens on Home, not the room.
 - runFlow: in-room.yml
 # Following yourself keeps the camera centered on your puck.
-- tapOn: 'Maestro \(you\)'
+# The row itself (opens details), not its face, which toggles route focus.
+- tapOn:
+    id: "member-card-.*"
+- extendedWaitUntil:
+    visible: "Focus on map"
+    timeout: 10000
 - tapOn:
     id: "member-follow"
 - assertVisible:

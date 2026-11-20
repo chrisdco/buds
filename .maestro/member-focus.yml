@@ -5,8 +5,12 @@ appId: com.buds.app
 # Not launchApp: a relaunch reopens on Home, not the room.
 - runFlow: in-room.yml
 # Detail screen -> Focus on map shows the Focus chip back on the map.
-- tapOn: 'Maestro \(you\)'
-- assertVisible: "Focus on map"
+# The row itself (opens details), not its face, which toggles route focus.
+- tapOn:
+    id: "member-card-.*"
+- extendedWaitUntil:
+    visible: "Focus on map"
+    timeout: 10000
 - tapOn:
     id: "member-follow"
 - assertVisible:
