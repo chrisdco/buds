@@ -91,11 +91,14 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
-          target: google_apis
+          # ATD ("automated test device"): a trimmed image built for CI, without
+          # the Pixel Launcher whose "isn't responding" dialog covered the app.
+          target: google_atd
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
+            adb shell settings put global hide_error_dialogs 1
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             maestro test .maestro/suite.yml --format junit --output maestro-report.xml --test-output-dir maestro-out --debug-output maestro-debug || (adb logcat -d > logcat.txt; exit 1)
 
