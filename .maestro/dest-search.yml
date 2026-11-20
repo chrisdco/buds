@@ -24,7 +24,9 @@ appId: com.buds.app
 # No hideKeyboard: on a keyboard-less emulator it presses Back and leaves
 # the screen. What's tapped next stays above the keyboard anyway.
 - extendedWaitUntil:
-    visible: "No places found.*"
+    # Either outcome is the offline-safe path: no results, or no search at
+    # all (CI's local stack has no places function).
+    visible: "(No places found|Couldn't search).*"
     timeout: 15000
 - tapOn:
     id: "dest-search-map"
