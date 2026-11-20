@@ -21,7 +21,8 @@ appId: com.buds.app
 - tapOn:
     id: "dest-search-field"
 - inputText: "xyz-no-such-place-abc"
-- hideKeyboard
+# No hideKeyboard: on a keyboard-less emulator it presses Back and leaves
+# the screen. What's tapped next stays above the keyboard anyway.
 - extendedWaitUntil:
     visible: "No places found.*"
     timeout: 15000

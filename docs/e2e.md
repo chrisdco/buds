@@ -54,6 +54,10 @@ and target `testID`s (see `src/components/ui.tsx` — `Button`/`Chip` accept
 - Map long-press uses percent-of-screen points — re-check per device.
 - Absolutely-positioned map chrome can defeat text selectors; `testID`s are
   the primary selectors, text is the fallback.
+- CI uses the `google_atd` emulator image (no launcher, no on-screen
+  keyboard): its screenshots come out black, so read
+  `screen-hierarchy/` and `logcat.txt` in the artifact instead, and don't
+  use `hideKeyboard` (it turns into Back).
 - Dev-build LogBox toasts can cover tappables; dismiss or use release builds
   for stable runs.
 - Two-device flows (live sync drill) need two emulators/devices; the flows

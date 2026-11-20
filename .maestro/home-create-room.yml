@@ -11,7 +11,8 @@ appId: com.buds.app
 - tapOn:
     id: "create-your-name"
 - inputText: "Maestro"
-- hideKeyboard
+# No hideKeyboard: on a keyboard-less emulator it presses Back and leaves
+# the screen. What's tapped next stays above the keyboard anyway.
 - tapOn:
     id: "create-submit"
 # The room sheet: its header carries invite + settings.
