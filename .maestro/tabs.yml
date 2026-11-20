@@ -3,7 +3,10 @@
 appId: com.buds.app
 ---
 - launchApp
-- assertVisible: "Where to?"
+# Cold start (fonts, session, splash) is slow on a GPU-less CI emulator.
+- extendedWaitUntil:
+    visible: "Where to?"
+    timeout: 60000
 - assertVisible:
     id: "tab-trips"
 - tapOn:

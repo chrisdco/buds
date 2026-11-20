@@ -97,7 +97,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             adb install -r android/app/build/outputs/apk/release/app-release.apk
-            maestro test .maestro/suite.yml --format junit --output maestro-report.xml --debug-output maestro-debug
+            maestro test .maestro/suite.yml --format junit --output maestro-report.xml --test-output-dir maestro-out --debug-output maestro-debug || (adb logcat -d > logcat.txt; exit 1)
 
       - name: Upload results
         if: always()
@@ -106,7 +106,9 @@ jobs:
           name: maestro-results
           path: |
             maestro-report.xml
+            maestro-out
             maestro-debug
+            logcat.txt
           if-no-files-found: ignore
 
       - name: Stop Supabase
