@@ -1,0 +1,119 @@
+# End-to-end: the Maestro suite (.maestro/suite.yml) on an Android emulator,
+# against a local Supabase stack, so no secrets and no test data in the
+# cloud project. Free: public repos get unlimited standard-runner minutes.
+# (EAS Workflows' Maestro job needs a paid Expo plan, so it runs here.)
+#
+# Manual only, for the pre-APK check (docs/e2e.md): about 15 minutes, so
+# it never gates everyday PRs. Start it from the Actions tab, or add the
+# `e2e` label to a PR. The usual route is the same suite on a local
+# emulator; this is the fallback when none is running. The APK is a
+# minified release build like the real one, so R8 problems show up here.
+# Screenshots and the JUnit report are uploaded for every run.
+name: E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  android:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'e2e'
+    # Job-level, so labelling a PR with anything else (a skipped run) can't
+    # cancel a suite that's in progress.
+    concurrency:
+      group: e2e-${{ github.head_ref || github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BUDS_E2E: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        id: modules
+        with:
+          path: node_modules
+          key: modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # Backend: auth (anonymous), REST and realtime are what the app uses.
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.117.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start Supabase
+        run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,storage-api
+      - name: Point the app at it
+        # 10.0.2.2 is the host machine as seen from the emulator. The anon key
+        # is the local stack's well-known dev key, not a secret.
+        run: |
+          eval "$(supabase status -o env | grep '^ANON_KEY=')"
+          echo "EXPO_PUBLIC_SUPABASE_URL=http://10.0.2.2:54331" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+
+      # Release APK with the current JS embedded (no Metro on the emulator).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prebuild
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Build APK (x86_64 only)
+        working-directory: android
+        # Release lint isn't needed to test and runs the runner out of
+        # metaspace; skip it and give Gradle room.
+        run: >-
+          ./gradlew assembleRelease --no-daemon
+          -PreactNativeArchitectures=x86_64
+          -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g"
+          -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run suite on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          # ATD ("automated test device"): a trimmed image built for CI, without
+          # the Pixel Launcher whose "isn't responding" dialog covered the app.
+          target: google_atd
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb shell settings put global hide_error_dialogs 1
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            maestro test .maestro/suite.yml --format junit --output maestro-report.xml --test-output-dir maestro-out --debug-output maestro-debug || (adb logcat -d > logcat.txt; exit 1)
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-results
+          path: |
+            maestro-report.xml
+            maestro-out
+            maestro-debug
+            logcat.txt
+          if-no-files-found: ignore
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

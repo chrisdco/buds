@@ -1,5 +1,6 @@
 # Runs everything that doesn't need a device or secrets:
-#   - check: typecheck, lint, unit tests
+#   - check: typecheck, lint, unit + component tests (including a boot of
+#     the whole app directory), expo-doctor, an Android bundle build
 #   - db:    spin up the Supabase local stack, apply migrations, run smoke.sql
 # Kept fast for many small PRs: PRs only (main gets what its PRs already
 # passed), a newer push cancels the older run, node_modules is cached on
@@ -50,11 +51,25 @@ jobs:
         run: npm run typecheck
       - name: Lint (oxlint, then ESLint for expo rules)
         run: npm run lint
-      - name: Unit tests
+      - name: Unit and component tests
         run: npm test -- --ci
         env:
           # supabaseClient throws without these; harmless dummies for unit tests
           # (no test in the suite hits the network).
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+      # Config, plugins, native-module setup, duplicate dependencies. The SDK
+      # version check is left to the pre-APK checklist (docs/e2e.md): moving
+      # native packages needs a new build, so it shouldn't block JS PRs.
+      - name: Expo doctor
+        run: npx expo-doctor
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: "1"
+      # What an OTA ships: if the Android JS bundle doesn't build, neither
+      # does the update. About a minute.
+      - name: Bundle check (Android)
+        run: npx expo export --platform android --output-dir /tmp/bundle
+        env:
           EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
           EXPO_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
 

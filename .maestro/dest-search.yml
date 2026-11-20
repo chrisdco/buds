@@ -1,20 +1,33 @@
-# Destination search + adjust-pin: open search from the map, exercise the
-# offline-safe path (empty result -> back -> long-press adjust -> cancel).
+# Destination search + adjust-pin: open search from the map, toggle a
+# quick-stop chip, exercise the offline-safe path (empty result -> back ->
+# long-press adjust -> cancel).
 # Live Photon search is covered by unit tests + manual pass (needs network
 # and returns non-deterministic results).
 # Assumes the app is already inside a room (run home-create-room.yml first).
 appId: com.buds.app
 ---
-- launchApp
+# Not launchApp: a relaunch reopens on Home, not the room.
+- runFlow: in-room.yml
 - tapOn:
     id: "room-dest-search"
 - assertVisible: "Set destination"
+# A category chip fills the field with its search; tapping it again clears.
+- tapOn:
+    id: "dest-search-cat-petrol"
+- assertVisible: "Petrol station"
+- tapOn:
+    id: "dest-search-cat-petrol"
+- assertNotVisible: "Petrol station"
 - tapOn:
     id: "dest-search-field"
 - inputText: "xyz-no-such-place-abc"
-- hideKeyboard
-- assertVisible: "No places found"
-  timeout: 15000
+# No hideKeyboard: on a keyboard-less emulator it presses Back and leaves
+# the screen. What's tapped next stays above the keyboard anyway.
+- extendedWaitUntil:
+    # Either outcome is the offline-safe path: no results, or no search at
+    # all (CI's local stack has no places function).
+    visible: "(No places found|Couldn't search).*"
+    timeout: 15000
 - tapOn:
     id: "dest-search-map"
 - assertVisible:

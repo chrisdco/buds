@@ -1,21 +1,25 @@
 # Buds smoke: launch, room creation (name asked at create), live map.
-# Prereqs (see docs/e2e.md): emulator booted, supabase running, Metro up,
-# location + notification permissions pre-granted, mock location set,
-# fresh install (no display name yet).
+# Prereqs: fresh install (no display name yet), permissions granted and a
+# mock location set. suite.yml does all of that; see docs/e2e.md.
 appId: com.buds.app
 ---
-- launchApp
-- assertVisible: "Where to?"
+# No relaunch: tabs.yml leaves us on Home, and a cold start on the CI
+# emulator is slow. Run on its own, open the app first.
+- extendedWaitUntil:
+    visible: "Where to?"
+    timeout: 60000
 - tapOn:
     id: "home-create"
 - assertVisible: "Choose a mode"
 - tapOn:
     id: "create-your-name"
 - inputText: "Maestro"
-- hideKeyboard
+# No hideKeyboard: on a keyboard-less emulator it presses Back and leaves
+# the screen. What's tapped next stays above the keyboard anyway.
 - tapOn:
     id: "create-submit"
 # The room sheet: its header carries invite + settings.
-- assertVisible:
-    id: "room-invite"
+- extendedWaitUntil:
+    visible:
+      id: "room-invite"
     timeout: 15000

@@ -3,7 +3,16 @@
 appId: com.buds.app
 ---
 - launchApp
-- assertVisible: "Where to?"
+# A slow emulator can show a system "isn't responding" dialog over the app.
+- runFlow:
+    when:
+      visible: ".*isn't responding"
+    commands:
+      - tapOn: "Wait"
+# Cold start (fonts, session, splash) is slow on a GPU-less CI emulator.
+- extendedWaitUntil:
+    visible: "Where to?"
+    timeout: 60000
 - assertVisible:
     id: "tab-trips"
 - tapOn:
@@ -11,7 +20,7 @@ appId: com.buds.app
 - assertVisible: "Past"
 - tapOn:
     id: "tab-profile"
-- assertVisible: "Preferences"
+- assertVisible: "Your name"
 - assertVisible: "Settings"
 - tapOn:
     id: "tab-home"

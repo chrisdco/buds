@@ -1,0 +1,22 @@
+# The whole suite, in order: each flow picks up where the previous one left
+# the app (fresh install -> tabs -> a room -> search -> focus -> route ->
+# arrival, which ends the room). Run this file, not the folder.
+#
+# Starts from a clean install with every permission granted and a fixed
+# mock location (Mumbai), so it runs the same on EAS and locally.
+appId: com.buds.app
+name: Buds e2e suite
+---
+- setLocation:
+    latitude: 19.0760
+    longitude: 72.8777
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- runFlow: tabs.yml
+- runFlow: home-create-room.yml
+- runFlow: dest-search.yml
+- runFlow: member-focus.yml
+- runFlow: destination-route.yml
+- runFlow: arrival.yml
