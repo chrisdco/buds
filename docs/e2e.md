@@ -1,3 +1,35 @@
+# Testing: what runs where
+
+Most checks need no device and run on every PR in a few minutes. The
+device suite (Maestro) runs only before an APK.
+
+| When | What | Catches |
+|---|---|---|
+| Every PR (CI `check`, ~4 min) | Typecheck, lint, unit tests | Logic: arrival, sheet actions, snapping, routing, categories... |
+| | Component tests (`*.test.tsx`, React Native Testing Library) | A screen renders and reacts: chips, recents, the arrival card |
+| | Boot test (`src/app/__tests__/boot.test.tsx`) | Every route module imports; the app starts to Home; tabs; Home -> create -> room screen |
+| | `expo-doctor` (SDK version check skipped) | Config, plugin and native-module setup problems |
+| | Bundle check (`expo export --platform android`) | JS that won't bundle, i.e. a broken OTA |
+| PRs touching `supabase/` (CI `db`) | Migrations, SQL smoke test, types drift | Schema and RPC breakage |
+| **Before an APK** | The checklist below | Native crashes, real flows on a device |
+
+Component tests render with Jest stand-ins for native modules
+(`jest.setup.js`: MapLibre, Reanimated's worklets, AsyncStorage), so they
+say nothing about what the map draws, gestures, or native crashes. That's
+the device suite's job.
+
+## Before an APK
+
+1. `npx expo install --check`: bring Expo packages to the SDK's expected
+   versions (native changes belong in the APK batch, not an OTA).
+2. The Maestro suite: locally on the emulator (below), or in CI by adding
+   the `e2e` label to the PR (or Actions -> E2E -> Run workflow).
+3. After uploading to Play's internal testing track: the pre-launch
+   report (Play Console -> Testing -> Pre-launch report). Google runs the
+   build on real phones and reports crashes with screenshots.
+4. Device checks Maestro can't do: two-person live sync, screen-off
+   sharing, notifications, how things look.
+
 # E2E testing with Maestro
 
 Maestro drives the real app on emulator/hardware: YAML flows, zero
@@ -30,22 +62,21 @@ and target `testID`s (see `src/components/ui.tsx` — `Button`/`Chip` accept
 
 ## CI (GitHub Actions)
 
-`.github/workflows/e2e.yml` runs the whole suite on every PR that touches
-the app (`src/`, `.maestro/`, `app.json`, `app.config.js`, the lockfile)
-and on demand from the Actions tab. It's free (public repo) and needs no
-secrets:
+`.github/workflows/e2e.yml` runs the whole suite on demand only: add the
+`e2e` label to a PR, or Actions -> E2E -> Run workflow. It's free (public
+repo) and needs no secrets:
 
 1. Starts the Supabase local stack (auth, REST, realtime) on the runner.
 2. Builds a release APK for x86_64 with `BUDS_E2E=1`. `app.config.js` then
    turns OTA updates off (the APK runs exactly this PR's JS) and allows
-   cleartext HTTP so the emulator can reach `http://10.0.2.2:54331`.
+   cleartext HTTP so the emulator can reach `http://10.0.2.2:54331`. It's
+   minified like the real release, so R8 stripping something shows up.
 3. Boots a Pixel 6 emulator (API 34) and runs `.maestro/suite.yml`.
 4. Uploads the JUnit report and Maestro's screenshots/logs as the
    `maestro-results` artifact, pass or fail.
 
-It isn't a required check, so auto-merge doesn't wait for it; look at it
-on the PR (or `gh pr checks`). Expect roughly 20-30 minutes, mostly the
-Gradle build.
+It isn't a required check, so auto-merge doesn't wait for it. A run takes
+about 15 minutes: 10 for the Gradle build, 3 for the suite.
 
 Not covered, still manual: two-person live sync, real road search results
 (Mapbox/Photon results vary), background/screen-off sharing, notifications,
@@ -56,7 +87,9 @@ EAS Workflows has a Maestro job too, but it needs a paid Expo plan.
 ## The suite
 
 `.maestro/suite.yml` runs the flows in order from a clean install (each
-flow continues from where the last left the app):
+flow continues from where the last left the app). The room flows start
+with `in-room.yml` rather than `launchApp`: a relaunch opens on Home, and
+the helper taps Rejoin when that's where the app is.
 
 | Flow | Covers |
 |---|---|

@@ -3,29 +3,27 @@
 # cloud project. Free: public repos get unlimited standard-runner minutes.
 # (EAS Workflows' Maestro job needs a paid Expo plan, so it runs here.)
 #
-# Runs on PRs that touch the app, and by hand from the Actions tab. Not a
-# required check: auto-merge doesn't wait for it. Screenshots and the JUnit
-# report are uploaded for every run.
+# Manual only, for the pre-APK check (docs/e2e.md): about 15 minutes, so
+# it never gates everyday PRs. Start it from the Actions tab, or add the
+# `e2e` label to a PR. The usual route is the same suite on a local
+# emulator; this is the fallback when none is running. The APK is a
+# minified release build like the real one, so R8 problems show up here.
+# Screenshots and the JUnit report are uploaded for every run.
 name: E2E
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "src/**"
-      - ".maestro/**"
-      - "app.json"
-      - "app.config.js"
-      - "package-lock.json"
-      - ".github/workflows/e2e.yml"
   workflow_dispatch:
-
-concurrency:
-  group: e2e-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  pull_request:
+    types: [labeled]
 
 jobs:
   android:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'e2e'
+    # Job-level, so labelling a PR with anything else (a skipped run) can't
+    # cancel a suite that's in progress.
+    concurrency:
+      group: e2e-${{ github.head_ref || github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:

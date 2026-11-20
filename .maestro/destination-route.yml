@@ -5,7 +5,8 @@
 # far enough that the CTA is Navigate, not "I'm here".
 appId: com.buds.app
 ---
-- launchApp
+# Not launchApp: a relaunch reopens on Home, not the room.
+- runFlow: in-room.yml
 # Long-press seeds adjust-pin mode; confirm opens the host-only sheet.
 - longPressOn:
     point: "50%,30%"

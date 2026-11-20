@@ -3,7 +3,8 @@
 # Assumes you host an active room with a position (see suite.yml order).
 appId: com.buds.app
 ---
-- launchApp
+# Not launchApp: a relaunch reopens on Home, not the room.
+- runFlow: in-room.yml
 # Following yourself keeps the camera centered on your puck.
 - tapOn: 'Maestro \(you\)'
 - tapOn:

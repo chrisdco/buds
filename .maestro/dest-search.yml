@@ -6,7 +6,8 @@
 # Assumes the app is already inside a room (run home-create-room.yml first).
 appId: com.buds.app
 ---
-- launchApp
+# Not launchApp: a relaunch reopens on Home, not the room.
+- runFlow: in-room.yml
 - tapOn:
     id: "room-dest-search"
 - assertVisible: "Set destination"

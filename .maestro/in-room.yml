@@ -1,0 +1,17 @@
+# Shared first step for the room flows: make sure we're on the room map.
+# In the suite the previous flow already left us there. Run on its own
+# with the app on Home (a relaunch lands there; the room isn't reopened
+# automatically), it taps the live room's Rejoin row first.
+appId: com.buds.app
+---
+- runFlow:
+    when:
+      visible:
+        id: "home-rejoin"
+    commands:
+      - tapOn:
+          id: "home-rejoin"
+- extendedWaitUntil:
+    visible:
+      id: "room-recenter"
+    timeout: 15000

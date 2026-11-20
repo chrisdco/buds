@@ -2,7 +2,8 @@
 # Assumes an active room with at least self positioned (mock location set).
 appId: com.buds.app
 ---
-- launchApp
+# Not launchApp: a relaunch reopens on Home, not the room.
+- runFlow: in-room.yml
 # Detail screen -> Focus on map shows the Focus chip back on the map.
 - tapOn: 'Maestro \(you\)'
 - assertVisible: "Focus on map"
